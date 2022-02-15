@@ -9,3 +9,6 @@ There is a small web application in Flask that accepts file uploads. HTTPS is pr
 ./init.sh my.domain.name.com
 docker-compose up -d
 ~~~
+
+## Development notes
+Remember to store credentials as environment variables in `/etc/environment`

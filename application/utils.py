@@ -58,3 +58,6 @@ def validate_id(id):
 
     return len(set(id) - set(string.ascii_letters)) == 0
 
+
+def unconcatenate_ids(id):
+    return [id[i:i+32] for i in range(0, len(id), 32)]

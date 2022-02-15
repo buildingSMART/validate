@@ -34,6 +34,7 @@ import tempfile
 import operator
 import shutil
 
+import threading
 import requests
 
 on_windows = platform.system() == 'Windows'
@@ -74,12 +75,115 @@ class task(object):
         self.sub_progress(100)
 
 
-class ifc_validation_task(task):
+class general_info_task(task):
+    
     est_time = 1
+    
+    def execute(self, directory, id):
+        info_program = os.path.join(os.getcwd() + "/checks", "info.py")
+        subprocess.call([sys.executable, info_program, id + ".ifc", os.path.join(os.getcwd())], cwd=directory)
+
+
+class syntax_validation_task(task):
+    est_time = 10
 
     def execute(self, directory, id):
-        with open(os.path.join(directory, "log.json"), "w") as f:
-            subprocess.call([sys.executable, "-m", "ifcopenshell.validate", id + ".ifc", "--json"], cwd=directory, stdout=f)
+        f = open(os.path.join(directory, "dresult_syntax.json"), "w")
+        check_program = os.path.join(os.getcwd() + "/checks/step-file-parser", "parse_file.py")
+        #subprocess.call([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=f)
+        proc = subprocess.Popen([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=subprocess.PIPE)
+        i = 0
+        while True:
+            ch = proc.stdout.read(1)
+            
+            if not ch and proc.poll() is not None:
+                break
+
+            if ch and ord(ch) == ord('.'):
+                i += 1
+                self.sub_progress(i)
+
+
+
+class ifc_validation_task(task):
+    est_time = 10
+
+    def execute(self, directory, id):
+        f = open(os.path.join(directory, "dresult_schema.json"), "w")
+        check_program = os.path.join(os.getcwd() + "/checks", "validate.py")
+        proc = subprocess.Popen([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=subprocess.PIPE)
+        i = 0
+        while True:
+            ch = proc.stdout.read(1)
+            
+            if not ch and proc.poll() is not None:
+                break
+
+            if ch and ord(ch) == ord('.'):
+                i += 1
+                self.sub_progress(i)
+
+
+class mvd_validation_task(task):
+    est_time =10
+
+    
+    def execute(self, directory, id):
+        check_program = os.path.join(os.getcwd() + "/checks", "check_MVD.py")
+        outname = id +"_mvd.txt"
+      
+        with open(os.path.join(directory, outname), "w") as f:
+            subprocess.call([sys.executable, check_program, id + ".ifc"],cwd=directory,stdout=f)
+
+class bsdd_validation_task(task):
+    est_time = 10
+
+    def execute(self, directory, id):
+        
+        session = database.Session()
+
+        model = session.query(database.model).filter(database.model.code == id).all()[0]
+
+        validation_task = database.bsdd_validation_task(model.id)
+
+        session.add(validation_task)
+        session.commit()
+        validation_task_id = str(validation_task.id)
+        session.close()
+
+        check_program = os.path.join(os.getcwd() + "/checks", "check_bsdd_v2.py")
+
+        proc = subprocess.Popen([sys.executable, check_program, "--input", id + ".ifc", "--task",validation_task_id], cwd=directory, stdout=subprocess.PIPE)
+        i = 0
+        while True:
+            ch = proc.stdout.read(1)
+        
+            if not ch and proc.poll() is not None:
+                break
+
+            if ch and ord(ch) == ord('.'):
+                i += 1
+                self.sub_progress(i)
+
+
+class ids_validation_task(task):
+    est_time = 10
+
+    def execute(self, directory, id):
+        check_program = os.path.join(os.getcwd() + "/checks", "ids.py")
+        #todo allow series of ids specs to be processed
+        ids_files = [f for f in os.listdir(directory) if f.endswith(".xml")]
+        proc = subprocess.Popen([sys.executable, check_program, ids_files[0], id + ".ifc"], cwd=directory, stdout=subprocess.PIPE)
+        i = 0
+        while True:
+            ch = proc.stdout.read(1)
+        
+            if not ch and proc.poll() is not None:
+                break
+
+            if ch and ord(ch) == ord('.'):
+                i += 1
+                self.sub_progress(i)
 
 
 class xml_generation_task(task):
@@ -170,18 +274,66 @@ class svg_generation_task(task):
                 self.sub_progress(i)
 
 
-def do_process(id):
-    d = utils.storage_dir_for_id(id)
-    input_files = [name for name in os.listdir(d) if os.path.isfile(os.path.join(d, name))]
+def do_process(id, validation_config, ids_spec):
 
-    tasks = [
-        ifc_validation_task,
-        xml_generation_task,
-        geometry_generation_task,
-        svg_generation_task,
-        glb_optimize_task,
-        gzip_task
-    ]
+    d = utils.storage_dir_for_id(id)
+
+    
+    with open(os.path.join(d,'config.json'), 'w') as outfile:
+        json.dump(validation_config, outfile)
+
+    if ids_spec:    
+        ids_spec_storages = []
+        n_ids_spec = int(len(ids_spec)/32)
+        ids_spec_storages = []
+        b = 0
+        j = 1
+        a = 32
+
+        for n in range(n_ids_spec):
+            token = ids_spec[b:a]
+            ids_spec_storages.append(utils.storage_dir_for_id(token))
+            # count += 1
+            b = a
+            j+=1
+            a = 32*j
+
+        for ids_folder in ids_spec_storages:
+            for ids_file in os.listdir(ids_folder):
+                shutil.copy(os.path.join(ids_folder, ids_file), d )
+        
+    input_files = [name for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and os.path.join(d, name).endswith("ifc")]
+    
+    tasks = [general_info_task]
+
+    
+
+    for task, to_validate in validation_config["config"].items():
+       
+        if int(to_validate):
+            if task == 'syntax' and to_validate:
+                tasks.append(syntax_validation_task)
+            elif task == 'schema' and to_validate:
+                tasks.append(ifc_validation_task)
+            elif task == 'mvd' and to_validate:
+                tasks.append(mvd_validation_task)
+            elif task == 'bsdd' and to_validate:
+                tasks.append(bsdd_validation_task)
+            elif task =='ids' and to_validate:
+                tasks.append(ids_validation_task)
+
+    
+    # tasks = [
+    #     # syntax_validation_task,
+    #     # ifc_validation_task,
+    #     bsdd_validation_task,
+    #     mvd_validation_task,
+    #     # xml_generation_task,
+    #     # geometry_generation_task,
+    #     # svg_generation_task,
+    #     # glb_optimize_task,
+    #     # gzip_task
+    # ]
     
     tasks_on_aggregate = []
     
@@ -204,6 +356,7 @@ def do_process(id):
             print("Executing task 'print' on ", id, ' in ', directory, file=sys.stderr)
     """
     
+
     for fn in glob.glob("task_*.py"):
         mdl = importlib.import_module(fn.split('.')[0])
         if getattr(mdl.task, 'aggregate_model', False):
@@ -217,7 +370,7 @@ def do_process(id):
     elapsed = 0
     set_progress(id, elapsed)
     
-    n_files = len([name for name in os.listdir(d) if os.path.isfile(os.path.join(d, name))])
+    n_files = len([name for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and os.path.join(d, name).endswith("ifc")])
     
     total_est_time = \
         sum(map(operator.attrgetter('est_time'), tasks)) * n_files + \
@@ -245,7 +398,8 @@ def do_process(id):
         # to break out of nested loop
         else: continue
         break
-            
+    
+   
     for t in tasks_on_aggregate:
         run_task(t, [id, input_files], aggregate_model=True)
 
@@ -253,13 +407,13 @@ def do_process(id):
     set_progress(id, elapsed)
 
 
-def process(id, callback_url):
+def process(ids, validation_config, ids_spec = None , callback_url=None):
+
     try:
-        do_process(id)
+        do_process(ids, validation_config, ids_spec)
         status = "success"
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         status = "failure"        
-
     if callback_url is not None:       
-        r = requests.post(callback_url, data={"status": status, "id": id})
+        r = requests.post(callback_url, data={"status": status, "id": ids})

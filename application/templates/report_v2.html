@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='report_consistency.css') }}">
+</head>
+
+
+<body>
+
+    <div class="header">
+
+        <a href="/" style="padding-left: 5px;" id="logo">
+            <img class="bsdd-logo" src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" />
+        </a>
+        <div id="logo" style="margin-right:10px; display: flex;flex-direction: row; align-items: center;
+            justify-content: center; align-content: space-between; gap: 12px;">
+
+            <button onclick="goToDashboard();" style="height: 40px;width: 150px;"> BACK TO DASHBOARD</button>
+            <button
+                style="height: 50px;width: 50px;border-radius: 50%;background-image: url(/static/icons/bs.JPG);background-repeat: no-repeat;border: none;background-size:cover;"></button>
+            <!-- <img src="{{url_for('static', filename='navbar/BuildingSmart-login.png')}}" /> -->
+        </div>
+    </div>/
+    <script>
+        var bsdd_validation_task = {{ bsdd_validation_task| tojson}};
+        var bsdd_results = {{ bsdd_results| tojson}};
+        var instances = {{ instances| tojson}};
+    </script>
+
+    <script>
+        function goToDashboard() {
+            window.location = "/dashboard";
+        }
+    </script>
+
+
+
+    {% set header_bg = "rgb(230, 242, 255)" %}
+    <div id="main">
+
+        <h1>Validation Report</h1>
+
+
+        <table>
+            <tr>
+                <td colspan="2"
+                    style="font-style: italic; font-size: 30px;text-align:center; background-color:{{header_bg}};">
+                    General information about the file checked</td>
+                <!-- <td >&nbsp;</td>
+                   <td></td> -->
+            </tr>
+
+            <tr>
+                <td>Date</td>
+                <td>{{model.date}}</td>
+            </tr>
+
+            <tr>
+                <td>File name</td>
+                <td>{{model.filename}}</td>
+            </tr>
+
+            <tr>
+                <td>License</td>
+                <td>{{model.license}}</td>
+            </tr>
+
+            <tr>
+                <td>File size</td>
+                <td>{{model.size}}</td>
+            </tr>
+
+            <tr>
+                <td>Number of geometries</td>
+                <td>{{model.number_of_geometries}}</td>
+            </tr>
+
+            <tr>
+                <td>Number of properties</td>
+                <td>{{model.number_of_properties}}</td>
+            </tr>
+
+            <tr>
+                <td>IFC schema</td>
+                <td>{{model.schema}}</td>
+            </tr>
+            <tr>
+                <td>Authoring application</td>
+                <td>{{model.authoring_application }}</td>
+            </tr>
+            <tr>
+                <td>MVD(s)</td>
+                <td>{{model.mvd}}</td>
+            </tr>
+
+
+
+        </table>
+
+        <table>
+
+            <tr>
+                <td colspan="2"
+                    style="font-style: italic; font-size: 30px;text-align:center;background-color:{{header_bg}};">
+                    Overall results of the validation</td>
+            </tr>
+
+
+            {% set validation_symbols =
+            {
+            'v': ['<p>&check;</p>', 'green'],
+            'i': ['<p>&cross;</p>','red'],
+            'n':['<p>&#9744;</p>', 'black'],
+            'w':['<p>&#9888;</p>','yellow']
+            }
+            %}
+
+            {% set check_types=
+            [
+            "syntax",
+            "schema",
+            "mvd",
+            "bsdd",
+            "ids",
+            ]
+            %}
+
+            {%for check_type in check_types%}
+            <tr>
+                <td>{{check_type}}</td>
+                <td style="color:{{ validation_symbols[model['status_'+check_type]][1]}}">
+                    {{ validation_symbols[model['status_'+check_type]][0]|safe}}
+                </td>
+            </tr>
+
+            {% endfor %}
+
+
+
+        </table>
+
+        <table>
+            <tr data-current="bsdd" data-state="on" data-level=1 onclick="xPlay(this)">
+                <td colspan="2"
+                    style="font-style: italic; font-size: 30px;text-align:center;background-color:{{header_bg}};">bSDD
+                    consistency</td>
+
+            </tr>
+            {%for bsdd_result in bsdd_results%}
+
+            {% set constraints = bsdd_result['bsdd_property_constraint']%}
+
+            <tr style="font-style: bold;text-align:center;">
+                <td colspan="2">
+                    IFC instance <span style="color:blue;">{{instances[bsdd_result['instance_id']]['global_id']}}
+                    </span>
+                </td>
+            </tr>
+            <tr style="font-style: bold;text-align:center;">
+                <td colspan="2">
+                    SPECIFICATIONS
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    Classification URI
+                </td>
+                <td>
+                    {{bsdd_result['bsdd_classification_uri']}}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    IFC entity type
+                </td>
+                <td>
+                    {{bsdd_result['bsdd_type_constraint']}}
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    Property set
+                </td>
+                <td>
+                    {{constraints['propertySet']}}
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    Property name
+                </td>
+                <td>
+                    {{constraints['name']}}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    Data type
+                </td>
+                <td>
+                    {{constraints['dataType']}}
+                </td>
+            </tr>
+
+            <tr>
+                <td>
+                    Predefined value
+                </td>
+                <td>
+                    {{constraints['predefinedValue']}}
+                </td>
+            </tr>
+
+
+
+
+
+            <tr>
+                <td colspan="2" style="text-align:center;">
+                    RESULTS
+                </td>
+            </tr>
+
+
+            <tr>
+                <td>
+                    Entity type of the instance
+                </td>
+
+                <td>
+                    {{instances[bsdd_result['instance_id']]['ifc_type']}}
+                </td>
+
+            </tr>
+
+            <tr>
+                <td>
+                    Property set
+                </td>
+
+                <td>
+                    {{bsdd_result['ifc_property_set']}}
+                </td>
+
+            </tr>
+
+
+            <tr>
+                <td>
+                    Property name
+                </td>
+
+                <td>
+                    {{bsdd_result['ifc_property_name']}}
+                </td>
+
+            </tr>
+
+
+            <tr>
+                <td>
+                    Property value type
+                </td>
+
+                <td>
+                    {{bsdd_result['ifc_property_type']}}
+                </td>
+
+            </tr>
+
+
+            <tr>
+                <td>
+                    Value
+                </td>
+
+                <td>
+                    {{bsdd_result['ifc_property_value']}}
+                </td>
+
+            </tr>
+
+
+
+
+
+
+
+
+            <tr>
+                <td colspan=2 style="background-color: lightgray;">&nbsp;</td>
+            </tr>
+
+
+            {% endfor %}
+
+
+        </table>
+
+
+
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+</body>
+
+<script>
+    var bsdd_validation_task = {{ bsdd_validation_task| tojson}};
+    var bsdd_results = {{ bsdd_results| tojson}};
+    var instances = {{ instances| tojson}};
+</script>
+
+<script type="text/javascript" src="{{ url_for('static', filename='report.js') }}"></script>
+
+
+</html>

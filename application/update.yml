@@ -1,0 +1,24 @@
+Validation using JsonSchema for checking the update
+---
+tags:
+  - update
+parameters:
+  - name: body
+    in: formData
+    required: true
+    schema:
+      id: User
+      required:
+        - type
+        - val
+        - code
+      properties:
+        type:
+          type: string
+          default: "0"
+        val:
+          type: string
+          default: "0"
+        code:
+          type: string
+          default: "0"

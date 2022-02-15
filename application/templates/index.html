@@ -2,86 +2,212 @@
 <html lang="en">
 
 <head>
-    <title>IfcOpenShell viewer</title>
+    <title>buildingSMART IFC Validation Service</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    
+    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+
     <script>
         var isIE = !!window.MSInputMethodContext;
         if (isIE) {
-            FileList.prototype.map = function(fn) { var r = []; for (var i = 0; i < this.length; ++i) { r.push(fn(this[i])); } return r; }
+            FileList.prototype.map = function (fn) { var r = []; for (var i = 0; i < this.length; ++i) { r.push(fn(this[i])); } return r; }
         }
     </script>
-
-    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='main.css') }}">
-    {{ dropzone.load_css() }}
-    {{ dropzone.style('border: 2px dashed #0087F7; margin: 20px 10%; min-height: 400px;') }}
-    
-    <style>
-        .dropzone .dz-preview .dz-image {
-            width: 300px;
-            background: #eee !important;
-            border: solid 1px #ddd;
-        }
-
-        .dropzone .dz-preview .dz-progress {
-            width: 200px;
-            margin-left: -100px;
-        }
-
-        .dropzone * {
-            border-radius: 0 !important;
-        }
-        
-        .dropzone .dz-preview .dz-details .dz-size {
-            margin-bottom: 2em;
-        }
-        
-        .dropzone {
-            border: 2px dashed #bbb;
-            border-radius: 20px;
-            background: #fafafa;
-        }
-        
-        .dropzone .dz-preview .dz-details .dz-filename span, .dropzone .dz-preview .dz-details .dz-size span {
-            background: none;
-        }
-    </style>
-<body style="text-align: center">
-
-    <h3>IfcOpenShell viewer</h3>
-
-    {{ dropzone.create('put_main') }}
-    {{ dropzone.load_js() }}
 
     <script>
-        Dropzone.prototype.defaultOptions.dictDefaultMessage = "Drop files or click here to upload";
-        Dropzone.options.myDropzone = {
-            autoProcessQueue: false,
-            acceptedFiles: ".ifc",
-            parallelUploads: 1000,
-            uploadMultiple: true,
-            addRemoveLinks: false,
-            timeout: 0,
-            maxFilesize: 8 * 1024,
-            
-            init: function () {
-                var submitButton = document.querySelector("#submit")
-                myDropzone = this;
+        var decoded = {{ decoded| tojson}}
+        console.log(decoded);
 
-                submitButton.addEventListener("click", function () {
-                    myDropzone.removeEventListeners();
-                    myDropzone.processQueue();
-                });
 
-                this.on("success", function (file, response) {
-                    window.location = response.url;
-                });
-            }
-        };
+        function goToDashboard() {
+            window.location = "/dashboard";
+        }
+
     </script>
-    
-    <button id="submit" style="padding: 10px 20px; border-radius:5px">Submit</button>
-    
+
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='index.css') }}">
+
+<body>
+
+    <div class="full-screen">
+        <div class="header">
+
+            <a href="/" style="padding-left: 5px;" id="logo">
+                <img class="bsdd-logo"
+                    src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" />
+            </a>
+
+            <div id="logo" style="margin-right:10px; display: flex;flex-direction: row; align-items: center;
+            justify-content: center; align-content: space-between; gap: 12px;">
+
+                <button onclick="goToDashboard();" style="height: 40px;width: 150px;">DASHBOARD >></button>
+                <button
+                    style="height: 50px;width: 50px;border-radius: 50%;background-image: url(static/icons/bs.JPG);background-repeat: no-repeat;border: none;background-size:cover;"></button>
+                <!-- <img src="{{url_for('static', filename='navbar/BuildingSmart-login.png')}}" /> -->
+            </div>
+
+        </div>
+
+        <div class="main">
+
+            <div class="tabs"">
+
+                <!-- <button class=" w3-bar-item w3-button tab" id="ifc_button" onclick="changeTab('ifc_tab')">IFC</button> -->
+                <button class=" w3-bar-item w3-button tab" id="ifc_button">IFC</button>
+                <!-- <p style="font-size: 25px; color:grey;">|</p> -->
+                <!-- <button class="w3-bar-item w3-button tab" id="ids_button" onclick="changeTab('ids_tab')">IDS</button> -->
+
+            </div>
+
+            <div class="submit-area" id="ifc_tab">
+
+                <form action="{{url_for('put_main')}}" class="dropzone" id="ifc_dropzone"></form>
+
+
+                <div id="config">
+                    <div>
+                        <input type="checkbox" id="syntax_outside" name="syntax" disabled="disabled">
+                        <label for="Syntax">Syntax</label>
+                    </div>
+
+                    <div>
+                        <input type="checkbox" id="schema_outside" name="schema" disabled="disabled">
+                        <label for="Schema">Schema</label>
+                    </div>
+
+                    <div>
+                        <input type="checkbox" id="mvd_outside" name="mvd" disabled="disabled">
+                        <label for="MVD">MVD</label>
+                    </div>
+
+                    <div>
+                        <input type="checkbox" id="bsdd_outside" name="bsdd" checked>
+                        <label for="bSDD">bSDD</label>
+                    </div>
+
+                </div>
+
+                <button class="submit-button" id="submit">Start validation</button>
+
+
+            </div>
+
+
+            <div class="submit-area" id="ids_tab" style="display:none">
+                <form action="{{url_for('put_main')}}" class="dropzone" id="ids_dropzone"></form>
+                <button class="submit-button" id="submit2">Upload IDS</button>
+            </div>
+
+            <script>
+
+                function changeTab(tabType) {
+
+                    if (tabType == "ifc_tab") {
+                        document.getElementById("ifc_button").style.color = 'rgb(0, 157, 176)';
+                        document.getElementById("ids_button").style.color = 'black';
+
+                    }
+
+                    else {
+                        document.getElementById("ids_button").style.color = 'rgb(0, 157, 176)';
+                        document.getElementById("ifc_button").style.color = 'black';
+
+                    }
+
+                    var i;
+                    var x = document.getElementsByClassName("submit-area");
+                    for (i = 0; i < x.length; i++) {
+                        x[i].style.display = "none";
+                    }
+
+                    document.getElementById(tabType).style.display = "flex";
+                    document.getElementById(tabType).style.flexDirection = "column";
+
+                }
+
+            </script>
+
+        </div>
+
+    </div>
+
+
+    <script>
+        Dropzone.autoDiscover = false;
+        var dz = new Dropzone("#ifc_dropzone",
+            {
+                uploadMultiple: true,
+                acceptedFiles: ".ifc, .xml",
+                parallelUploads: 100,
+                maxFiles: 100,
+                maxFilesize: 8 * 1024,
+                autoProcessQueue: false,
+                addRemoveLinks: true
+            });
+
+        dz.on("addedfile", file => { console.log("new file") });
+
+        dz.on("sending", function (file, xhr, data) {
+            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd'];
+
+            for (var i = 0; i < validationTypes.length; i++) {
+                var checkboxOutside = document.getElementById(validationTypes[i] + "_outside");
+                console.log(checkboxOutside)
+                console.log(checkboxOutside.checked)
+                var to_check;
+                if (checkboxOutside.checked == 1) {
+                    to_check = 1;
+                }
+
+                else {
+                    to_check = 0;
+                }
+
+                data.append(validationTypes[i], to_check);
+
+            }
+
+        });
+
+
+
+        dz.on("success", function (file, response) {
+            console.log("new file");
+            window.location = response.url;
+
+        });
+
+        var submitButton = document.querySelector("#submit");
+        submitButton.addEventListener("click", function () {
+            dz.processQueue();
+
+        });
+
+
+        var dz_ids = new Dropzone("#ids_dropzone",
+            {
+                uploadMultiple: true,
+                acceptedFiles: ".xml",
+                parallelUploads: 100,
+                maxFiles: 100,
+                maxFilesize: 8 * 1024,
+                autoProcessQueue: false,
+                addRemoveLinks: true
+            });
+
+
+        var submitButton2 = document.querySelector("#submit2");
+        submitButton2.addEventListener("click", function () {
+            dz_ids.processQueue();
+        });
+
+        dz_ids.on("sending", function (file, xhr, data) {
+            data.append("user", decoded["sub"]);
+        });
+
+    </script>
+
 </body>
+
 </html>

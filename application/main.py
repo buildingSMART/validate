@@ -1,3 +1,4 @@
+
 ##################################################################################
 #                                                                                #
 # Copyright (c) 2020 AECgeeks                                                    #
@@ -24,31 +25,55 @@
 
 from __future__ import print_function
 
+
 import os
 import json
+import ast
 import threading
+from functools import wraps
 
-from collections import defaultdict, namedtuple
-from flask_dropzone import Dropzone
+from collections import namedtuple
+from redis.client import parse_client_list
 
 from werkzeug.middleware.proxy_fix import ProxyFix
-from flask import Flask, request, send_file, render_template, abort, jsonify, redirect, url_for, make_response
+from flask import Flask, request, session, send_file, render_template, abort, jsonify, redirect, url_for, make_response
 from flask_cors import CORS
-from flask_basicauth import BasicAuth
-from flasgger import Swagger
+
+from flasgger import Swagger, validate
+
+import requests
+from requests_oauthlib import OAuth2Session
+from authlib.jose import jwt
 
 import utils
-import worker
 import database
+import worker
+
+
+def send_simple_message(msg_content):
+    dom = os.getenv("MG_DOMAIN")
+    base_url = f"https://api.mailgun.net/v3/{dom}/messages"
+    from_ = f"Validation Service <bsdd_val@{dom}>"
+    email = os.getenv("MG_EMAIL")
+
+    return requests.post(
+        base_url,
+        auth=("api", os.getenv("MG_KEY")),
+
+        data={"from": from_,
+              "to": [email],
+              "subject": "License update",
+              "text": msg_content})
+
 
 application = Flask(__name__)
-dropzone = Dropzone(application)
 
-# application.config['DROPZONE_UPLOAD_MULTIPLE'] = True
-# application.config['DROPZONE_PARALLEL_UPLOADS'] = 3
 
-DEVELOPMENT = os.environ.get('environment', 'production').lower() == 'development'
+DEVELOPMENT = os.environ.get(
+    'environment', 'production').lower() == 'development'
 
+VALIDATION = 1
+VIEWER = 0
 
 if not DEVELOPMENT and os.path.exists("/version"):
     PIPELINE_POSTFIX = "." + open("/version").read().strip()
@@ -80,141 +105,330 @@ if not DEVELOPMENT:
     from redis import Redis
     from rq import Queue
 
-    q = Queue(connection=Redis(host=os.environ.get("REDIS_HOST", "localhost")), default_timeout=3600)
+    q = Queue(connection=Redis(host=os.environ.get(
+        "REDIS_HOST", "localhost")), default_timeout=3600)
 
 
-@application.route('/', methods=['GET'])
-def get_main():
-    return render_template('index.html')
+if not DEVELOPMENT:
+    application.config['SESSION_TYPE'] = 'filesystem'
+    application.config['SECRET_KEY'] = os.environ['SECRET_KEY']
+    # LOGIN
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+    os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
+    # Credentials you get from registering a new application
+    client_id = os.environ['CLIENT_ID']
+    client_secret = os.environ['CLIENT_SECRET']
+    authorization_base_url = 'https://buildingsmartservices.b2clogin.com/buildingsmartservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/authorize'
+    token_url = 'https://buildingSMARTservices.b2clogin.com/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/token'
 
+    redirect_uri = 'https://validate-bsi-staging.aecgeeks.com/callback'
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not DEVELOPMENT:
+            if not "oauth_token" in session.keys():
+                return redirect(url_for('login'))
+            return f(session['decoded'],*args, **kwargs)
+        else:
+            with open('decoded.json') as json_file:
+                decoded = json.load(json_file)
+            return f(decoded, *args, **kwargs)
+    return decorated_function
+
+
+@application.route("/")
+@login_required
+def index(decoded):
+    return render_template('index.html', decoded=decoded)
+
+
+@application.route('/login', methods=['GET'])
+def login():
+    bs = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=[
+                       "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
+    authorization_url, state = bs.authorization_url(authorization_base_url)
+    session['oauth_state'] = state
+    return redirect(authorization_url)
+
+
+@application.route("/callback")
+def callback():
+    bs = OAuth2Session(client_id, state=session['oauth_state'], redirect_uri=redirect_uri, scope=[
+                       "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
+    t = bs.fetch_token(token_url, client_secret=client_secret,
+                       authorization_response=request.url, response_type="token")
+    BS_DISCOVERY_URL = (
+        "https://buildingSMARTservices.b2clogin.com/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/v2.0/.well-known/openid-configuration"
+    )
+
+    session['oauth_token'] = t
+
+    # Get claims thanks to openid
+    discovery_response = requests.get(BS_DISCOVERY_URL).json()
+    key = requests.get(discovery_response['jwks_uri']).content.decode("utf-8")
+    id_token = t['id_token']
+
+    decoded = jwt.decode(id_token, key=key)
+    session['decoded'] = decoded
+
+    with database.Session() as db_session:
+        user = db_session.query(database.user).filter(database.user.id == decoded["sub"]).all()
+        if len(user) == 0:
+            db_session.add(database.user(str(decoded["sub"]),
+                                        str(decoded["email"]),
+                                        str(decoded["family_name"]),
+                                        str(decoded["given_name"]),
+                                        str(decoded["name"])))
+            db_session.commit()
+
+    return redirect(url_for('index'))
+
+
+@application.route("/logout")
+@login_required
+def logout(decoded):
+    session.clear()  # Wipe out the user and the token cache from the session
+    return redirect(  # Also need to log out from the Microsoft Identity platform
+        "https://buildingSMARTservices.b2clogin.com/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/logout"
+        "?post_logout_redirect_uri=" + url_for("index", _external=True))
 
 
 def process_upload(filewriter, callback_url=None):
+
     id = utils.generate_id()
     d = utils.storage_dir_for_id(id)
     os.makedirs(d)
-    
+
     filewriter(os.path.join(d, id+".ifc"))
-    
+
     session = database.Session()
-    session.add(database.model(id, ''))
+    session.add(database.model(id, 'test'))
     session.commit()
     session.close()
-    
+
     if DEVELOPMENT:
+
         t = threading.Thread(target=lambda: worker.process(id, callback_url))
         t.start()
 
-        
     else:
         q.enqueue(worker.process, id, callback_url)
 
     return id
-    
 
 
 def process_upload_multiple(files, callback_url=None):
     id = utils.generate_id()
     d = utils.storage_dir_for_id(id)
     os.makedirs(d)
-   
+
     file_id = 0
     session = database.Session()
-    m = database.model(id, '')   
+    m = database.model(id, '')
     session.add(m)
-  
+
     for file in files:
         fn = file.filename
-        filewriter = lambda fn: file.save(fn)
+        def filewriter(fn): return file.save(fn)
         filewriter(os.path.join(d, id+"_"+str(file_id)+".ifc"))
         file_id += 1
         m.files.append(database.file(id, ''))
-    
+
     session.commit()
     session.close()
-    
+
     if DEVELOPMENT:
         t = threading.Thread(target=lambda: worker.process(id, callback_url))
-        t.start()        
+
+        t.start()
     else:
         q.enqueue(worker.process, id, callback_url)
 
     return id
 
 
+def process_upload_validation(files, validation_config, user_id, callback_url=None):
+
+    ids = []
+    filenames = []
+
+    with database.Session() as session:
+        for file in files:
+            fn = file.filename
+            filenames.append(fn)
+            def filewriter(fn): return file.save(fn)
+            id = utils.generate_id()
+            ids.append(id)
+            d = utils.storage_dir_for_id(id)
+            os.makedirs(d)
+            filewriter(os.path.join(d, id+".ifc"))
+            session.add(database.model(id, fn, user_id))
+            session.commit()
+
+        user = session.query(database.user).filter(database.user.id == user_id).all()[0]
+
+    msg = f"{len(filenames)} file(s) were uploaded by user {user.name} ({user.email}): {(', ').join(filenames)}"
+    send_simple_message(msg)
+
+    if DEVELOPMENT:
+        for id in ids:
+            t = threading.Thread(target=lambda: worker.process(
+                id, validation_config, callback_url))
+            t.start()
+    else:
+        for id in ids:
+            q.enqueue(worker.process, id, validation_config, callback_url)
+
+    return ids
 
 @application.route('/', methods=['POST'])
-def put_main():
-    """
-    Upload model
-    ---
-    requestBody:
-      content:
-        multipart/form-data:
-          schema:
-            type: object
-            properties:
-              ifc:
-                type: string
-                format: binary
-    responses:
-      '200':
-        description: redirect
-    """
+@login_required
+def put_main(decoded):
+
     ids = []
-   
     files = []
+
+    user_id = decoded["sub"]
+
     for key, f in request.files.items():
+
         if key.startswith('file'):
             file = f
-            files.append(file)    
+            files.append(file)
 
-       
-    id = process_upload_multiple(files)
-    url = url_for('check_viewer', id=id) 
+    validate(data=request.form, filepath='defs.yml')
+
+    val_config = request.form.to_dict()
+    val_results = {
+        k + "log": 'n' for (k, v) in val_config.items() if k != "user"}
+
+    validation_config = {}
+    validation_config["config"] = val_config
+    validation_config["results"] = val_results
+
+    if VALIDATION:
+        ids = process_upload_validation(files, validation_config, user_id)
+
+    elif VIEWER:
+        ids = process_upload_multiple(files)
+
+    idstr = ""
+    for i in ids:
+        idstr += i
+
+    if VALIDATION:
+        url = url_for('dashboard', user_id=user_id)
+
+    elif VIEWER:
+        url = url_for('check_viewer', id=idstr)
 
     if request.accept_mimetypes.accept_json:
-        return jsonify({"url":url})
-    else:
-        return redirect(url)
+        return jsonify({"url": url})
 
 
 @application.route('/p/<id>', methods=['GET'])
 def check_viewer(id):
     if not utils.validate_id(id):
         abort(404)
-    return render_template('progress.html', id=id)    
-    
-    
+    return render_template('progress.html', id=id)
+
+@application.route('/dashboard', methods=['GET'])
+@login_required
+def dashboard(decoded):
+    user_id = decoded['sub']
+    # Retrieve user data
+    with database.Session() as session:
+        saved_models = session.query(database.model).filter(database.model.user_id == user_id).all()
+        saved_models.sort(key=lambda m: m.date, reverse=True)
+        saved_models = [model.serialize() for model in saved_models]
+
+    return render_template('dashboard.html', user_id=user_id, saved_models=saved_models)
+
+
+@application.route('/valprog/<id>', methods=['GET'])
+@login_required
+def get_validation_progress(decoded, id):
+    if not utils.validate_id(id):
+        abort(404)
+
+    all_ids = utils.unconcatenate_ids(id)
+
+    model_progresses = []
+    file_info = []
+    with database.Session() as session:
+        for i in all_ids:
+            model = session.query(database.model).filter(database.model.code == i).all()[0]
+            
+            if model.user_id != decoded["sub"]:
+                abort(404)
+
+            file_info.append({"number_of_geometries": model.number_of_geometries,
+                            "number_of_properties": model.number_of_properties})
+
+            model_progresses.append(model.progress)
+
+    return jsonify({"progress": model_progresses, "filename": model.filename, "file_info": file_info})
+
+
+@application.route('/update_info/<code>', methods=['POST'])
+@login_required
+def update_info(decoded, code):
+    try:
+        validate(data=request.get_data(), filepath='update.yml')    
+        with database.Session() as session:
+            model = session.query(database.model).filter(database.model.code == code).all()[0]
+            original_license = model.license
+            data = request.get_data()
+            decoded_data = json.loads(data)
+
+            property = decoded_data["type"]
+            setattr(model, property, decoded_data["val"])
+
+            user = session.query(database.user).filter(database.user.id == model.user_id).all()[0]
+
+            if decoded_data["type"] == "license":
+                send_simple_message(
+                    f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}")
+            session.commit()
+        return jsonify( {"progress": data.decode("utf-8")})
+    except:
+        return jsonify( {"progress": "an error happened"})
+
+
 @application.route('/pp/<id>', methods=['GET'])
 def get_progress(id):
     if not utils.validate_id(id):
         abort(404)
     session = database.Session()
-    model = session.query(database.model).filter(database.model.code == id).all()[0]
+    model = session.query(database.model).filter(
+        database.model.code == id).all()[0]
     session.close()
     return jsonify({"progress": model.progress})
 
 
 @application.route('/log/<id>.<ext>', methods=['GET'])
 def get_log(id, ext):
-    log_entry_type = namedtuple('log_entry_type', ("level", "message", "instance", "product"))
-    
+    log_entry_type = namedtuple(
+        'log_entry_type', ("level", "message", "instance", "product"))
+
     if ext not in {'html', 'json'}:
         abort(404)
-        
+
     if not utils.validate_id(id):
         abort(404)
     logfn = os.path.join(utils.storage_dir_for_id(id), "log.json")
     if not os.path.exists(logfn):
         abort(404)
-            
+
     if ext == 'html':
         log = []
         for ln in open(logfn):
             l = ln.strip()
             if l:
-                log.append(json.loads(l, object_hook=lambda d: log_entry_type(*(d.get(k, '') for k in log_entry_type._fields))))
+                log.append(json.loads(l, object_hook=lambda d: log_entry_type(
+                    *(d.get(k, '') for k in log_entry_type._fields))))
         return render_template('log.html', id=id, log=log)
     else:
         return send_file(logfn, mimetype='text/plain')
@@ -225,12 +439,12 @@ def get_viewer(id):
     if not utils.validate_id(id):
         abort(404)
     d = utils.storage_dir_for_id(id)
-    
+
     ifc_files = [os.path.join(d, name) for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and name.endswith('.ifc')]
-    
+
     if len(ifc_files) == 0:
         abort(404)
-    
+
     failedfn = os.path.join(utils.storage_dir_for_id(id), "failed")
     if os.path.exists(failedfn):
         return render_template('error.html', id=id)
@@ -239,9 +453,9 @@ def get_viewer(id):
         glbfn = ifc_fn.replace(".ifc", ".glb")
         if not os.path.exists(glbfn):
             abort(404)
-            
+
     n_files = len(ifc_files) if "_" in ifc_files[0] else None
-                    
+
     return render_template(
         'viewer.html',
         id=id,
@@ -249,6 +463,78 @@ def get_viewer(id):
         postfix=PIPELINE_POSTFIX
     )
 
+
+@application.route('/reslogs/<i>/<ids>')
+@login_required
+def log_results(decoded, i, ids):
+    all_ids = utils.unconcatenate_ids(ids)
+    with database.Session() as session:
+        model = session.query(database.model).filter(
+            database.model.code == all_ids[int(i)]).all()[0]
+
+        response = {"results": {}, "time": None}
+
+        response["results"]["syntaxlog"] = model.status_syntax
+        response["results"]["schemalog"] = model.status_schema
+        response["results"]["mvdlog"] = model.status_mvd
+        response["results"]["bsddlog"] = model.status_bsdd
+        response["results"]["idslog"] = model.status_ids
+
+        response["time"] = model.serialize()['date']
+
+    return jsonify(response)
+
+
+@application.route('/report2/<id>')
+@login_required
+def view_report2(decoded, id):
+    with database.Session() as session:
+        session = database.Session()
+
+        model = session.query(database.model).filter(
+            database.model.code == id).all()[0]
+        m = model.serialize()
+
+        bsdd_validation_task = session.query(database.bsdd_validation_task).filter(
+            database.bsdd_validation_task.validated_file == model.id).all()[0]
+
+        bsdd_results = session.query(database.bsdd_result).filter(
+            database.bsdd_result.task_id == bsdd_validation_task.id).all()
+        bsdd_results = [bsdd_result.serialize() for bsdd_result in bsdd_results]
+
+        for bsdd_result in bsdd_results:
+            bsdd_result["bsdd_property_constraint"] = json.loads(
+                bsdd_result["bsdd_property_constraint"])
+
+        bsdd_validation_task = bsdd_validation_task.serialize()
+        instances = session.query(database.ifc_instance).filter(
+            database.ifc_instance.file == model.id).all()
+        instances = {instance.id: instance.serialize() for instance in instances}
+    
+    user_id = decoded['sub']
+    return render_template("report_v2.html",
+                           model=m,
+                           bsdd_validation_task=bsdd_validation_task,
+                           bsdd_results=bsdd_results,
+                           instances=instances,
+                           user_id=user_id)
+
+
+@application.route('/download/<id>', methods=['GET'])
+@login_required
+def download_model(decoded, id):
+    with database.Session() as session:
+        session = database.Session()
+        model = session.query(database.model).filter(database.model.id == id).all()[0]
+        code = model.code
+    path = utils.storage_file_for_id(code, "ifc")
+
+    return send_file(path, attachment_filename=model.filename, as_attachment=True, conditional=True)
+
+@application.route('/delete/<id>', methods=['GET'])
+@login_required
+def delete(decoded, id):
+    return "to implement"
 
 @application.route('/m/<fn>', methods=['GET'])
 def get_model(fn):
@@ -264,31 +550,31 @@ def get_model(fn):
           description: Model id and part extension
           example: BSESzzACOXGTedPLzNiNklHZjdJAxTGT.glb
     """
-    
- 
+
     id, ext = fn.split('.', 1)
-    
+
     if not utils.validate_id(id):
         abort(404)
-  
+
     if ext not in {"xml", "svg", "glb", "unoptimized.glb"}:
         abort(404)
-   
-    path = utils.storage_file_for_id(id, ext)    
+
+    path = utils.storage_file_for_id(id, ext)
 
     if not os.path.exists(path):
         abort(404)
-        
+
     if os.path.exists(path + ".gz"):
         import mimetypes
         response = make_response(
-            send_file(path + ".gz", 
-                mimetype=mimetypes.guess_type(fn, strict=False)[0])
+            send_file(path + ".gz",
+                      mimetype=mimetypes.guess_type(fn, strict=False)[0])
         )
         response.headers['Content-Encoding'] = 'gzip'
         return response
     else:
         return send_file(path)
+
 
 """
 # Create a file called routes.py with the following

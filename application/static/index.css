@@ -1,0 +1,151 @@
+html, body{
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+html, body, .full-screen {
+  height: 100%;
+}
+
+.full-screen {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+/****** navigation ******/
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 90px;
+  width: 100%;
+  /* background-color:green */
+}
+
+.bsdd-logo {
+  height: 70px;
+}
+
+.main {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  background-image: url('./icons/background2.jpg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+
+/****** tabs ******/
+.tabs{
+  display: flex;
+  align-items:center;
+  justify-content:space-around;
+  /* width:300px;
+  padding-left: 10px;
+  padding-right: 10px; */
+  width: 320px;
+  background-color:#e7e7e7;
+  gap:3px;
+  font-family: Calibri;
+  height:30px;
+  border-top-right-radius:15px;
+
+  
+}
+
+.tab{
+  border: none;
+background: none;
+width:50%;
+font-size: 20px;
+
+/* height: 40px; */
+height: 100%;
+
+}
+
+#ifc_button{
+  color:rgb(0, 157, 176);
+}
+
+.tab:active{
+  /* background:rgb(255, 255, 255); */
+  border: none;
+  outline:0;
+}
+/* button:focus{
+  background:rgb(255, 255, 255);
+  border: none;
+  outline:0;
+} */
+
+button:focus{
+  outline:0;
+}
+
+/* .tab:hover{
+  background:bisque;
+} */
+
+
+
+/****** submit area ******/
+
+.submit-area{
+ 
+  
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  padding: 10px;
+  justify-content: space-evenly;
+  gap: 15px;
+  width: 300px;
+  height: 500px;
+  flex : 0 1 500px;
+}
+
+#myDropzone {
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  text-align: center;
+  height: 300px;
+  width: 80%;
+}
+
+#config {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  width: 80%;
+  background-color:rgba(0, 158, 176, 0.384);
+  /* background-color: rgb(181, 201, 255); */
+  border-radius: 5px;
+  font-family: Calibri;
+}
+
+.submit-button {
+  padding: 10px 20px;
+  border-radius: 5px;
+  width: 40%;
+  font-size: 15px;
+  /* border: none; */
+}
+
+a:visited {
+  color: inherit;
+  text-decoration: none;
+}

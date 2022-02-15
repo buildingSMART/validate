@@ -1,0 +1,163 @@
+html, body{
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 90px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.bsdd-logo {
+  height: 70px;
+}
+
+#main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.result {
+  font-family: calibri;
+  width: 70%;
+  background-color: rgb(255, 255, 255);
+  border-radius: 5px;
+  padding: 10px;
+}
+
+#fn {
+  font-style: italic;
+}
+
+#title {
+  display: flex;
+  gap: 2px;
+  font-size: 35px;
+  font-family: calibri;
+}
+
+
+.box-title {
+  display: flex;
+  font-family: calibri;
+  font-size: 27px;
+  gap: 2px;
+}
+
+.box-specific {
+  font-family: calibri;
+  font-size: 20px;
+  margin-left: 5px;
+  text-indent: 20px;
+}
+
+.box-status {
+  font-family: calibri;
+  font-size: 20px;
+  margin-left: 5px;
+  text-indent: 25px;
+}
+
+#checking-box {
+  display: flex;
+  gap: 5px;
+}
+
+#ifctype {
+  text-align: left;
+}
+
+#submitzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: rgb(255, 255, 255);
+  padding: 10px;
+  justify-content: space-evenly;
+  gap: 15px;
+}
+
+#submit {
+  padding: 10px 20px;
+  border-radius: 5px;
+  width: auto;
+}
+
+a:visited {
+  color: inherit;
+  text-decoration: none;
+}
+
+table {
+  width: 75%;
+  font-size: 20px;
+
+}
+
+tr{
+  opacity: 1;
+  transition: 3s all ease;
+}
+
+h1{
+  font-family: Calibri;
+  font-size:50px;
+  margin-bottom:20px;
+
+}
+
+td{
+  width:50%;
+}
+
+table, th, td {
+  border: 1px solid rgba(161, 161, 161, 0.24);
+  border-collapse: collapse;
+  font-family: 'Calibri';
+  border-left: none;
+  border-right: none;
+  align-self: center;
+}
+
+table, th, td {
+  border: 1px solid black;
+  padding: 10px;
+}
+
+th {
+  font-weight: bold;
+}
+
+#classification {
+  font-size: 25px;
+}
+
+#guid {
+  font-weight: bold;
+}
+
+#bsdd {
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.progress {
+  width: 200px;
+  height: 12px;
+  border-radius: 25px;
+  background-color: rgba(194, 194, 194, 0.5);
+}
+

@@ -5,10 +5,12 @@ services:
     image: postgres:12.1-alpine
     expose:
       - "5432"
+    ports:
+      - "5432:5432"
     volumes:
       - ./docker-volumes/db:/var/lib/postgresql/data
     environment:
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
 
   redis:
     image: redis:5.0.7-alpine
@@ -26,6 +28,15 @@ services:
       - MODEL_DIR=/data
       - REDIS_HOST=redis
       - POSTGRES_HOST=db
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TESTING=${TESTING}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - MG_DOMAIN=${MG_DOMAIN}
+      - MG_KEY=${MG_KEY}
+      - MG_EMAIL=${MG_EMAIL}
+      - CRYPTOGRAPHY_DONT_BUILD_RUST=1
+      
     expose:
       - "5000"
     depends_on:
@@ -66,6 +77,7 @@ services:
       - REDIS_HOST=redis
       - POSTGRES_HOST=db
       - NUM_WORKERS=2
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     depends_on:
       - redis
       - db
