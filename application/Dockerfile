@@ -1,24 +1,36 @@
-FROM debian:buster-slim
+FROM ubuntu:latest
+
+ARG DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /
-RUN apt-get -y update && apt-get -y --no-install-recommends --no-install-suggests install git python3 python3-pip unzip wget libpq-dev build-essential libssl-dev libffi-dev libxml2-dev libxslt1-dev zlib1g-dev npm python3-setuptools python3-dev python3-wheel supervisor
+RUN apt-get -y update && apt-get -y --no-install-recommends --no-install-suggests install git python3 python3-pip unzip wget libpq-dev build-essential libssl-dev libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python3-setuptools python3-dev python3-wheel supervisor
+
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+RUN wget https://downloads.python.org/pypy/pypy3.8-v7.3.7-linux64.tar.bz2
+RUN tar -xf pypy3.8-v7.3.7-linux64.tar.bz2
+ENV PATH="${PATH}:/pypy3.8-v7.3.7-linux64/bin"
+
+RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m ensurepip
+
+RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install --upgrade pip
+RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser
 
 RUN python3 -m pip install --upgrade pip
 
-RUN python3 -m pip install flask flask-cors numpy Pillow gunicorn rq redis SQLAlchemy==1.3.24 psycopg2 sqlalchemy-utils Flask-BasicAuth flasgger requests flask-dropzone lark-parser pyparsing XlsxWriter fuzzywuzzy python-Levenshtein requests_oauthlib Authlib requests argparse --upgrade
-RUN npm install -g jsdoc gltf-pipeline requirejs npx uglify-js
+RUN python3 -m pip install flask flask-cors numpy gunicorn rq redis SQLAlchemy==1.4.31 psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse --upgrade
 
 # IfcConvert v0.6.0
 RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.6.0-c15fdc7-linux64.zip -O /tmp/IfcConvert.zip
 RUN unzip /tmp/IfcConvert.zip -d /usr/bin
 
-RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2])))'`-v0.6.0-c15fdc7-linux64.zip
+RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2]))[0:2])'`-v0.7.0-883b8a5-linux64.zip
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
 
-
 # Temporary 'hotfix'
-RUN wget  -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/validate.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.6.0/src/ifcopenshell-python/ifcopenshell/validate.py
+RUN wget  -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/validate.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/validate.py
 
 # Server
 WORKDIR /www
@@ -26,16 +38,8 @@ COPY application/*.py /www/
 COPY application/templates /www/templates
 
 COPY application/checks /www/checks
-RUN unzip -d  /www/checks /tmp/ifcopenshell_python.zip
 
-
-RUN mkdir -p /www/checks/ifcopenshell/mvd
-RUN echo 1
-RUN git clone https://github.com/opensourceBIM/python-mvdxml /www/checks/ifcopenshell/mvd
-
-# RUN ls www/checks/ifcopenshell/
-# RUN mv python-mvdxml/* www/checks/ifcopenshell/mvd
-# RUN ls www/checks/ifcopenshell/
+COPY application/*.yml /www/
 
 COPY .git/HEAD /tmp/.git/HEAD
 COPY .git/refs/ /tmp/.git/refs/
@@ -43,19 +47,8 @@ RUN /bin/bash -c '(cat /tmp/.git/$(cat /tmp/.git/HEAD | cut -d \  -f 2)) || cat 
 RUN sed -i "4i<script>console.log('pipeline version: $(cat /version)');</script>" /www/templates/*.html
 RUN rm -rf /tmp/.git
 
-RUN npm i -D @babel/preset-env @babel/core @babel/cli
-
 COPY application/static /www/static/
 COPY application/bimsurfer/bimsurfer /www/static/bimsurfer
-
-WORKDIR /www/static
-# RUN jsdoc -r -d docs bimsurfer
-RUN r.js -o baseUrl=. name=App out=App.built.js optimize=none
-RUN npx babel App.built.js -o App.built.es2015.js --presets=@babel/preset-env --compact false
-RUN uglifyjs --compress -o App.$(cat /version).js -- App.built.es2015.js 
-RUN npx babel bimsurfer/lib/DRACOLoader.js -o bimsurfer/lib/DRACOLoader.es2015.js --presets=@babel/preset-env --compact false
-RUN uglifyjs --compress -o bimsurfer/lib/three.gltf.orbit.draco.min.js -- bimsurfer/lib/three.js bimsurfer/lib/GLTFLoader.js bimsurfer/lib/DRACOLoader.es2015.js bimsurfer/lib/OrbitControls.js 
-RUN rm -rf node_modules package-lock.json
 
 COPY application/queue.conf /etc/supervisord.conf
 

@@ -1,138 +1,182 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <title>buildingSMART IFC Validation Service</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-
-    <script type="text/javascript">
-        var isIE = !!window.MSInputMethodContext;
-        if (isIE) {
-            document.write('<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.min.js"><\/script>');
-            document.write('<script type="text/javascript" src="/static/lib/fetch.umd.js"><\/script>');
-        }
-    </script>
-
-    <!-- Store data from the server to JS variables -->
-    <script>
-        var savedModels = {{ saved_models| tojson}};
-        var userId = "{{user_id}}";
-
-
-
-        var toColumnUncomplete = {
-            "syntax": 0,
-            "schema": 1,
-            "mvd": 2,
-            "bsdd": 3,
-            "ids": 4,
-            "file_format": 5,
-            "file_name": 6,
-            "report": 7,
-            "progress": 8,
-            "advancement": 9,
-            "stop": 10,
-            "geoms": 11,
-            "props": 12,
-            "license": 13,
-            "hours": 14,
-            "details": 15
-        }
-        var toColumnComplete = {
-            "syntax": 0,
-            "schema": 1,
-            "mvd": 2,
-            "bsdd": 3,
-            "ids": 4,
-            "file_format": 5,
-            "file_name": 6,
-            "report": 7,
-            "date": 8,
-            "download": 9,
-            "delete": 10,
-            "geoms": 11,
-            "props": 12,
-            "license": 13,
-            "hours": 14,
-            "details": 15
-        }
-
-
-    </script>
-
-    <script>
-        function goToIndex() {
-            var st = window.location.href;
-
-            var baseUrl = st.split('/')[2];
-            var url = "/";
-            console.log(url)
-            window.location = url;
-        }
-    </script>
-
+{% extends "base.html" %}
+{% block css %}
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='validation.css') }}">
+{% endblock %}
 
-<body>
 
-    <div class="header">
 
-        <a href="/" style="padding-left: 5px;" id="logo">
-            <img class="bsdd-logo" src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" />
-        </a>
-        <div id="logo" style="margin-right:10px; display: flex;flex-direction: row; align-items: center;
-            justify-content: center; align-content: space-between; gap: 12px;">
+{% block link %}<a href="/">Upload new files</a>{% endblock %}
 
-            <button onclick="goToIndex();" style="height: 40px;width: 150px;">VALIDATION >></button>
-            <button
-                style="height: 50px;width: 50px;border-radius: 50%;background-image: url(/static/icons/bs.JPG);background-repeat: no-repeat;border: none;background-size:cover;"></button>
-            <!-- <img src="{{url_for('static', filename='navbar/BuildingSmart-login.png')}}" /> -->
-        </div>
+{% block content %}
 
+<div class="hidden_menu">
+    <span>{{ username }}</span>
+    <a href="/">Upload new files</a>
+    <a href="/logout">Log out</a>
+</div>
+
+<script>
+
+
+    var savedModels = {{ saved_models| tojson}};
+
+    var columnsUncomplete = [
+        "file_format",
+        "file_name",
+        "syntax",
+        "schema",
+        "mvd",
+        "bsdd",
+        //"ids",
+        "report",
+        "progress",
+        "advancement",
+        "stop",
+        "geoms",
+        "props",
+        "license",
+        "hours",
+        "details",
+    ];
+    var columnsComplete = [
+        "file_format",
+        "file_name",
+        "syntax",
+        "schema",
+        "mvd",
+        "bsdd",
+        //"ids",
+        "report",
+        "date",
+        "download",
+        "delete",
+        "geoms",
+        "props",
+        "license",
+        "hours",
+        "details",
+    ];
+    var toColumnUncomplete = {};
+    var toColumnComplete = {};
+    columnsUncomplete.forEach((v, i) => { toColumnUncomplete[v] = i; });
+    columnsComplete.forEach((v, i) => { toColumnComplete[v] = i; });
+</script>
+
+<div class="submit-area" id="ifc_tab">
+
+    <form action="{{url_for('put_main')}}" class="dropzone" id="ifc_dropzone">
+        <div class="dz-message" data-dz-message><span><i class='material-icons'>file_upload</i> Click or drop files here to upload for validation</span></div>
+    </form>
+    <button class="submit-button" id="submit">Start validation</button>
+</div>
+
+
+
+    <table id="saved_models">
+        <tr>
+            <th>File format</th>
+            <th></th>
+            
+            <th>Syntax</th>
+            <th>Schema</th>
+            <th>MVD</th>
+            <th>bSDD</th>
+            <!--<th>IDS</th>-->
+
+            <th></th>
+            <th></th>
+            <th></th>
+            <th></th>
+            <th># geometries</th>
+            <th># properties</th>
+
+            <th>License</th>
+            <th style="text-align: center;">Production hours</th>
+            <th>Additional details</th>
+
+        </tr>
+
+
+        <script type="text/javascript" src="{{ url_for('static', filename='process.js') }}"></script>
+
+    </table>
+
+    <div class="hidden_menu">
+        <span>{{ username }}</span>
+        <a href="/">Upload new files</a>
+        <a href="/logout">Log out</a>
     </div>
+    
+
+    <script>
+
+        const beforeUnloadListener = (event) => {
+            event.preventDefault();
+            return event.returnValue = "Are you sure you want to exit?";
+        };
 
 
+        Dropzone.autoDiscover = false;
+        var dz = new Dropzone("#ifc_dropzone",
+            {
+                uploadMultiple: true,
+                acceptedFiles: ".ifc, .xml",
+                parallelUploads: 100,
+                maxFiles: 100,
+                maxFilesize: 8 * 1024,
+                autoProcessQueue: false,
+                addRemoveLinks: true,
+            });
+
+        dz.on("input", (event) => {
+            if (event.target.value !== "") {
+                addEventListener("beforeunload", beforeUnloadListener, {capture: true});
+            } else {
+                removeEventListener("beforeunload", beforeUnloadListener, {capture: true});
+            }
+        });
+
+        dz.on("addedfile", file => { console.log("new file") });
+
+        dz.on("sending", function (file, xhr, data) {
+            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd'];
+
+            for (var i = 0; i < validationTypes.length; i++) {
+                data.append(validationTypes[i], 1);
+            }
+
+        });
 
 
-    <div id="main">
+        dz.on("success", function (file, response) {
+            location.reload();
 
-        <table id="saved_models">
-            <tr>
-                <th>Syntax</th>
-                <th>Schema</th>
-                <th>MVD</th>
-                <th>bSDD</th>
-                <th>IDS</th>
-                <th>File format</th>
+        });
 
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th></th>
-                <th># geometries</th>
-                <th># properties</th>
+        var submitButton = document.querySelector("#submit");
+        submitButton.addEventListener("click", function () {
+            dz.processQueue();
 
-                <th>License</th>
-                <th style="text-align: center;">Production hours</th>
-                <th>Additional details</th>
+        });
 
-            </tr>
+    </script>
 
+<script>
+    function myFunction(x) {
+            x.classList.toggle("change");
 
-            <script type="text/javascript" src="{{ url_for('static', filename='process.js') }}"></script>
+            var main = document.getElementsByClassName("main")[0];
+            var menu = main.children[0];
 
+            console.log("menu", menu)
 
-
-
-
-
-        </table>
-    </div>
-
-
-
-</body>
-
-</html>
+            if(menu.className =="hidden_menu"){
+                menu.className = "visible_menu";
+            }
+            else if(menu.className=="visible_menu"){
+                menu.className = "hidden_menu";
+            }
+        }
+</script>
+    
+{% endblock %}

@@ -2,6 +2,19 @@ import sys, os
 import ifcopenshell
 from helper import database
 
+
+
+import math
+
+def convert_size(size_bytes):
+   if size_bytes == 0:
+       return "0B"
+   size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+   i = int(math.floor(math.log(size_bytes, 1024)))
+   p = math.pow(1024, i)
+   s = round(size_bytes / p, 2)
+   return f"{s} {size_name[i]}"
+
 ifc_fn = sys.argv[1]
 ifc_file = ifcopenshell.open(ifc_fn)
 
@@ -18,7 +31,7 @@ except:
 
 with database.Session() as session:
     model = session.query(database.model).filter(database.model.code == ifc_fn[:-4]).all()[0]
-    model.size = str(round(os.path.getsize(ifc_fn)*10**-6)) + "MB"
+    model.size = convert_size(os.path.getsize(ifc_fn))
     model.schema = ifc_file.schema
     model.authoring_application = authoring_app
     model.mvd = detected_mvd

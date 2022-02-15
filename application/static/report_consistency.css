@@ -1,35 +1,11 @@
-html, body{
-  margin: 0;
+@import url("base.css");
+
+h1 {
   padding: 0;
-  border: 0;
-  font-size: 100%;
-  font: inherit;
-  vertical-align: baseline;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 90px;
-  width: 100%;
-  margin-bottom: 20px;
-}
-
-.bsdd-logo {
-  height: 70px;
-}
-
-#main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 5px;
+  margin: 0;
 }
 
 .result {
-  font-family: calibri;
   width: 70%;
   background-color: rgb(255, 255, 255);
   border-radius: 5px;
@@ -44,26 +20,21 @@ html, body{
   display: flex;
   gap: 2px;
   font-size: 35px;
-  font-family: calibri;
 }
-
 
 .box-title {
   display: flex;
-  font-family: calibri;
   font-size: 27px;
   gap: 2px;
 }
 
 .box-specific {
-  font-family: calibri;
   font-size: 20px;
   margin-left: 5px;
   text-indent: 20px;
 }
 
 .box-status {
-  font-family: calibri;
   font-size: 20px;
   margin-left: 5px;
   text-indent: 25px;
@@ -71,68 +42,43 @@ html, body{
 
 #checking-box {
   display: flex;
-  gap: 5px;
+  /* gap: 5px; */
 }
 
 #ifctype {
   text-align: left;
 }
 
-#submitzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background-color: rgb(255, 255, 255);
-  padding: 10px;
-  justify-content: space-evenly;
-  gap: 15px;
-}
 
-#submit {
-  padding: 10px 20px;
-  border-radius: 5px;
-  width: auto;
-}
-
-a:visited {
-  color: inherit;
-  text-decoration: none;
-}
-
-table {
-  width: 75%;
-  font-size: 20px;
-
-}
-
-tr{
+tr {
   opacity: 1;
   transition: 3s all ease;
 }
 
-h1{
-  font-family: Calibri;
-  font-size:50px;
-  margin-bottom:20px;
-
+td {
+  width: 50%;
 }
 
-td{
-  width:50%;
-}
-
-table, th, td {
-  border: 1px solid rgba(161, 161, 161, 0.24);
+table {
   border-collapse: collapse;
-  font-family: 'Calibri';
+}
+
+td {
+  border: 1px solid rgba(161, 161, 161, 0.24);
   border-left: none;
   border-right: none;
   align-self: center;
+  padding: 0.5em 0;
 }
 
-table, th, td {
-  border: 1px solid black;
-  padding: 10px;
+table tr:first-child td {
+    border-top: none;
+}
+
+td.rowheader {
+  border-color: black;
+  font-weight: bold;
+  padding-top: 2em;
 }
 
 th {
@@ -153,11 +99,136 @@ th {
 }
 
 
-
-.progress {
-  width: 200px;
-  height: 12px;
-  border-radius: 25px;
-  background-color: rgba(194, 194, 194, 0.5);
+table {
+  width: 80%;
 }
 
+/* Phones */
+@media only screen and (max-width: 600px) {
+
+  .bar_text {
+    display: none;
+  }
+
+  .bar_info {
+    height: 100%;
+    width: 65px;
+    background-color: #b3b3b3;
+    display: flex;
+    /* flex-direction: column; */
+    justify-content: center;
+    display: flex;
+  }
+
+  .container {
+    /* background-color: #b3b3b3;; */
+    display: flex;
+    visibility: visible;
+  }
+
+  .material_container {
+    display: none;
+  }
+
+  #unfolded_button {
+    display: inline;
+  }
+
+
+}
+
+
+/* Phones landscape */
+
+@media only screen and (max-width: 600px) and (orientation : landscape) {
+  .bar_text {
+    display: none;
+  }
+
+  .container {
+    display: flex;
+    visibility: visible;
+  }
+
+  .material_container {
+    display: none;
+  }
+
+  #unfolded_button {
+    display: inline;
+  }
+
+  .bar_info {
+    height: 100%;
+    width: 65px;
+    background-color: #04AA6D;
+    display: flex;
+    /* flex-direction: column; */
+    justify-content: center;
+    display: flex;
+  }
+
+  .container {
+    display: flex;
+    visibility: visible;
+  }
+
+  #unfolded_button {
+    display: inline;
+  }
+}
+
+/* Tablets */
+@media only screen and (max-width: 925px) and (orientation : landscape) {
+  .bar_text {
+    display: none;
+  }
+
+  .submit-area {
+    width: 70%;
+    height: 55%;
+  }
+
+  .visible_menu {
+    /* min-height: 5%; */
+    width: 100%;
+  }
+
+  .hidden_menu {
+    width: 100%;
+
+
+  }
+
+  .material_container {
+    display: none;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    visibility: visible;
+
+  }
+
+  #unfolded_button {
+    display: inline;
+  }
+
+  .bar_info {
+    height: 100%;
+    width: 65px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    display: flex;
+  }
+
+
+}
+
+table pre {
+    text-align: left;
+    padding: 0 0 0 10%;
+    margin: 0;
+}

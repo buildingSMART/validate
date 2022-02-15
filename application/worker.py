@@ -80,18 +80,41 @@ class general_info_task(task):
     est_time = 1
     
     def execute(self, directory, id):
-        info_program = os.path.join(os.getcwd() + "/checks", "info.py")
+        info_program = os.path.join(os.getcwd(), "checks", "info.py")
         subprocess.call([sys.executable, info_program, id + ".ifc", os.path.join(os.getcwd())], cwd=directory)
 
 
 class syntax_validation_task(task):
-    est_time = 10
+    est_time = 20
 
     def execute(self, directory, id):
-        f = open(os.path.join(directory, "dresult_syntax.json"), "w")
-        check_program = os.path.join(os.getcwd() + "/checks/step-file-parser", "parse_file.py")
-        #subprocess.call([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=f)
-        proc = subprocess.Popen([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=subprocess.PIPE)
+        check_program = os.path.join(os.getcwd(), "checks", "step-file-parser", "main.py")
+        # try if there is pypy in the path, otherwise default to the current
+        # python interpreter.
+        proc = subprocess.Popen([shutil.which("pypy3") or sys.executable, check_program, id + ".ifc", "--progress"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   
+        with database.Session() as session:
+            model = session.query(database.model).filter(database.model.code == id).all()[0]
+         
+            validation_task = database.syntax_validation_task(model.id)
+            session.add(validation_task)
+            session.commit()
+            validation_task_id = str(validation_task.id)
+            
+            output = proc.stderr.read()
+            output = output.decode("utf-8").strip()
+            syntax_result = database.syntax_result(validation_task_id)
+            syntax_result.msg = output
+            session.add(syntax_result)
+
+            if output.lower() == 'valid':
+                model.status_syntax = 'v'
+            else:
+                model.status_syntax = 'i'  
+            
+            session.commit()
+            session.close()
+
         i = 0
         while True:
             ch = proc.stdout.read(1)
@@ -102,16 +125,48 @@ class syntax_validation_task(task):
             if ch and ord(ch) == ord('.'):
                 i += 1
                 self.sub_progress(i)
+
+        if proc.poll() != 0:
+            raise RuntimeError()
 
 
 
 class ifc_validation_task(task):
-    est_time = 10
+    est_time = 15
 
     def execute(self, directory, id):
-        f = open(os.path.join(directory, "dresult_schema.json"), "w")
-        check_program = os.path.join(os.getcwd() + "/checks", "validate.py")
-        proc = subprocess.Popen([sys.executable, check_program, id + ".ifc", "--json"], cwd=directory, stdout=subprocess.PIPE)
+        proc = subprocess.Popen([sys.executable, "-m", "ifcopenshell.validate", id + ".ifc"], cwd=directory,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        with database.Session() as session:
+            model = session.query(database.model).filter(database.model.code == id).all()[0]
+            
+            validation_task = database.schema_validation_task(model.id)
+            session.add(validation_task)
+            session.commit()
+            validation_task_id = str(validation_task.id)
+           
+            output = proc.stderr.read()
+            output = "\n".join(output.decode("utf-8").strip().split("\n")[1:])
+            
+            model.status_schema = 'v'
+            if len(output):
+                model.status_schema = 'i'
+                
+                """
+                for result in output.split("\n"):
+                    res = json.loads(result)
+                    if res["level"] == "error":
+                        model.status_schema = 'i'
+                        break
+                    elif res["level"] == "warning":
+                        model.status_schema = 'w'
+                """
+
+            schema_result = database.schema_result(validation_task_id)
+            schema_result.msg = output
+            session.add(schema_result)
+            session.commit()
+
         i = 0
         while True:
             ch = proc.stdout.read(1)
@@ -122,6 +177,9 @@ class ifc_validation_task(task):
             if ch and ord(ch) == ord('.'):
                 i += 1
                 self.sub_progress(i)
+        
+        if proc.poll() != 0:
+            raise RuntimeError()
 
 
 class mvd_validation_task(task):
@@ -154,6 +212,7 @@ class bsdd_validation_task(task):
         check_program = os.path.join(os.getcwd() + "/checks", "check_bsdd_v2.py")
 
         proc = subprocess.Popen([sys.executable, check_program, "--input", id + ".ifc", "--task",validation_task_id], cwd=directory, stdout=subprocess.PIPE)
+
         i = 0
         while True:
             ch = proc.stdout.read(1)
@@ -165,6 +224,8 @@ class bsdd_validation_task(task):
                 i += 1
                 self.sub_progress(i)
 
+        if proc.poll() != 0:
+            raise RuntimeError()
 
 class ids_validation_task(task):
     est_time = 10
@@ -415,5 +476,6 @@ def process(ids, validation_config, ids_spec = None , callback_url=None):
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
         status = "failure"        
+        set_progress(id, -2)
     if callback_url is not None:       
         r = requests.post(callback_url, data={"status": status, "id": ids})

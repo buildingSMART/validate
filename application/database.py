@@ -22,20 +22,30 @@
 #                                                                                #
 ##################################################################################
 
+import os
+from xmlrpc.client import Boolean
+
+DEVELOPMENT = os.environ.get('environment', 'production').lower() == 'development'
+NO_POSTGRES = os.environ.get('NO_POSTGRES', '0').lower() in {'1', 'true'}
+
+"""
+if not DEVELOPMENT:
+    from psycopg2cffi import compat
+    compat.register()
+"""
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 from sqlalchemy.inspection import inspect
-from sqlalchemy import Column, Integer, Float, String, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Boolean, Integer, Float, String, DateTime, ForeignKey, Enum
 from sqlalchemy_utils import database_exists, create_database
 from sqlalchemy.orm import relationship
-import os
+
 import datetime
 
-DEVELOPMENT = os.environ.get('environment', 'production').lower() == 'development'
-
-if DEVELOPMENT:
+if DEVELOPMENT or NO_POSTGRES:
     file_path = os.path.join(os.path.dirname(__file__), "ifc-pipeline.db") 
     engine = create_engine(f'sqlite:///{file_path}', connect_args={'check_same_thread': False})
 else:
@@ -91,7 +101,7 @@ class model(Base, Serializable):
     progress = Column(Integer, default=-1)
     date = Column(DateTime, server_default=func.now())
 
-    license = Column(Enum('private','CC','MIT','GPL','LGPL'), server_default="private")
+    license = Column(Enum('private','CC','MIT','GPL','LGPL', name='licenses_types'), default="private")
     hours = Column(Float)
     details = Column(String)
 
@@ -104,11 +114,11 @@ class model(Base, Serializable):
     size = Column(String)
     mvd = Column(String)
 
-    status_syntax = Column(Enum('n','v','w','i'), default='n')
-    status_schema = Column(Enum('n','v','w','i'), default='n')
-    status_bsdd = Column(Enum('n','v','w','i'), default='n')
-    status_mvd = Column(Enum('n','v','w','i'), default='n')
-    status_ids= Column(Enum('n','v','w','i'), default='n')
+    status_syntax = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_schema = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_bsdd = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_mvd = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_ids= Column(Enum('n','v','w','i', name='status_types'), default='n')
     
     instances = relationship("ifc_instance")
 
@@ -144,6 +154,34 @@ class bsdd_validation_task(Base, Serializable):
         self.validated_file = validated_file
         
 
+class schema_validation_task(Base, Serializable):
+    __tablename__ = 'schema_validation_tasks'
+
+    id = Column(Integer, primary_key=True)
+    validated_file = Column(Integer, ForeignKey('models.id'))
+    validation_start_time = Column(DateTime)
+    validation_end_time = Column(DateTime)
+
+    results = relationship("schema_result")
+
+    def __init__(self, validated_file):
+        self.validated_file = validated_file
+
+
+class syntax_validation_task(Base, Serializable):
+    __tablename__ = 'syntax_validation_tasks'
+
+    id = Column(Integer, primary_key=True)
+    validated_file = Column(Integer, ForeignKey('models.id'))
+    validation_start_time = Column(DateTime)
+    validation_end_time = Column(DateTime)
+
+    results = relationship("syntax_result")
+
+    def __init__(self, validated_file):
+        self.validated_file = validated_file
+
+
 class ifc_instance(Base, Serializable):
     __tablename__ = 'instances'
 
@@ -165,19 +203,56 @@ class bsdd_result(Base, Serializable):
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer, ForeignKey('bSDD_validation_tasks.id'))
     instance_id = Column(Integer, ForeignKey('instances.id'))
+
+    domain_file = Column(String)
+    classification_file = Column(String)
+
+    classification_name = Column(String)
+    classification_code = Column(String)
+    classification_domain = Column(String)
+
     bsdd_classification_uri = Column(String)
     bsdd_property_uri = Column(String)
     bsdd_property_constraint = Column(String)
     bsdd_type_constraint = Column(String)
+   
     ifc_property_set = Column(String)
     ifc_property_name = Column(String)
     ifc_property_type = Column(String)
     ifc_property_value = Column(String)
 
-    
+    val_ifc_type = Column(Boolean)
+    val_property_set = Column(Boolean)
+    val_property_name = Column(Boolean)
+    val_property_type = Column(Boolean)
+    val_property_value = Column(Boolean)
+
     def __init__(self, task_id):
         self.task_id = task_id
-     
+
+
+class schema_result(Base, Serializable):
+    __tablename__ = 'schema_results'
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('schema_validation_tasks.id'))
+    msg = Column(String, default="msg")
+
+    def __init__(self, task_id):
+        self.task_id = task_id
+
+
+class syntax_result(Base, Serializable):
+    __tablename__ = 'syntax_results'
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('syntax_validation_tasks.id'))
+    msg = Column(String, default="msg")
+
+    def __init__(self, task_id):
+        self.task_id = task_id
+
+
 def initialize():
     if not database_exists(engine.url):
         create_database(engine.url)

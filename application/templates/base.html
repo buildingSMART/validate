@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>buildingSMART IFC Validation Service</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='icons/cropped-favicon-32x32.png') }}">
+    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+    {% block css %}{% endblock %}
+    <link href="https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp" rel="stylesheet">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:300,600' rel='stylesheet' type='text/css'>
+</head>
+
+
+
+    <div class="full-screen">
+        <div class="header">
+            
+            <img class="bsdd-logo"src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" />
+            <div class="bar_info">
+                <div class="container" onclick="myFunction(this)">
+                    <div class="bar1"></div>
+                    <div class="bar2"></div>
+                    <div class="bar3"></div>
+                </div>
+                
+                <span class="material_container"><i class='material-icons' style="font-size: 3em; color: #aaa">account_circle</i></span>
+
+                <div class="bar_text">
+                    <span>{{ username }}</span>
+                    {% block link %}{% endblock %}
+                    <a href="/logout">Log out</a>
+                </div>
+                  
+            </div>
+
+        </div>
+
+        <div class="main">
+            {% block content %}{% endblock %}        
+        </div>
+
+        <div class="footer">
+            <span style="font-size: 12px;">Copyright © 2022 buildingSMART All Rights Reserved | <a href="https://buildingsmart-1xbd3ajdayi.netdna-ssl.com/wp-content/uploads/2021/11/PrivacyandCookiePolicyV3.pdf" target="_blank" rel="noopener">Privacy and Cookie Statement</a>&nbsp;|<a href="https://buildingsmart-1xbd3ajdayi.netdna-ssl.com/wp-content/uploads/2020/10/Intellectual-Property_v_4_.pdf" target="_blank" rel="noopener">Intellectual Property Notice</a>&nbsp;|</span>
+        </div>
+    </div>
+
+    
+
+
+</html>

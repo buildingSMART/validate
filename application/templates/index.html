@@ -1,78 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <title>buildingSMART IFC Validation Service</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
-    <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
-
-    <script>
-        var isIE = !!window.MSInputMethodContext;
-        if (isIE) {
-            FileList.prototype.map = function (fn) { var r = []; for (var i = 0; i < this.length; ++i) { r.push(fn(this[i])); } return r; }
-        }
-    </script>
-
-    <script>
-        var decoded = {{ decoded| tojson}}
-        console.log(decoded);
+{% extends "base.html" %}
+{% block css %}
+    <!-- <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='all.css') }}"> -->
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='index.css') }}">
+{% endblock %}
 
 
-        function goToDashboard() {
-            window.location = "/dashboard";
-        }
 
-    </script>
+{% block link %}<a href="/dashboard">Go to dashboard</a>{% endblock %}
+{% block content %}
 
-    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='index.css') }}">
-
-<body>
-
-    <div class="full-screen">
-        <div class="header">
-
-            <a href="/" style="padding-left: 5px;" id="logo">
-                <img class="bsdd-logo"
-                    src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" />
-            </a>
-
-            <div id="logo" style="margin-right:10px; display: flex;flex-direction: row; align-items: center;
-            justify-content: center; align-content: space-between; gap: 12px;">
-
-                <button onclick="goToDashboard();" style="height: 40px;width: 150px;">DASHBOARD >></button>
-                <button
-                    style="height: 50px;width: 50px;border-radius: 50%;background-image: url(static/icons/bs.JPG);background-repeat: no-repeat;border: none;background-size:cover;"></button>
-                <!-- <img src="{{url_for('static', filename='navbar/BuildingSmart-login.png')}}" /> -->
-            </div>
-
-        </div>
-
-        <div class="main">
-
-            <div class="tabs"">
-
-                <!-- <button class=" w3-bar-item w3-button tab" id="ifc_button" onclick="changeTab('ifc_tab')">IFC</button> -->
-                <button class=" w3-bar-item w3-button tab" id="ifc_button">IFC</button>
-                <!-- <p style="font-size: 25px; color:grey;">|</p> -->
-                <!-- <button class="w3-bar-item w3-button tab" id="ids_button" onclick="changeTab('ids_tab')">IDS</button> -->
-
+            <div class="hidden_menu">
+                <span>{{ username }}</span>
+                <a href="/dashboard">Go to dashboard</a>
+                <a href="/logout">Log out</a>
             </div>
 
             <div class="submit-area" id="ifc_tab">
 
-                <form action="{{url_for('put_main')}}" class="dropzone" id="ifc_dropzone"></form>
-
-
-                <div id="config">
+                <form action="{{url_for('put_main')}}" class="dropzone" id="ifc_dropzone">
+                    <div class="dz-message" data-dz-message><span><i class='material-icons'>file_upload</i> Click or drop files here to upload for validation</span></div>
+                </form>
+                
+                <div class="config" id="config">
                     <div>
-                        <input type="checkbox" id="syntax_outside" name="syntax" disabled="disabled">
+                        <input type="checkbox" id="syntax_outside" name="syntax" checked>
                         <label for="Syntax">Syntax</label>
                     </div>
 
                     <div>
-                        <input type="checkbox" id="schema_outside" name="schema" disabled="disabled">
+                        <input type="checkbox" id="schema_outside" name="schema" checked>
                         <label for="Schema">Schema</label>
                     </div>
 
@@ -94,46 +50,20 @@
             </div>
 
 
-            <div class="submit-area" id="ids_tab" style="display:none">
-                <form action="{{url_for('put_main')}}" class="dropzone" id="ids_dropzone"></form>
-                <button class="submit-button" id="submit2">Upload IDS</button>
+            <div class="hidden_menu">
+                <span class="username">{{ username }}</span>
+                <a href="/dashboard">Go to dashboard</a>
+                <a href="/logout">Log out</a>
             </div>
 
-            <script>
-
-                function changeTab(tabType) {
-
-                    if (tabType == "ifc_tab") {
-                        document.getElementById("ifc_button").style.color = 'rgb(0, 157, 176)';
-                        document.getElementById("ids_button").style.color = 'black';
-
-                    }
-
-                    else {
-                        document.getElementById("ids_button").style.color = 'rgb(0, 157, 176)';
-                        document.getElementById("ifc_button").style.color = 'black';
-
-                    }
-
-                    var i;
-                    var x = document.getElementsByClassName("submit-area");
-                    for (i = 0; i < x.length; i++) {
-                        x[i].style.display = "none";
-                    }
-
-                    document.getElementById(tabType).style.display = "flex";
-                    document.getElementById(tabType).style.flexDirection = "column";
-
-                }
-
-            </script>
-
-        </div>
-
-    </div>
-
-
     <script>
+
+        const beforeUnloadListener = (event) => {
+            event.preventDefault();
+            return event.returnValue = "Are you sure you want to exit?";
+        };
+
+
         Dropzone.autoDiscover = false;
         var dz = new Dropzone("#ifc_dropzone",
             {
@@ -143,8 +73,16 @@
                 maxFiles: 100,
                 maxFilesize: 8 * 1024,
                 autoProcessQueue: false,
-                addRemoveLinks: true
+                addRemoveLinks: true,
             });
+
+        dz.on("input", (event) => {
+            if (event.target.value !== "") {
+                addEventListener("beforeunload", beforeUnloadListener, {capture: true});
+            } else {
+                removeEventListener("beforeunload", beforeUnloadListener, {capture: true});
+            }
+        });
 
         dz.on("addedfile", file => { console.log("new file") });
 
@@ -170,10 +108,7 @@
 
         });
 
-
-
         dz.on("success", function (file, response) {
-            console.log("new file");
             window.location = response.url;
 
         });
@@ -184,30 +119,22 @@
 
         });
 
-
-        var dz_ids = new Dropzone("#ids_dropzone",
-            {
-                uploadMultiple: true,
-                acceptedFiles: ".xml",
-                parallelUploads: 100,
-                maxFiles: 100,
-                maxFilesize: 8 * 1024,
-                autoProcessQueue: false,
-                addRemoveLinks: true
-            });
-
-
-        var submitButton2 = document.querySelector("#submit2");
-        submitButton2.addEventListener("click", function () {
-            dz_ids.processQueue();
-        });
-
-        dz_ids.on("sending", function (file, xhr, data) {
-            data.append("user", decoded["sub"]);
-        });
-
     </script>
 
-</body>
+<script>
+     function myFunction(x) {
+            x.classList.toggle("change");
 
-</html>
+            var main = document.getElementsByClassName("main")[0];
+            var menu = main.children[0];
+
+            if(menu.className =="hidden_menu"){
+                menu.className = "visible_menu";
+            }
+            else{
+                menu.className = "hidden_menu";
+            }
+        }
+    </script>
+
+{% endblock %}
