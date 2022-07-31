@@ -183,15 +183,42 @@ class ifc_validation_task(task):
 
 
 class mvd_validation_task(task):
-    est_time =10
-
+    est_time = 10
     
     def execute(self, directory, id):
-        check_program = os.path.join(os.getcwd() + "/checks", "check_MVD.py")
-        outname = id +"_mvd.txt"
+        check_program = os.path.join(os.getcwd(), "checks", "check_MVD.py")
+        outname = id + "_mvd.txt"
       
         with open(os.path.join(directory, outname), "w") as f:
             subprocess.call([sys.executable, check_program, id + ".ifc"],cwd=directory,stdout=f)
+
+
+class gherkin_validation_task(task):
+    est_time = 10
+    
+    def execute(self, directory, id):
+        check_program = os.path.join(os.getcwd(), "checks", "check_gherkin.py")
+
+        with database.Session() as session:
+            model = session.query(database.model).filter(database.model.code == id).all()[0]
+            validation_task = self.db_class(model.id)
+            session.add(validation_task)
+            session.commit()
+            validation_task_id = str(validation_task.id)
+
+        subprocess.check_call([sys.executable, check_program, id + ".ifc", str(validation_task_id), self.flag],
+            cwd=directory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+class ia_validation_task(gherkin_validation_task):
+    flag = "--implementer-agreement"
+    db_class = database.implementer_agreements_task
+
+class ip_validation_task(gherkin_validation_task):
+    flag = "--informal-proposition"
+    db_class = database.informal_propositions_task
 
 class bsdd_validation_task(task):
     est_time = 10
@@ -367,35 +394,29 @@ def do_process(id, validation_config, ids_spec):
     
     tasks = [general_info_task]
 
+    print(*validation_config["config"].items())
     
 
     for task, to_validate in validation_config["config"].items():
        
         if int(to_validate):
-            if task == 'syntax' and to_validate:
+            if task == 'syntax':
                 tasks.append(syntax_validation_task)
-            elif task == 'schema' and to_validate:
+            elif task == 'schema':
                 tasks.append(ifc_validation_task)
-            elif task == 'mvd' and to_validate:
+            elif task == 'mvd':
                 tasks.append(mvd_validation_task)
-            elif task == 'bsdd' and to_validate:
+            elif task == 'bsdd':
                 tasks.append(bsdd_validation_task)
-            elif task =='ids' and to_validate:
+            elif task =='ids':
                 tasks.append(ids_validation_task)
+            elif task =='ia':
+                tasks.append(ia_validation_task)
+            elif task =='ip':
+                tasks.append(ip_validation_task)
+            else:
+                raise RuntimeError(f"Unknown validation task {task}")
 
-    
-    # tasks = [
-    #     # syntax_validation_task,
-    #     # ifc_validation_task,
-    #     bsdd_validation_task,
-    #     mvd_validation_task,
-    #     # xml_generation_task,
-    #     # geometry_generation_task,
-    #     # svg_generation_task,
-    #     # glb_optimize_task,
-    #     # gzip_task
-    # ]
-    
     tasks_on_aggregate = []
     
     is_multiple = any("_" in n for n in input_files)
@@ -475,7 +496,8 @@ def process(ids, validation_config, ids_spec = None , callback_url=None):
         status = "success"
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
-        status = "failure"        
-        set_progress(id, -2)
+        status = "failure"
+        for id in ids:    
+            set_progress(id, -2)
     if callback_url is not None:       
         r = requests.post(callback_url, data={"status": status, "id": ids})

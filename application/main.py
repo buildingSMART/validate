@@ -524,6 +524,8 @@ def log_results(decoded, i, ids):
         response["results"]["mvdlog"] = model.status_mvd
         response["results"]["bsddlog"] = model.status_bsdd
         response["results"]["idslog"] = model.status_ids
+        response["results"]["ialog"] = model.status_ia
+        response["results"]["iplog"] = model.status_ip
 
         response["time"] = model.serialize()['date']
 
@@ -544,125 +546,6 @@ class Error:
                (self.classification == other.classification) and \
                (self.validation_constraints == other.validation_constraints) and \
                (self.validation_results == other.validation_results)
-@application.route('/report1/<id>')
-@login_required
-def view_report1(decoded, id):
-    with database.Session() as session:
-        session = database.Session()
-
-        model = session.query(database.model).filter(
-            database.model.code == id).all()[0]
-        m = model.serialize()
-
-        results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
-
-        if m["status_syntax"] != 'n':
-            syntax_validation_task = session.query(database.syntax_validation_task).filter(database.syntax_validation_task.validated_file == model.id).all()[0]
-            syntax_result = session.query(database.syntax_result).filter(database.syntax_result.task_id == syntax_validation_task.id).all()[0]
-            results["syntax_result"] = syntax_result.serialize() 
-
-        if m["status_schema"] != 'n':
-            schema_validation_task = session.query(database.schema_validation_task).filter(
-            database.schema_validation_task.validated_file == model.id).all()[0]
-            schema_result = session.query(database.schema_result).filter(database.schema_result.task_id == schema_validation_task.id).all()[0]
-            results["schema_result"] = schema_result.serialize() 
-            
-            if not results["schema_result"]['msg']:
-                results["schema_result"]['msg'] = "Valid"
-            
-        hierarchical_bsdd_results = {}
-        if m["status_bsdd"] != 'n':
-            bsdd_validation_task = session.query(database.bsdd_validation_task).filter(
-                database.bsdd_validation_task.validated_file == model.id).all()[0]
-
-            bsdd_results = session.query(database.bsdd_result).filter(
-                database.bsdd_result.task_id == bsdd_validation_task.id).all()
-            bsdd_results = [bsdd_result.serialize() for bsdd_result in bsdd_results]
-
-            errors = {}
-            for bsdd_result in bsdd_results:
-                if bsdd_result["domain_file"] not in errors.keys():
-                    errors[bsdd_result["domain_file"]]= {}
-
-                if bsdd_result["classification_file"] not in errors[bsdd_result["domain_file"]].keys():
-                    errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]] = []
-
-                validation_subsections = ["val_ifc_type", "val_property_set", "val_property_name", "val_property_type", "val_property_value"]
-                validation_results = [bsdd_result[subsection] for subsection in validation_subsections]
-
-                # import pdb;pdb.set_trace()
-               
-                file_values = [ 
-                            bsdd_result["bsdd_type_constraint"],
-                            bsdd_result["ifc_property_set"],
-                            bsdd_result["ifc_property_name"],
-                            bsdd_result["ifc_property_type"],
-                            bsdd_result["ifc_property_value"]
-                ]
-                
-                # For now handles the case when the classification is not retrieved from the API 
-                if None not in validation_results:
-                    if sum(validation_results) != len(validation_results):
-                        validation_constraints_subsections = ["propertySet","name","dataType", "predefinedValue", "possibleValues"]
-
-                        validation_constraints= [bsdd_result['bsdd_type_constraint']]
-
-                        for subsection in validation_constraints_subsections:
-                            constraint = json.loads(bsdd_result["bsdd_property_constraint"])
-                            if subsection in constraint.keys():
-                                validation_constraints.append(constraint[subsection])
-                
-                        error = Error(bsdd_result["domain_file"],
-                                    bsdd_result["classification_file"],
-                                    validation_constraints,
-                                    validation_results,
-                                    file_values)
-                        
-                        if error not in errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]] :
-                            
-                            errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]].append(error)
-                        
-                        errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]][-1].instances.append(bsdd_result["instance_id"])
-
-                
-                if bsdd_result["bsdd_property_constraint"]:
-                    bsdd_result["bsdd_property_constraint"] = json.loads(
-                        bsdd_result["bsdd_property_constraint"])
-                else:
-                    bsdd_result["bsdd_property_constraint"] = 0
-
-                if bsdd_result["domain_file"] not in hierarchical_bsdd_results.keys():
-                    hierarchical_bsdd_results[bsdd_result["domain_file"]]= {}
-
-                if bsdd_result["classification_file"] not in hierarchical_bsdd_results[bsdd_result["domain_file"]].keys():
-                    hierarchical_bsdd_results[bsdd_result["domain_file"]][bsdd_result["classification_file"]] = []
-
-
-                hierarchical_bsdd_results[bsdd_result["domain_file"]][bsdd_result["classification_file"]].append(bsdd_result)
-                
-            results["bsdd_results"]["bsdd"] = hierarchical_bsdd_results
-            bsdd_validation_task = bsdd_validation_task.serialize()
-
-            results["bsdd_results"]["task"] = bsdd_validation_task
-
-            instances = session.query(database.ifc_instance).filter(
-                database.ifc_instance.file == model.id).all()
-           
-            instances = {instance.id: instance.serialize() for instance in instances}
-            
-            results["bsdd_results"]["instances"] = instances 
-    
-    if 'errors' in locals():
-        return render_template("report_v1.html",
-                            model=m,
-                            results=results,
-                            errors=errors,
-                            username=f"{decoded['given_name']} {decoded['family_name']}")
-    else:
-        return render_template("report_v2.html",
-                        model=m,
-                        results=results,
-                        username=f"{decoded['given_name']} {decoded['family_name']}")
 
 @application.route('/report2/<id>')
 @login_required
@@ -672,7 +555,9 @@ def view_report2(decoded, id):
 
         model = session.query(database.model).filter(
             database.model.code == id).all()[0]
-        m = model.serialize()
+        m = model.serialize(True)
+
+        tasks = {t['task_type']: t for t in m['tasks']}
 
         results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
 
@@ -692,6 +577,7 @@ def view_report2(decoded, id):
             
         hierarchical_bsdd_results = {}
         if m["status_bsdd"] != 'n':
+            # @todo use relationship model.tasks instead of all these fragmented queries
             bsdd_validation_task = session.query(database.bsdd_validation_task).filter(
                 database.bsdd_validation_task.validated_file == model.id).all()[0]
 
@@ -781,6 +667,7 @@ def view_report2(decoded, id):
     # else:
     return render_template("report_v2.html",
                     model=m,
+                    tasks=tasks,
                     results=results,
                     username=f"{decoded['given_name']} {decoded['family_name']}")
 

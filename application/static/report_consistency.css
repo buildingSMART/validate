@@ -232,3 +232,13 @@ table pre {
     padding: 0 0 0 10%;
     margin: 0;
 }
+
+a {
+  text-decoration: none;
+  color: #444;
+}
+
+a:hover {
+  text-decoration: underline;
+  color: #888;
+}

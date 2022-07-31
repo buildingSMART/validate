@@ -65,7 +65,7 @@ function completeTable(i) {
     var rows = table.rows;
 
     fetch("/reslogs/" + i + "/" + unsavedConcat).then(function (r) { return r.json(); }).then(function (r) {
-        ['syntax', 'schema', 'mvd', 'bsdd'].forEach((x, i) => {
+        ['syntax', 'schema', 'mvd', 'bsdd', 'ia', 'ip'].forEach((x, i) => {
             var icon = icons[r["results"][`${x}log`]];
             
             rows[row_index].cells[toColumnComplete[x]].className = `${icon} material-icons`;
@@ -129,7 +129,7 @@ else{
         createInput("details", row, model);
     
         if (model.progress == 100 || model.progress == -2) {
-            var checks_type = ["syntax", "schema", "mvd", "bsdd", "ids"];
+            var checks_type = ["syntax", "schema", "mvd", "bsdd", "ids", "ia", "ip"];
             var icons = { 'v': 'valid', 'w': 'warning', 'i': 'invalid', 'n': 'not' };
             for (var j = 0; j < checks_type.length; j++) {
                 var attr = "status_" + checks_type[j];

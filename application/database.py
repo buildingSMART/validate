@@ -58,13 +58,16 @@ Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
 class Serializable(object):
-    def serialize(self):
+    def serialize(self, full=False):
         # Transforms data from dataclasses to a dict,
         # storing primary key of references and handling date format
         d = {}
         for attribute in inspect(self).attrs.keys():
             if isinstance(getattr(self, attribute), (list, tuple)):
-                d[attribute] = [element.id for element in getattr(self, attribute)]
+                if full:
+                    d[attribute] = [element.serialize(full) for element in getattr(self, attribute)]
+                else:
+                    d[attribute] = [element.id for element in getattr(self, attribute)]
             elif isinstance(getattr(self, attribute), datetime.datetime):
                 d[attribute] = getattr(self, attribute).strftime("%Y-%m-%d %H:%M:%S")
             else:
@@ -114,13 +117,17 @@ class model(Base, Serializable):
     size = Column(String)
     mvd = Column(String)
 
+    # @todo rather these should be relations on the corresponding tasks
     status_syntax = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_schema = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_bsdd = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_mvd = Column(Enum('n','v','w','i', name='status_types'), default='n')
-    status_ids= Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_ids = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_ia = Column(Enum('n','v','w','i', name='status_types'), default='n')
+    status_ip = Column(Enum('n','v','w','i', name='status_types'), default='n')
     
     instances = relationship("ifc_instance")
+    tasks = relationship("validation_task")
 
     def __init__(self, code, filename, user_id):
         self.code = code
@@ -140,56 +147,91 @@ class file(Base, Serializable):
         self.filename = filename
 
 
-class bsdd_validation_task(Base, Serializable):
-    __tablename__ = 'bSDD_validation_tasks'
+class validation_task(Base, Serializable):
+    __tablename__ = 'validation_tasks'
 
     id = Column(Integer, primary_key=True)
+    task_type = Column(String(32))
     validated_file = Column(Integer, ForeignKey('models.id'))
     validation_start_time = Column(DateTime)
     validation_end_time = Column(DateTime)
+    
+    __mapper_args__ = {
+        "polymorphic_identity": "validation_task",
+        "polymorphic_on": task_type,
+    }
 
+    def __init__(self, validated_file):
+        self.validated_file = validated_file
+
+
+class bsdd_validation_task(validation_task):
     results = relationship("bsdd_result")
 
-    def __init__(self, validated_file):
-        self.validated_file = validated_file
-        
+    __mapper_args__ = {
+        "polymorphic_identity": "bsdd_validation_task",
+    }
+    
 
-class schema_validation_task(Base, Serializable):
-    __tablename__ = 'schema_validation_tasks'
-
-    id = Column(Integer, primary_key=True)
-    validated_file = Column(Integer, ForeignKey('models.id'))
-    validation_start_time = Column(DateTime)
-    validation_end_time = Column(DateTime)
-
+class schema_validation_task(validation_task):
     results = relationship("schema_result")
 
-    def __init__(self, validated_file):
-        self.validated_file = validated_file
-
-
-class syntax_validation_task(Base, Serializable):
-    __tablename__ = 'syntax_validation_tasks'
-
-    id = Column(Integer, primary_key=True)
-    validated_file = Column(Integer, ForeignKey('models.id'))
-    validation_start_time = Column(DateTime)
-    validation_end_time = Column(DateTime)
-
+    __mapper_args__ = {
+        "polymorphic_identity": "schema_validation_task",
+    }
+    
+class syntax_validation_task(validation_task):
     results = relationship("syntax_result")
 
-    def __init__(self, validated_file):
-        self.validated_file = validated_file
+    __mapper_args__ = {
+        "polymorphic_identity": "syntax_validation_task",
+    }
+
+class gherkin_task(validation_task):
+    results = relationship("gherkin_result")
+
+class informal_propositions_task(gherkin_task):
+    __mapper_args__ = {
+        "polymorphic_identity": "informal_propositions_task",
+    }
+
+class implementer_agreements_task(gherkin_task):
+    __mapper_args__ = {
+        "polymorphic_identity": "implementer_agreements_task",
+    }    
+
+class gherkin_result(Base, Serializable):
+    __tablename__ = 'gherkin_result'
+
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('validation_tasks.id'))
+
+    feature = Column(String)
+    feature_url = Column(String)
+    step = Column(String)
+    instance_id = Column(Integer, ForeignKey('instances.id'))
+    message = Column(String)
+
+    def __init__(self, task_id, feature, feature_url, step, instance_id, message):
+        self.task_id = task_id
+        self.feature = feature
+        self.feature_url = feature_url
+        self.step = step
+        self.instance_id = instance_id
+        self.message = message
 
 
 class ifc_instance(Base, Serializable):
     __tablename__ = 'instances'
 
     id = Column(Integer, primary_key=True)
+    # @todo there should be the instance numeric id in here as well, in case of
+    # non-rooted instances.
     global_id = Column(String)
     file = Column(Integer, ForeignKey('models.id'))
     ifc_type = Column(String)
     bsdd_results = relationship("bsdd_result")
+    gherkin_results = relationship("gherkin_result")
     
     def __init__(self, global_id, ifc_type, file):
         self.global_id = global_id
@@ -201,7 +243,7 @@ class bsdd_result(Base, Serializable):
     __tablename__ = 'bSDD_results'
 
     id = Column(Integer, primary_key=True)
-    task_id = Column(Integer, ForeignKey('bSDD_validation_tasks.id'))
+    task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     instance_id = Column(Integer, ForeignKey('instances.id'))
 
     domain_file = Column(String)
@@ -235,7 +277,7 @@ class schema_result(Base, Serializable):
     __tablename__ = 'schema_results'
 
     id = Column(Integer, primary_key=True)
-    task_id = Column(Integer, ForeignKey('schema_validation_tasks.id'))
+    task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     msg = Column(String, default="msg")
 
     def __init__(self, task_id):
@@ -246,7 +288,7 @@ class syntax_result(Base, Serializable):
     __tablename__ = 'syntax_results'
 
     id = Column(Integer, primary_key=True)
-    task_id = Column(Integer, ForeignKey('syntax_validation_tasks.id'))
+    task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     msg = Column(String, default="msg")
 
     def __init__(self, task_id):

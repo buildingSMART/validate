@@ -27,6 +27,8 @@
         "schema",
         "mvd",
         "bsdd",
+        "ia",
+        "ip",
         //"ids",
         "report",
         "progress",
@@ -45,6 +47,8 @@
         "schema",
         "mvd",
         "bsdd",
+        "ia",
+        "ip",
         //"ids",
         "report",
         "date",
@@ -81,6 +85,8 @@
             <th>Schema</th>
             <th>MVD</th>
             <th>bSDD</th>
+            <th><abbrev title="Implementer Agreements">IA</abbrev></th>
+            <th><abbrev title="Informal Propositions">IP</abbrev></th>
             <!--<th>IDS</th>-->
 
             <th></th>
@@ -139,12 +145,12 @@
         dz.on("addedfile", file => { console.log("new file") });
 
         dz.on("sending", function (file, xhr, data) {
-            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd'];
+            // @todo remove duplication with index.html
+            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd', 'ia', 'ip'];
 
-            for (var i = 0; i < validationTypes.length; i++) {
-                data.append(validationTypes[i], 1);
-            }
-
+            validationTypes.forEach((vty) => {
+                data.append(vty, 1);
+            });
         });
 
 

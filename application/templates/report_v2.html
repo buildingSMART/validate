@@ -136,7 +136,9 @@
         [
         ("syntax", "Syntax"),
         ("schema", "Schema"),
-        ("bsdd", "bSDD")
+        ("bsdd", "bSDD"),
+        ("ia", "Implementer Agreements"),
+        ("ip", "Informal Propositions")
         ]
         %}
 
@@ -320,6 +322,54 @@
                 <td style="text-align:center;background-color: {{validation_colors[2]}};" colspan=9>Not checked</td>
             </tr>
 
+        {% endif %}
+
+        <tr data-current="bsdd" data-state="on" data-level=1 onclick="xPlay(this)">
+            <td colspan=9 class="rowheader">Implementer Agreements</td>
+        </tr>
+        
+        {% if tasks.implementer_agreements_task %}
+            {% for rslt in tasks.implementer_agreements_task.results %}
+                <tr>
+                    <td style="text-align:left; background-color: {{validation_colors[0]}};" colspan=9>
+                            <a href="{{rslt.feature_url}}">{{rslt.feature}}</a><br>
+                            <b>&bullet; {{rslt.step}}</b><br>
+                            {{rslt.message}}<br>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td style="text-align:center;background-color: {{validation_colors[1]}};" colspan=9>Valid</td>
+                </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td style="text-align:center;background-color: {{validation_colors[2]}};" colspan=9>Not checked</td>
+            </tr>
+        {% endif %}
+
+        <tr data-current="bsdd" data-state="on" data-level=1 onclick="xPlay(this)">
+            <td colspan=9 class="rowheader">Informal Propositions</td>
+        </tr>
+        
+        {% if tasks.informal_propositions_task %}
+            {% for rslt in tasks.informal_propositions_task.results %}
+                <tr>
+                    <td style="text-align:left; background-color: {{validation_colors[0]}};" colspan=9>
+                            <a href="{{rslt.feature_url}}">{{rslt.feature}}</a><br>
+                            <b>&bullet; {{rslt.step}}</b><br>
+                            {{rslt.message}}<br>
+                    </td>
+                </tr>
+            {% else %}
+                <tr>
+                    <td style="text-align:center;background-color: {{validation_colors[1]}};" colspan=9>Valid</td>
+                </tr>
+            {% endfor %}
+        {% else %}
+            <tr>
+                <td style="text-align:center;background-color: {{validation_colors[2]}};" colspan=9>Not checked</td>
+            </tr>
         {% endif %}
     </table>
 

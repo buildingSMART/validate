@@ -42,6 +42,16 @@
                         <label for="bSDD">bSDD</label>
                     </div>
 
+                    <div>
+                        <input type="checkbox" id="ia_outside" name="ia" checked>
+                        <label for="ia">Implementer Agreements</label>
+                    </div>
+
+                    <div>
+                        <input type="checkbox" id="ip_outside" name="ip" checked>
+                        <label for="ip">Informal Propositions</label>
+                    </div>
+
                 </div>
 
                 <button class="submit-button" id="submit">Start validation</button>
@@ -87,7 +97,7 @@
         dz.on("addedfile", file => { console.log("new file") });
 
         dz.on("sending", function (file, xhr, data) {
-            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd'];
+            var validationTypes = ['syntax', 'schema', 'mvd', 'bsdd', 'ia', 'ip'];
 
             for (var i = 0; i < validationTypes.length; i++) {
                 var checkboxOutside = document.getElementById(validationTypes[i] + "_outside");
