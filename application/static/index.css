@@ -30,6 +30,7 @@
   gap: 32px;
   border-radius: 4px;
   box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
+  max-height: 250px;
 }
 
 .dropzone {
