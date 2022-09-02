@@ -6,10 +6,50 @@
   width: 75%;
 }
 
+
+.dropzone {
+  width: 100%;
+  background: #eee;
+  border-width: 1px;
+  border-color: #ddd;
+}
+
+.dropzone:hover {
+  background: #f4f4f4;
+}
+
+.submit-area {
+  width: 20%;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  justify-content: space-evenly;
+  gap: 32px;
+  border-radius: 4px;
+  box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
+  margin-bottom: 20px;
+}
+
+.dropzone {
+  overflow: overlay;
+  text-align: center;
+  min-height: 40%;
+}
+
+.config {
+  width: 100%;
+  background-color: rgb(210 237 240);
+}
+
+.submit-button{
+  height: 40px;
+}
+
 .submit-button{
   margin-bottom: 1%;
   margin-top: 1%;
-  margin-left: 50%;
   text-align: center;
   
 }
@@ -28,11 +68,11 @@ td, th {
 }
 
 input{
-width: 40px;
-
+  width: 40px;
 }
 .filename {
   text-align: left;
+  overflow: auto;
 }
 
 table .material-icons {
@@ -84,6 +124,12 @@ table {
   width: 200px;
   text-align: center;
 
+}
+
+#report{
+  text-decoration: none;
+  font-weight: bold;
+  color: #0070C0;
 }
 
 .percentage {
@@ -237,6 +283,8 @@ table {
     width: 100%;
   }
 
+  
+
   .visible_menu {
     width: 100%;
 
@@ -275,9 +323,7 @@ table {
     display: flex;
   }
 
-
 }
-
   
 abbrev {
   border-bottom: dotted 1px black;

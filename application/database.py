@@ -118,16 +118,19 @@ class model(Base, Serializable):
     mvd = Column(String)
 
     # @todo rather these should be relations on the corresponding tasks
+
     status_syntax = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_schema = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_bsdd = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_mvd = Column(Enum('n','v','w','i', name='status_types'), default='n')
+
     status_ids = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_ia = Column(Enum('n','v','w','i', name='status_types'), default='n')
     status_ip = Column(Enum('n','v','w','i', name='status_types'), default='n')
     
     instances = relationship("ifc_instance")
     tasks = relationship("validation_task")
+
 
     def __init__(self, code, filename, user_id):
         self.code = code
@@ -221,18 +224,21 @@ class gherkin_result(Base, Serializable):
         self.message = message
 
 
+
 class ifc_instance(Base, Serializable):
     __tablename__ = 'instances'
 
     id = Column(Integer, primary_key=True)
+
     # @todo there should be the instance numeric id in here as well, in case of
     # non-rooted instances.
+
     global_id = Column(String)
     file = Column(Integer, ForeignKey('models.id'))
     ifc_type = Column(String)
     bsdd_results = relationship("bsdd_result")
     gherkin_results = relationship("gherkin_result")
-    
+
     def __init__(self, global_id, ifc_type, file):
         self.global_id = global_id
         self.ifc_type = ifc_type
@@ -244,6 +250,7 @@ class bsdd_result(Base, Serializable):
 
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer, ForeignKey('validation_tasks.id'))
+
     instance_id = Column(Integer, ForeignKey('instances.id'))
 
     domain_file = Column(String)

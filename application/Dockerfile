@@ -19,13 +19,17 @@ RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser
 
 RUN python3 -m pip install --upgrade pip
 
+
 RUN python3 -m pip install flask flask-cors numpy gunicorn rq redis SQLAlchemy==1.4.31 psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse behave --upgrade
+
 
 # IfcConvert v0.6.0
 RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.6.0-c15fdc7-linux64.zip -O /tmp/IfcConvert.zip
 RUN unzip /tmp/IfcConvert.zip -d /usr/bin
 
+
 RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2]))[0:2])'`-v0.7.0-dc67287-linux64.zip
+
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
 
@@ -36,11 +40,16 @@ RUN wget  -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcop
 WORKDIR /www
 COPY . /www
 
+COPY application/checks /www/checks
+
+COPY application/*.yml /www/
+
 COPY .git/HEAD /tmp/.git/HEAD
 COPY .git/refs/ /tmp/.git/refs/
 RUN /bin/bash -c '(cat /tmp/.git/$(cat /tmp/.git/HEAD | cut -d \  -f 2)) || cat /tmp/.git/HEAD' > /version
 RUN sed -i "4i<script>console.log('pipeline version: $(cat /version)');</script>" /www/application/templates/*.html
 RUN rm -rf /tmp/.git
+
 
 COPY application/queue.conf /etc/supervisord.conf
 

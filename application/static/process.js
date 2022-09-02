@@ -130,6 +130,7 @@ else{
     
         if (model.progress == 100 || model.progress == -2) {
             var checks_type = ["syntax", "schema", "mvd", "bsdd", "ids", "ia", "ip"];
+
             var icons = { 'v': 'valid', 'w': 'warning', 'i': 'invalid', 'n': 'not' };
             for (var j = 0; j < checks_type.length; j++) {
                 var attr = "status_" + checks_type[j];

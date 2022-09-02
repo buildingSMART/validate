@@ -188,7 +188,7 @@ class mvd_validation_task(task):
     def execute(self, directory, id):
         check_program = os.path.join(os.getcwd(), "checks", "check_MVD.py")
         outname = id + "_mvd.txt"
-      
+   
         with open(os.path.join(directory, outname), "w") as f:
             subprocess.call([sys.executable, check_program, id + ".ifc"],cwd=directory,stdout=f)
 
@@ -365,8 +365,7 @@ class svg_generation_task(task):
 def do_process(id, validation_config, ids_spec):
 
     d = utils.storage_dir_for_id(id)
-
-    
+   
     with open(os.path.join(d,'config.json'), 'w') as outfile:
         json.dump(validation_config, outfile)
 
@@ -496,8 +495,10 @@ def process(ids, validation_config, ids_spec = None , callback_url=None):
         status = "success"
     except Exception as e:
         traceback.print_exc(file=sys.stdout)
+
         status = "failure"
         for id in ids:    
             set_progress(id, -2)
+
     if callback_url is not None:       
         r = requests.post(callback_url, data={"status": status, "id": ids})

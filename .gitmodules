@@ -1,9 +1,7 @@
-[submodule "application/bimsurfer"]
-	path = application/bimsurfer
-	url = https://github.com/AECgeeks/BIMsurfer2
 [submodule "application/checks/step-file-parser"]
 	path = application/checks/step-file-parser
 	url = https://github.com/IfcOpenShell/step-file-parser
 [submodule "application/checks/gherkin-rules"]
 	path = application/checks/gherkin_rules
 	url = https://github.com/AECgeeks/ifc-gherkin-rules
+

@@ -524,6 +524,7 @@ def log_results(decoded, i, ids):
         response["results"]["mvdlog"] = model.status_mvd
         response["results"]["bsddlog"] = model.status_bsdd
         response["results"]["idslog"] = model.status_ids
+
         response["results"]["ialog"] = model.status_ia
         response["results"]["iplog"] = model.status_ip
 
@@ -547,6 +548,9 @@ class Error:
                (self.validation_constraints == other.validation_constraints) and \
                (self.validation_results == other.validation_results)
 
+
+
+
 @application.route('/report2/<id>')
 @login_required
 def view_report2(decoded, id):
@@ -555,6 +559,7 @@ def view_report2(decoded, id):
 
         model = session.query(database.model).filter(
             database.model.code == id).all()[0]
+
         m = model.serialize(True)
 
         tasks = {t['task_type']: t for t in m['tasks']}
@@ -570,7 +575,7 @@ def view_report2(decoded, id):
             schema_validation_task = session.query(database.schema_validation_task).filter(
             database.schema_validation_task.validated_file == model.id).all()[0]
             schema_result = session.query(database.schema_result).filter(database.schema_result.task_id == schema_validation_task.id).all()[0]
-            results["schema_result"] = schema_result.serialize() 
+            results["schema_result"] = schema_result.serialize()
             
             if not results["schema_result"]['msg']:
                 results["schema_result"]['msg'] = "Valid"
@@ -595,9 +600,7 @@ def view_report2(decoded, id):
 
                 validation_subsections = ["val_ifc_type", "val_property_set", "val_property_name", "val_property_type", "val_property_value"]
                 validation_results = [bsdd_result[subsection] for subsection in validation_subsections]
-
-                # import pdb;pdb.set_trace()
-               
+    
                 file_values = [ 
                             bsdd_result["bsdd_type_constraint"],
                             bsdd_result["ifc_property_set"],
@@ -667,6 +670,7 @@ def view_report2(decoded, id):
     # else:
     return render_template("report_v2.html",
                     model=m,
+
                     tasks=tasks,
                     results=results,
                     username=f"{decoded['given_name']} {decoded['family_name']}")

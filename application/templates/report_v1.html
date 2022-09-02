@@ -44,8 +44,12 @@ function getChildren(el, children = [], it=0){
                 }
 
     function fold(element){
-        console.log("element", element)
-        
+
+        classification = element.cells[0].innerText.split(" ");
+
+        sliced = classification.slice(1);
+        concatenated = classification.slice(1).join(" ");
+
         elementClass = element.classList[1].slice(0,-1);
         foldStatus = element.classList[0];
         parentClass = element.classList[2];
@@ -57,7 +61,6 @@ function getChildren(el, children = [], it=0){
         
        
         if(to_unfold){
-            element.cells[0] = "&#9660" + element.cells[0];
             v_children.forEach(function (item, index) {
                 item.style.display = "";
 
@@ -65,7 +68,6 @@ function getChildren(el, children = [], it=0){
                 itemParentClass = item.classList[2];
             });
 
-            element.cells[0] = "&#9660" + element.cells[0];
             elementClass_ = element.classList[1];
     
             element.classList.remove("folded");
@@ -75,7 +77,9 @@ function getChildren(el, children = [], it=0){
             element.classList.add("unfolded")
             element.classList.add(elementClass_);
             element.classList.add(parentClass);
-
+            
+            var cell = element.cells[0];
+            cell.innerHTML = `&#9660; ${concatenated}`;
 
         }
         else{
@@ -107,6 +111,10 @@ function getChildren(el, children = [], it=0){
             element.classList.add("folded")
             element.classList.add(elementClass_);
             element.classList.add(parentClass);
+
+            var cell = element.cells[0];
+            cell.innerHTML =`&#9654; ${concatenated}`;
+
         }
     }
 
@@ -268,7 +276,7 @@ function getChildren(el, children = [], it=0){
                          <!-- ERROR -->
                             {% set error_index = loop.index|string %}
                             {% set classname = "error_" + error_index +"_" %}
-                            <tr class="folded {{classname}} {{classification.replace(' ', '_')}}" style="display:none; font-style: bold;" onclick="fold(this)"><td>Error {{loop.index}}</td></tr>
+                            <tr class="folded {{classname}} {{classification.replace(' ', '_')}}" style="display:none; font-style: bold;" onclick="fold(this)"><td>&#9654; Error {{loop.index}}</td></tr>
 
 
                             {% set values = error.validation_constraints %}
@@ -354,7 +362,6 @@ function getChildren(el, children = [], it=0){
             var main = document.getElementsByClassName("main")[0];
             var menu = main.children[0];
 
-            console.log("menu", menu)
 
             if(menu.className =="hidden_menu"){
                 menu.className = "visible_menu";
