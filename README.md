@@ -1,9 +1,33 @@
-ifc-pipeline
-------------
+# buildingSMART validation service
 
-A processing queue that uses [IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell/) to convert IFC input files into a graphic display using glTF 2.0 and [BIMSurfer2](https://github.com/AECgeeks/BIMsurfer2/) for visualization.
+ifc-pipeline is a processing queue that uses [IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell/) to convert IFC input files into a graphic display using glTF 2.0 and [BIMSurfer2](https://github.com/AECgeeks/BIMsurfer2/) for visualization. There is a small web application in Flask that accepts file uploads. HTTPS is provided by Nginx. Everything is tied together using Docker Compose.
 
-There is a small web application in Flask that accepts file uploads. HTTPS is provided by Nginx. Everything is tied together using Docker Compose.
+## Validation
+
+For buildingSMART international, ifc-pipeline has been adapted to perform IFC file validation on (currently) 4 levels:
+
+1. IFC-SPF syntax using https://github.com/IfcOpenShell/step-file-parser
+2. Schema validation ([inverse] attribute types and cardinalities) using https://github.com/IfcOpenShell/IfcOpenShell/blob/v0.7.0/src/ifcopenshell-python/ifcopenshell/validate.py
+3. Informal Propositions (IP) and Implementer Agreements (IA) using behavioural driven development and the Gherkin language
+4. bSDD integrity
+
+## Architecture
+
+![](ifc-pipeline-validation-architecture.png)
+
+The service is deployed using docker compose. 
+
+The deployment consists of a python front-end and worker(s) (using the same underlying docker container), nginx proxy, postgres database and redis for implementing a synchronised task queue.
+
+Uploaded models are stored on disk.
+
+The worker executes a series of validation tasks on the models. These are all modules that can act as stand-alone code repositories in themselves. For the purpose of the validation service, they each have an associated runner task that knows how to invoke the module, capture output and write to the database.
+
+## Database schema
+
+![](db-schema.png)
+
+## Usage
 
 ~~~
 ./init.sh my.domain.name.com
