@@ -35,7 +35,10 @@ with database.Session() as session:
     model.schema = ifc_file.schema
     model.authoring_application = authoring_app
     model.mvd = detected_mvd
-    model.number_of_elements = len(ifc_file.by_type("IfcBuildingElement"))
+    try:
+        model.number_of_elements = len(ifc_file.by_type("IfcBuildingElement"))
+    except:
+        model.number_of_elements = len(ifc_file.by_type("IfcBuiltElement"))
     model.number_of_geometries = len(ifc_file.by_type("IfcShapeRepresentation"))
     model.number_of_properties = len(ifc_file.by_type("IfcProperty"))
 
