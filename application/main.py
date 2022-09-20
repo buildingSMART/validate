@@ -337,15 +337,9 @@ def put_main(decoded):
             file = f
             files.append(file)
 
-    validate(data=request.form, filepath='defs.yml')
 
-    val_config = request.form.to_dict()
-    val_results = {
-        k + "log": 'n' for (k, v) in val_config.items() if k != "user"}
-
-    validation_config = {}
-    validation_config["config"] = val_config
-    validation_config["results"] = val_results
+    with open('config.json', 'r') as config_file:
+        validation_config=json.loads(config_file.read())
 
     if VALIDATION:
         ids = process_upload_validation(files, validation_config, user_id)
@@ -417,8 +411,7 @@ def get_validation_progress(decoded, id):
 @application.route('/update_info/<code>', methods=['POST'])
 @login_required
 def update_info(decoded, code):
-    try:
-        validate(data=request.get_data(), filepath='update.yml')    
+    try:  
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == code).all()[0]
             original_license = model.license

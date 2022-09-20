@@ -1,0 +1,53 @@
+<div class="submit-area" id="ifc_tab">
+
+    <form action="{{url_for('put_main')}}" class="dropzone" id="ifc_dropzone">
+        <div class="dz-message" data-dz-message><span><i class='material-icons'>file_upload</i> Click or drop files here to upload for validation</span></div>
+    </form>
+    
+    <button class="submit-button" id="submit">Start validation</button>
+
+</div>
+
+
+<script>
+    
+    const beforeUnloadListener = (event) => {
+        event.preventDefault();
+        return event.returnValue = "Are you sure you want to exit?";
+    };
+
+    Dropzone.autoDiscover = false;
+    var dz = new Dropzone("#ifc_dropzone",
+        {
+            uploadMultiple: true,
+            acceptedFiles: ".ifc, .xml",
+            parallelUploads: 100,
+            maxFiles: 100,
+            maxFilesize: 8 * 1024,
+            autoProcessQueue: false,
+            addRemoveLinks: true,
+        });
+
+    dz.on("input", (event) => {
+        if (event.target.value !== "") {
+            addEventListener("beforeunload", beforeUnloadListener, {capture: true});
+        } else {
+            removeEventListener("beforeunload", beforeUnloadListener, {capture: true});
+        }
+    });
+
+    dz.on("addedfile", file => { console.log("new file") });
+
+
+    dz.on("success", function (file, response) {
+        window.location = response.url;
+
+    });
+
+    var submitButton = document.querySelector("#submit");
+    submitButton.addEventListener("click", function () {
+        dz.processQueue();
+
+    });
+
+</script>

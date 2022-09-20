@@ -365,9 +365,6 @@ class svg_generation_task(task):
 def do_process(id, validation_config, ids_spec):
 
     d = utils.storage_dir_for_id(id)
-   
-    with open(os.path.join(d,'config.json'), 'w') as outfile:
-        json.dump(validation_config, outfile)
 
     if ids_spec:    
         ids_spec_storages = []
@@ -391,30 +388,9 @@ def do_process(id, validation_config, ids_spec):
         
     input_files = [name for name in os.listdir(d) if os.path.isfile(os.path.join(d, name)) and os.path.join(d, name).endswith("ifc")]
     
-    tasks = [general_info_task]
-
-    print(*validation_config["config"].items())
+    print(validation_config["tasks"])
     
-
-    for task, to_validate in validation_config["config"].items():
-       
-        if int(to_validate):
-            if task == 'syntax':
-                tasks.append(syntax_validation_task)
-            elif task == 'schema':
-                tasks.append(ifc_validation_task)
-            elif task == 'mvd':
-                tasks.append(mvd_validation_task)
-            elif task == 'bsdd':
-                tasks.append(bsdd_validation_task)
-            elif task =='ids':
-                tasks.append(ids_validation_task)
-            elif task =='ia':
-                tasks.append(ia_validation_task)
-            elif task =='ip':
-                tasks.append(ip_validation_task)
-            else:
-                raise RuntimeError(f"Unknown validation task {task}")
+    tasks = [globals()[task] for task in validation_config["tasks"]]
 
     tasks_on_aggregate = []
     

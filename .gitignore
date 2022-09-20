@@ -4,6 +4,7 @@ __pycache__/
 *.json
 *.cover
 docker-volumes
+!application/config.json
 application/static/bimsurfer
 application/nix
 application/win

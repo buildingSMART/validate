@@ -1,0 +1,10 @@
+{
+    "tasks": [
+        "general_info_task",
+        "syntax_validation_task",
+        "ifc_validation_task",
+        "bsdd_validation_task",
+        "ia_validation_task",
+        "ip_validation_task"
+    ]
+}
