@@ -71,7 +71,7 @@ function completeTable(i) {
             rows[row_index].cells[toColumnComplete[x]].className = `${icon} material-icons`;
           });
 
-        rows[row_index].cells[toColumnComplete["date"]].innerHTML = new Date(`${r["time"]} UTC`).toLocaleString()
+        rows[row_index].cells[toColumnComplete["date"]].innerHTML = new Date(`${r["time"]} UTC`).toLocaleString();
         rows[row_index].cells[toColumnComplete["date"]].className = "model_time";
 
     });
@@ -149,7 +149,7 @@ else{
     
             row.cells[toColumnComplete["report"]].appendChild(repText);
             row.cells[toColumnComplete["report"]].className = "model_report";
-            row.cells[toColumnComplete["date"]].innerHTML = new Date(`${model.date} UTC`).toLocaleString()
+            row.cells[toColumnComplete["date"]].innerHTML = new Date(`${model.date} UTC`).toLocaleString();
             row.cells[toColumnComplete["date"]].className = "model_time";
     
             replaceInCell("download",row.cells[toColumnComplete["download"]], model.id);
