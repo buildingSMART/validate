@@ -662,7 +662,6 @@ def view_report2(decoded, id):
     # else:
     return render_template("report_v2.html",
                     model=m,
-
                     tasks=tasks,
                     results=results,
                     username=f"{decoded['given_name']} {decoded['family_name']}")

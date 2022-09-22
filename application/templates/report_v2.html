@@ -15,8 +15,7 @@
     </div>
 
     <script>
-        var results = {{results | tojson}} 
-        
+        var results = {{results |safe | tojson}} 
     </script>
 
     <script>
@@ -28,7 +27,6 @@
     
 <script>
     function xFold(element){
-
         
         var classification = element.id;
         var children = document.getElementsByClassName(classification);
