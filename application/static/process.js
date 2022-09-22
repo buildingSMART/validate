@@ -58,6 +58,42 @@ function replaceInCell(type, cell, modelId, replace=0){
 }
 
 
+
+function computeRelativeDates(modelDate){
+    var now = new Date();
+    difference = (now - modelDate) / 1000; // convert from ms to s
+
+    var relativeTime; 
+    var relativeUnit;
+
+    if (difference < 60) {
+        relativeTime = difference;
+        relativeUnit = "seconds";
+      } else if (difference >= 60 && difference < 3600) {
+        relativeTime = difference / 60;
+        relativeUnit = "minutes";
+      } else if (difference >= 3600 && difference < 3600*24) {
+        relativeTime = difference / 3600;
+        relativeUnit = "hours";
+      } else if (difference >= 3600*24 && difference < 3600*24*7 ) {
+        relativeTime = difference / (3600*24);
+        relativeUnit = "days";
+      } else if (difference >= 3600*24*7 && difference < 3600*24*8) {
+        relativeTime = difference / (3600*24*7);
+        relativeUnit = "weeks";
+      } else {
+            return modelDate.toLocaleString();
+        }
+    
+    relativeTime = Math.floor(relativeTime);
+    if(relativeTime == 1){relativeUnit=relativeUnit.slice(0, -1);} // Remove the 's' in units if only 1
+
+    var relative = `${relativeTime} ${relativeUnit} ago`
+    return `<span class="abs_time" title="${modelDate.toLocaleString()}">${relative}</span>`
+
+}
+
+
 var icons = { 'v': 'valid', 'w': 'warning', 'i': 'invalid', 'n': 'not' };
 function completeTable(i) {
     var table = document.getElementById("saved_models");
@@ -71,7 +107,7 @@ function completeTable(i) {
             rows[row_index].cells[toColumnComplete[x]].className = `${icon} material-icons`;
           });
 
-        rows[row_index].cells[toColumnComplete["date"]].innerHTML = new Date(`${r["time"]} UTC`).toLocaleString();
+        rows[row_index].cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(`${r["time"]} UTC`));
         rows[row_index].cells[toColumnComplete["date"]].className = "model_time";
 
     });
@@ -149,7 +185,7 @@ else{
     
             row.cells[toColumnComplete["report"]].appendChild(repText);
             row.cells[toColumnComplete["report"]].className = "model_report";
-            row.cells[toColumnComplete["date"]].innerHTML = new Date(`${model.date} UTC`).toLocaleString();
+            row.cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(`${model.date} UTC`));     
             row.cells[toColumnComplete["date"]].className = "model_time";
     
             replaceInCell("download",row.cells[toColumnComplete["download"]], model.id);

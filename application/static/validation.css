@@ -329,3 +329,7 @@ table {
 abbrev {
   border-bottom: dotted 1px black;
 }
+
+.abs_time{
+  border-bottom: 1px dotted gray;
+}
