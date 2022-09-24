@@ -134,7 +134,10 @@ def check_bsdd(ifc_fn, task_id):
                             specifications = bsdd_content["classificationProperties"]
                             for constraint in specifications: 
                                 bsdd_result = database.bsdd_result(task_id)
-                                bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                                try:
+                                    bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                                except:
+                                    bsdd_result.domain_file = ""
                                 bsdd_result.classification_file = relating_classification.Name
 
                                 # Should create instance entry
@@ -175,7 +178,10 @@ def check_bsdd(ifc_fn, task_id):
                         else:
                             # No classificationProperties
                             bsdd_result = database.bsdd_result(task_id)
-                            bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                            try:
+                                bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                            except:
+                                bsdd_result.domain_file = ""
                             bsdd_result.classification_file = relating_classification.Name
                             bsdd_result.instance_id = instance_id
                             bsdd_result.bsdd_property_constraint = "no constraint"
@@ -186,8 +192,10 @@ def check_bsdd(ifc_fn, task_id):
                     else:
                         # No uri provided or invalid uri
                         bsdd_result = database.bsdd_result(task_id)
-
-                        bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                        try:
+                            bsdd_result.domain_file = relating_classification.ReferencedSource.Name
+                        except:
+                            bsdd_result.domain_file = ""
                         bsdd_result.classification_file = relating_classification.Name
                         bsdd_result.instance_id = instance_id
                         bsdd_result.bsdd_classification_uri = "classification not found"
