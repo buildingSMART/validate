@@ -100,6 +100,7 @@ class model(Base, Serializable):
     code = Column(String)
     filename = Column(String)
     user_id = Column(String, ForeignKey('users.id'))
+    deleted = Column(Integer, default=0)
 
     progress = Column(Integer, default=-1)
     date = Column(DateTime, server_default=func.now())

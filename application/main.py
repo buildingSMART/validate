@@ -373,9 +373,9 @@ def dashboard(decoded):
     # Retrieve user data
     with database.Session() as session:
         if str(decoded["email"]) in [os.getenv("ADMIN_EMAIL"), os.getenv("DEV_EMAIL")]:
-            saved_models = session.query(database.model).all()
+            saved_models = session.query(database.model).filter(database.model.deleted!=1).all()
         else:
-            saved_models = session.query(database.model).filter(database.model.user_id == user_id).all()
+            saved_models = session.query(database.model).filter(database.model.user_id == user_id, database.model.deleted!=1).all()
         saved_models.sort(key=lambda m: m.date, reverse=True)
         saved_models = [model.serialize() for model in saved_models]
 
@@ -682,7 +682,12 @@ def download_model(decoded, id):
 @application.route('/delete/<id>', methods=['GET'])
 @login_required
 def delete(decoded, id):
-    return "to implement"
+    with database.Session() as session:
+        session = database.Session()
+        model = session.query(database.model).filter(database.model.id == id).all()[0]
+        model.deleted = 1
+        session.commit()
+    return ('', 204)
 
 @application.route('/m/<fn>', methods=['GET'])
 def get_model(fn):
