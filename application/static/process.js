@@ -62,35 +62,12 @@ function replaceInCell(type, cell, modelId, replace=0){
 function computeRelativeDates(modelDate){
     var now = new Date();
     difference = (now - modelDate) / 1000; // convert from ms to s
-
-    var relativeTime; 
-    var relativeUnit;
-
-    if (difference < 60) {
-        relativeTime = difference;
-        relativeUnit = "seconds";
-      } else if (difference >= 60 && difference < 3600) {
-        relativeTime = difference / 60;
-        relativeUnit = "minutes";
-      } else if (difference >= 3600 && difference < 3600*24) {
-        relativeTime = difference / 3600;
-        relativeUnit = "hours";
-      } else if (difference >= 3600*24 && difference < 3600*24*7 ) {
-        relativeTime = difference / (3600*24);
-        relativeUnit = "days";
-      } else if (difference >= 3600*24*7 && difference < 3600*24*8) {
-        relativeTime = difference / (3600*24*7);
-        relativeUnit = "weeks";
-      } else {
-            return modelDate.toLocaleString();
-        }
-    
-    relativeTime = Math.floor(relativeTime);
-    if(relativeTime == 1){relativeUnit=relativeUnit.slice(0, -1);} // Remove the 's' in units if only 1
-
-    var relative = `${relativeTime} ${relativeUnit} ago`
-    return `<span class="abs_time" title="${modelDate.toLocaleString()}">${relative}</span>`
-
+    let [divisor, unit] = [[3600*24*8, null], [3600*24*7, "weeks"], [3600*24, "days"], [3600, "hours"], [60, "minutes"], [1, "seconds"]].filter(a => difference / a[0] > 1.)[0];
+    if (unit) {
+        return `<span class="abs_time" title="${modelDate.toLocaleString()}">${Math.floor(difference / divisor)} ${unit} ago</span>`
+    } else {
+        return modelDate.toLocaleString();
+    }
 }
 
 
