@@ -86,11 +86,9 @@ def validate_instance(constraints, instance):
                                     if result["value"] != to_check:
                                         validation_results["value"] = 0
                                         break
-    else:   
-        result["pset_name"] = "no pset in constraints"
-        result["property_name"] = "no pset in constraints"
-        result["datatype"] = "no pset in constraints"
-        result["value"] = "no pset in constraints"
+    else:
+        result = dict((el,"no pset in constraints") for el in to_validate) 
+        validation_results["pset_name"] = 1
 
     return {"result":result, "validation_results":validation_results}
 
@@ -148,9 +146,13 @@ def check_bsdd(ifc_fn, task_id):
                                 bsdd_result.classification_code = bsdd_content["code"]
                                 bsdd_result.classification_domain = domain_name
 
-                                bsdd_result.val_ifc_type = sum(ifc_instance.is_a(t) for t in bsdd_content["relatedIfcEntityNames"]) >= 1
+                                if "relatedIfcEntityNames" in bsdd_content.keys():
+                                    bsdd_result.val_ifc_type = sum(ifc_instance.is_a(t) for t in bsdd_content["relatedIfcEntityNames"]) >= 1
+                                    bsdd_result.bsdd_type_constraint = ";".join(bsdd_content["relatedIfcEntityNames"])
+                                else:
+                                    bsdd_result.val_ifc_type = 1
+                                    bsdd_result.bsdd_type_constraint = ""
 
-                                bsdd_result.bsdd_type_constraint = ";".join(bsdd_content["relatedIfcEntityNames"])
                                 bsdd_result.bsdd_property_constraint = json.dumps(constraint)
                                 bsdd_result.bsdd_property_uri = constraint["propertyNamespaceUri"]
 
