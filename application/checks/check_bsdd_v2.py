@@ -147,7 +147,7 @@ def check_bsdd(ifc_fn, task_id):
                                 bsdd_result.classification_domain = domain_name
 
                                 if "relatedIfcEntityNames" in bsdd_content.keys():
-                                    bsdd_result.val_ifc_type = sum(ifc_instance.is_a(t) for t in bsdd_content["relatedIfcEntityNames"]) >= 1
+                                    bsdd_result.val_ifc_type = any(ifc_instance.is_a(t) for t in bsdd_content["relatedIfcEntityNames"]) 
                                     bsdd_result.bsdd_type_constraint = ";".join(bsdd_content["relatedIfcEntityNames"])
                                 else:
                                     bsdd_result.val_ifc_type = 1
