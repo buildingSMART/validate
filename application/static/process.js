@@ -48,16 +48,28 @@ function replaceInCell(type, cell, modelId, replace=0){
     }
     cell.className = type;
     var a = document.createElement('a');
-    var text = (type=="download") ? "Download":"Delete";
+    var text = (type=="download") ? "Download file":"Delete report";
     var linkText = document.createTextNode(text);
     a.className = "dashboard_link"
     a.appendChild(linkText);
-    a.title = type;
-    a.href = `/${type}/${modelId}`;
-    cell.appendChild(a);
+    if(type == "download"){
+        a.href = `/${type}/${modelId}`;
+    }
+    else{
+        a.onclick = e => {
+            var id = e.target.parentElement.parentElement.id;
+            fetch("/delete/" + id, {
+                method: "POST"
+                } ).then(function (r) { return r.json(); }).then(function (r) {
+                        if(r["status"] == "success"){
+                            var elementToRemove = document.getElementById(r["id"]);
+                            elementToRemove.remove();
+                        }     
+            });  
+        } 
+    }
+    cell.appendChild(a);   
 }
-
-
 
 function computeRelativeDates(modelDate){
     var now = new Date();

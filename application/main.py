@@ -679,7 +679,7 @@ def download_model(decoded, id):
 
     return send_file(path, attachment_filename=model.filename, as_attachment=True, conditional=True)
 
-@application.route('/delete/<id>', methods=['GET'])
+@application.route('/delete/<id>', methods=['POST'])
 @login_required
 def delete(decoded, id):
     with database.Session() as session:
@@ -687,7 +687,7 @@ def delete(decoded, id):
         model = session.query(database.model).filter(database.model.id == id).all()[0]
         model.deleted = 1
         session.commit()
-    return ('', 204)
+    return jsonify({"status":"success", "id":id})
 
 @application.route('/m/<fn>', methods=['GET'])
 def get_model(fn):

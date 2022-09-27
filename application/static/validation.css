@@ -169,6 +169,7 @@ table {
 .delete {
   font-weight: bold;
   color: rgb(224, 101, 101);
+  cursor: pointer;
 }
 
 
