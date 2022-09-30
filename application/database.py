@@ -100,7 +100,7 @@ class model(Base, Serializable):
     code = Column(String)
     filename = Column(String)
     user_id = Column(String, ForeignKey('users.id'))
-    deleted = Column(Integer, default=0)
+    
 
     progress = Column(Integer, default=-1)
     date = Column(DateTime, server_default=func.now())
@@ -132,6 +132,7 @@ class model(Base, Serializable):
     instances = relationship("ifc_instance")
     tasks = relationship("validation_task")
 
+    deleted = Column(Integer, default=0)
 
     def __init__(self, code, filename, user_id):
         self.code = code
