@@ -15,7 +15,7 @@ ENV PATH="${PATH}:/pypy3.8-v7.3.7-linux64/bin"
 RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m ensurepip
 
 RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install --upgrade pip
-RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser
+RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser==0.12.0
 
 RUN python3 -m pip install --upgrade pip
 
