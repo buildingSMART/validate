@@ -152,13 +152,13 @@ def index(decoded):
             user = db_session.query(database.user).filter(database.user.id == decoded["sub"]).all()
             if len(user) == 0:
                 db_session.add(database.user(str(decoded["sub"]),
-                                            str(decoded["email"]),
-                                            str(decoded["family_name"]),
-                                            str(decoded["given_name"]),
-                                            str(decoded["name"])))
+                                            str(decoded.get('email', '')),
+                                            str(decoded.get('family_name', '')),
+                                            str(decoded.get('given_name', '')),
+                                            str(decoded.get('name', ''))))
                 db_session.commit()
 
-    return render_template('index.html', decoded=decoded, username=f"{decoded['given_name']} {decoded['family_name']}")
+    return render_template('index.html', decoded=decoded, username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
 
 
 @application.route('/login', methods=['GET'])
@@ -198,10 +198,10 @@ def callback():
         user = db_session.query(database.user).filter(database.user.id == decoded["sub"]).all()
         if len(user) == 0:
             db_session.add(database.user(str(decoded["sub"]),
-                                        str(decoded["email"]),
-                                        str(decoded["family_name"]),
-                                        str(decoded["given_name"]),
-                                        str(decoded["name"])))
+                                        str(decoded.get('email', '')),
+                                        str(decoded.get('family_name', '')),
+                                        str(decoded.get('given_name', '')),
+                                        str(decoded.get('name', ''))))
             db_session.commit()
 
     return redirect(url_for('index'))
@@ -379,7 +379,7 @@ def dashboard(decoded):
         saved_models.sort(key=lambda m: m.date, reverse=True)
         saved_models = [model.serialize() for model in saved_models]
 
-    return render_template('dashboard.html', saved_models=saved_models, username=f"{decoded['given_name']} {decoded['family_name']}")
+    return render_template('dashboard.html', saved_models=saved_models, username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
 
 
 @application.route('/valprog/<id>', methods=['GET'])
@@ -432,7 +432,7 @@ def update_info(decoded, code):
 @application.route('/error/<code>/', methods=['GET'])
 @login_required
 def error(decoded, code): 
-    return render_template('error.html',username=f"{decoded['given_name']} {decoded['family_name']}")
+    return render_template('error.html',username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
    
 @application.route('/pp/<id>', methods=['GET'])
 def get_progress(id):
@@ -664,7 +664,7 @@ def view_report2(decoded, id):
                     model=m,
                     tasks=tasks,
                     results=results,
-                    username=f"{decoded['given_name']} {decoded['family_name']}")
+                    username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
 
 
 
