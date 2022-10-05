@@ -23,18 +23,15 @@ RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install flask flask-cors numpy gunicorn rq redis SQLAlchemy==1.4.31 psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse behave --upgrade
 
 
-# IfcConvert v0.6.0
-RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.6.0-c15fdc7-linux64.zip -O /tmp/IfcConvert.zip
+# IfcConvert v0.7.0
+RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.7.0-fa6bbf2-linux64.zip -O /tmp/IfcConvert.zip
 RUN unzip /tmp/IfcConvert.zip -d /usr/bin
 
-
-RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2]))[0:2])'`-v0.7.0-dc67287-linux64.zip
-
+# IfcOpenShell-Python v0.7.0
+RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2]))[0:2])'`-v0.7.0-fa6bbf2-linux64.zip
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
 
-# Temporary 'hotfix'
-RUN wget  -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/validate.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/validate.py
 
 # Server
 WORKDIR /www
