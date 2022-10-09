@@ -1,51 +1,8 @@
 @import url("base.css");
 
 
-
 .main {
   background-image: url('./icons/background2.jpg');
-}
-
-
-
-.dropzone {
-  width: 100%;
-  background: #eee;
-  border-width: 1px;
-  border-color: #ddd;
-}
-
-.dropzone:hover {
-  background: #f4f4f4;
-}
-
-.submit-area {
-  width: 20%;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px;
-  justify-content: space-evenly;
-  gap: 32px;
-  border-radius: 4px;
-  box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
-  max-height: 250px;
-}
-
-.dropzone {
-  overflow: overlay;
-  text-align: center;
-  min-height: 40%;
-}
-
-.config {
-  width: 100%;
-  background-color: rgb(210 237 240);
-}
-
-.submit-button{
-  height: 40px;
 }
 
 /* Phones */
@@ -132,16 +89,9 @@
     display: none;
   }
 
-  .submit-area {
-    width: 70%;
-    height: 55%;
-  }
-
   .visible_menu {
     min-height: 5%;
     width: 100%;
-
-
   }
 
   .hidden_menu {
@@ -178,40 +128,7 @@
     display: flex;
   }
 
-
-}
-
-.dz-message .material-icons {
-    display: block;
-    opacity: 0.5;
-    font-size: 3em;
-}
-
-.dz-image {
-    display: none !important;  
-}
-
-.dz-details {
-    width: auto !important;
-    position: inherit !important;
-    padding: 0 !important;
-}
-
-.dz-preview {
-    border: solid 1px #aaa;
-    width: 75%;
-    padding: 1em !important;
-    background: #ddd;
-}
-
-.dz-progress {
-    position: relative !important;
-    margin: 0.5em !important;
-    width: 80% !important;
-    margin-left: -40% !important;
 }
 
 
-#config {
-    display: none;
-}
+

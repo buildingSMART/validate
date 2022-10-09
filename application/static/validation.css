@@ -1,60 +1,6 @@
 @import url("base.css");
 
 
-
-.submit-area{
-  width: 75%;
-}
-
-
-.dropzone {
-  width: 100%;
-  background: #eee;
-  border-width: 1px;
-  border-color: #ddd;
-}
-
-.dropzone:hover {
-  background: #f4f4f4;
-}
-
-.submit-area {
-  width: 20%;
-  background-color: #ffffff;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 16px;
-  justify-content: space-evenly;
-  gap: 32px;
-  border-radius: 4px;
-  box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
-  margin-bottom: 20px;
-  max-height: 250px;
-}
-
-.dropzone {
-  overflow: overlay;
-  text-align: center;
-  min-height: 40%;
-}
-
-.config {
-  width: 100%;
-  background-color: rgb(210 237 240);
-}
-
-.submit-button{
-  height: 40px;
-}
-
-.submit-button{
-  margin-bottom: 1%;
-  margin-top: 1%;
-  text-align: center;
-  
-}
-
 table, th, td {
   border: 1px solid rgba(161, 161, 161, 0.24);
   border-collapse: collapse;
@@ -214,7 +160,6 @@ table {
     display: inline;
   }
 
-
 }
 
 
@@ -276,16 +221,6 @@ table {
     display: none;
   }
 
-  .submit-area {
-    width: 70%;
-    height: 55%;
-  }
-
-  dropzone{
-    width: 100%;
-  }
-
-  
 
   .visible_menu {
     width: 100%;

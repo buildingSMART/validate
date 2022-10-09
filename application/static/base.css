@@ -174,37 +174,109 @@ html, body {
     visibility: hidden;
     display: none;
   }
+  .dz-message .material-icons {
+    display: block;
+    opacity: 0.5;
+    font-size: 3em;
+}
+
+.dz-image {
+    display: none !important;  
+}
+
+.dz-details {
+    width: auto !important;
+    position: inherit !important;
+    padding: 0 !important;
+}
+
+.dz-preview {
+    border: solid 1px #aaa;
+    width: 75%;
+    padding: 1em !important;
+    background: #ddd;
+}
+
+.dz-progress {
+    position: relative !important;
+    margin: 0.5em !important;
+    width: 80% !important;
+    margin-left: -40% !important;
+}
+
+.dropzone {
+  width: 100%;
+  background: #eee;
+  border-width: 1px;
+  border-color: #ddd;
+  height:200px;
+  min-height: 200px;
+  max-height: 200px;
+}
+
+.dropzone:hover {
+  background: #f4f4f4;
+}
+
+.submit-area {
+  width: 20%;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  justify-content: space-evenly;
+  gap: 32px;
+  border-radius: 4px;
+  box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
+  margin-bottom: 20px;
+
+}
+
+.dropzone {
+  overflow: overlay;
+  text-align: center;
+  min-height: 40%;
+} 
+
+.submit-button{
+  height: 40px;
+  margin-bottom: 1%;
+  margin-top: 1%;
+  text-align: center;
   
-  .bar1, .bar2, .bar3 {
-    width: 35px;
-    height: 5px;
-    background-color: #333;
-    margin: 3px 0;
-    transition: 0.4s;
+}
+
   
-  }
-  
-  .change .bar1 {
-    -webkit-transform: rotate(-45deg) translate(-9px, 6px);
-    transform: rotate(-45deg) translate(-9px, 6px);
-  }
-  
-  .change .bar2 {
-    opacity: 0;
-  }
-  
-  .change .bar3 {
-    -webkit-transform: rotate(45deg) translate(-8px, -8px);
-    transform: rotate(45deg) translate(-8px, -8px);
-  }
-  
-  
-  #unfolded {
-    grid-area: main;
-    display: flex;
-    align-items: center;
-    justify-content: start;
-    flex-direction: column;
-  }
+.bar1, .bar2, .bar3 {
+  width: 35px;
+  height: 5px;
+  background-color: #333;
+  margin: 3px 0;
+  transition: 0.4s;
+
+}
+
+.change .bar1 {
+  -webkit-transform: rotate(-45deg) translate(-9px, 6px);
+  transform: rotate(-45deg) translate(-9px, 6px);
+}
+
+.change .bar2 {
+  opacity: 0;
+}
+
+.change .bar3 {
+  -webkit-transform: rotate(45deg) translate(-8px, -8px);
+  transform: rotate(45deg) translate(-8px, -8px);
+}
+
+#unfolded {
+  grid-area: main;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  flex-direction: column;
+}
   
   
