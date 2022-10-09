@@ -148,13 +148,6 @@ else{
         row.cells[toColumnComplete["file_name"]].innerHTML = model.filename;
         row.cells[toColumnComplete["file_name"]].className = "filename";
     
-        
-        var licensTypes = ["private", "CC", "MIT", "GPL", "LGPL"];
-    
-        createLicenseInput(licensTypes, row, model);
-        createInput("hours", row, model);
-        createInput("details", row, model);
-    
         if (model.progress == 100 || model.progress == -2) {
             var checks_type = ["syntax", "schema", "bsdd", "ids", "ia", "ip"];
 
@@ -181,9 +174,6 @@ else{
     
             replaceInCell("download",row.cells[toColumnComplete["download"]], model.id);
             replaceInCell("delete",row.cells[toColumnComplete["delete"]], model.id);
-    
-            row.cells[toColumnComplete["geoms"]].innerHTML = model.number_of_geometries;
-            row.cells[toColumnComplete["props"]].innerHTML = model.number_of_properties;
     
         }
     
@@ -225,9 +215,7 @@ function poll(unsavedConcat) {
             var bar = document.getElementById("bar" + id)
 
             var file_row = document.getElementById(id)
-            file_row.cells[toColumnUncomplete["geoms"]].innerHTML = r["file_info"][i]["number_of_geometries"]
-            file_row.cells[toColumnUncomplete["props"]].innerHTML = r["file_info"][i]["number_of_properties"]
-
+         
             if (r.progress[i] === 100) {
 
                 if (!registered.has(i)) {
