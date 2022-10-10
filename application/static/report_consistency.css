@@ -98,9 +98,14 @@ th {
   flex-direction: column;
 }
 
-
 table {
   width: 80%;
+}
+
+table pre {
+  max-width: 80vw;
+  box-sizing: border-box;
+  overflow-x: auto;
 }
 
 /* Phones */
