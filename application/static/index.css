@@ -7,7 +7,19 @@
 
 /* Phones */
 @media only screen and (max-width: 600px) {
+  .submit-area{
+    width:60%;
+  }
 
+  .hidden_banner{
+    display:inline;
+    height: min-content;
+    flex-grow: 0;
+  }
+
+  .banner{
+    display: none;
+  }
   .bar_text {
     display: none;
   }

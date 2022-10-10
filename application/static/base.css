@@ -22,6 +22,29 @@ html, body {
     /* background-color: #333; */
     overflow: hidden;
     border-bottom:1px solid rgb(235, 235, 235);
+    border:0;
+  }
+
+  .banner, .hidden_banner{
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: #FF7F7F;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-weight: bold;
+    font-size:xx-large;
+    height: 100%;
+    padding:0;
+  }
+
+  .sentence{
+    font-weight: bold;
+  }
+
+   .hidden_banner{
+    display: none;
   }
 
   /* Style the links inside the navigation bar */
@@ -66,9 +89,6 @@ html, body {
   
   .full-screen>.header {
     grid-area: head;
-    /* background-color: aqua; */
-    padding: 5px;
-  
     display: flex;
     justify-content: space-between;
   
@@ -78,7 +98,6 @@ html, body {
     display: flex;
     flex-direction: column;
   }
-
 
   .main {
     grid-area: main;

@@ -105,7 +105,22 @@ table {
 
 /* Phones */
 @media only screen and (max-width: 600px) {
+  .hidden_banner{
+    align-content: center;
+    display:inline;
+  }
 
+  .banner{
+    display: none;
+  }
+
+  .full-screen>.main {
+    width: 100%;
+    overflow: scroll;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   .bar_text {
     display: none;
   }

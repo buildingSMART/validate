@@ -122,16 +122,26 @@ table {
 
 /* Phones */
 @media only screen and (max-width: 600px) {
+  .submit-area{
+    width:60%;
+  }
 
-  .main {
-    width: 100%;
-    overflow: scroll;
-    display: block;
+  .hidden_banner{
+    align-content: center;
+    display:inline;
+  }
+
+  .banner{
+    display: none;
   }
 
   .full-screen>.main {
     overflow: scroll;
-    display: block;
+    width: 100%;
+    overflow: scroll;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .bar_text {

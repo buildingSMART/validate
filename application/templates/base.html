@@ -18,7 +18,10 @@
     <div class="full-screen">
         <div class="header">
             
-            <a href="/"><img class="bsdd-logo"src="{{url_for('static', filename='navbar/buildingSMART_RGB_bSDD_service.png')}}" /></a>
+            <a href="/"><img class="bsdd-logo"src="{{url_for('static', filename='navbar/BuildingSMART_CMYK_validation_service.png')}}" /></a>
+            <div class="banner">BETA VERSION</div>
+            
+            
             <div class="bar_info">
                 <div class="container" onclick="myFunction(this)">
                     <div class="bar1"></div>
@@ -39,6 +42,10 @@
         </div>
 
         <div class="main">
+            <div class="hidden_banner">BETA VERSION</div>
+            <div class="sentence">Let us know what we're getting right and what we can improve at 
+                <a href="mailto:validate@buildingsmart.org">validate@buildingsmart.org</a>
+            </div>
             {% block content %}{% endblock %}        
         </div>
 
