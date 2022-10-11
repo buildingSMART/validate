@@ -52,7 +52,7 @@ import worker
 
 
 def send_simple_message(msg_content, user_email):
-    dom = os.getenv("MG_DOMAIN")
+    dom = os.getenv("SERVER_NAME")
     base_url = f"https://api.eu.mailgun.net/v3/{dom}/messages"
     from_ = f"Validation Service <bsdd_val@{dom}>"
     email = os.getenv("MG_EMAIL")
@@ -123,7 +123,7 @@ if not DEVELOPMENT:
     client_secret = os.environ['CLIENT_SECRET']
     authorization_base_url = 'https://authentication.buildingsmart.org/buildingsmartservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/authorize'
     token_url = 'https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/token'
-    redirect_uri = 'https://validate-bsi-staging.aecgeeks.com/callback'
+    redirect_uri = f'https://{os.environ["SERVER_NAME"]}/callback'
 
 
 def login_required(f):
