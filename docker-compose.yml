@@ -32,7 +32,7 @@ services:
       - TESTING=${TESTING}
       - CLIENT_ID=${CLIENT_ID}
       - CLIENT_SECRET=${CLIENT_SECRET}
-      - MG_DOMAIN=${MG_DOMAIN}
+      - SERVER_NAME=${SERVER_NAME}
       - MG_KEY=${MG_KEY}
       - MG_EMAIL=${MG_EMAIL}
       - CRYPTOGRAPHY_DONT_BUILD_RUST=1
