@@ -29,22 +29,25 @@ html, body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    background-color: #FF7F7F;
     justify-content: center;
-    align-items: center;
-    color: white;
-    font-weight: bold;
+    align-items: left;
+    color: #888;
+    font-weight: 100;
     font-size:xx-large;
     height: 100%;
-    padding:0;
+    padding: 0;
+    text-align: left;
   }
 
   .sentence{
-    font-weight: bold;
+    margin-top: 1em;
+    background-color: #ffffff80;
+    padding: 0.5em 1em;
   }
 
    .hidden_banner{
     display: none;
+    color: black;
   }
 
   /* Style the links inside the navigation bar */
