@@ -72,6 +72,18 @@ function replaceInCell(type, cell, modelId, replace=0){
 }
 
 function computeRelativeDates(modelDate){
+    var offset = modelDate.getTimezoneOffset();
+    modelDate = new Date(
+        Date.UTC(
+            modelDate.getUTCFullYear(),
+            modelDate.getUTCMonth(),
+            modelDate.getUTCDate(),
+            modelDate.getUTCHours(),
+            modelDate.getUTCMinutes() - offset,
+            modelDate.getUTCSeconds()
+        )
+    );
+
     var now = new Date();
     difference = (now - modelDate) / 1000; // convert from ms to s
     let [divisor, unit] = [[3600*24*8, null], [3600*24*7, "weeks"], [3600*24, "days"], [3600, "hours"], [60, "minutes"], [1, "seconds"]].filter(a => difference / a[0] > 1.)[0];
@@ -98,7 +110,7 @@ function completeTable(i) {
             rows[row_index].cells[toColumnComplete[x]].className = `${icon} material-icons`;
           });
 
-        rows[row_index].cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(`${r["time"]} UTC`));
+        rows[row_index].cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(r["time"]));
         rows[row_index].cells[toColumnComplete["date"]].className = "model_time";
 
     });
@@ -169,7 +181,7 @@ else{
     
             row.cells[toColumnComplete["report"]].appendChild(repText);
             row.cells[toColumnComplete["report"]].className = "model_report";
-            row.cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(`${model.date} UTC`));     
+            row.cells[toColumnComplete["date"]].innerHTML = computeRelativeDates(new Date(model.date));     
             row.cells[toColumnComplete["date"]].className = "model_time";
     
             replaceInCell("download",row.cells[toColumnComplete["download"]], model.id);
