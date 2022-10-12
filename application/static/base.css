@@ -88,6 +88,21 @@ html, body {
       "foot";
     grid-template-rows: 60px 1fr 30px;
     grid-template-columns: 1fr;
+    box-sizing: border-box;
+  }
+
+  .sandbox {
+    border: solid 12px red;
+  }
+
+  .sandbox div.header h2 {
+    background: red;
+    color: white;
+    height: 30px;
+    margin-top: -16px;
+    line-height: 30px;
+    padding: 12px;
+    border-radius: 0 0 16px 16px;
   }
   
   .full-screen>.header {

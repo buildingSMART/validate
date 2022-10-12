@@ -4,7 +4,7 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='validation.css') }}">
 {% endblock %}
 
-{% block link %}<a href="/dashboard" style=" text-decoration: none;">Go to dashboard</a>{% endblock %}
+{% block link %}<a href="{%if commit_id%}/sandbox/{{commit_id}}{%endif%}/dashboard" style=" text-decoration: none;">Go to dashboard</a>{% endblock %}
 {% block content %}
     <div class="hidden_menu">
         <span>{{ username }}</span>

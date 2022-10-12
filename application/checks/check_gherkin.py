@@ -1,3 +1,8 @@
+import os, sys
+
+if os.environ.get('GHERKIN_REPO_DIR'):
+    sys.path.insert(0, os.environ.get('GHERKIN_REPO_DIR'))
+
 from helper import database
 import gherkin_rules
 

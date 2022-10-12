@@ -134,22 +134,14 @@ class model(Base, Serializable):
 
     deleted = Column(Integer, default=0)
 
-    def __init__(self, code, filename, user_id):
+    # ALTER TABLE models ADD COLUMN commit_id VARCHAR(40);
+    commit_id = Column(String(40))
+
+    def __init__(self, code, filename, user_id, commit_id=None):
         self.code = code
         self.filename = filename
         self.user_id = user_id
-
-
-class file(Base, Serializable):
-    __tablename__ = 'files'
-
-    id = Column(Integer, primary_key=True)
-    code = Column(String)
-    filename = Column(String)
- 
-    def __init__(self, code, filename):
-        self.code = code
-        self.filename = filename
+        self.commit_id = commit_id
 
 
 class validation_task(Base, Serializable):

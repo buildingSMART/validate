@@ -34,7 +34,6 @@ import threading
 from functools import wraps
 
 from collections import namedtuple
-from redis.client import parse_client_list
 
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, request, session, send_file, render_template, abort, jsonify, redirect, url_for, make_response
@@ -49,7 +48,7 @@ from authlib.jose import jwt
 import utils
 import database
 import worker
-
+import pr_manager
 
 def send_simple_message(msg_content, user_email):
     dom = os.getenv("SERVER_NAME")
@@ -128,39 +127,68 @@ if not DEVELOPMENT:
 
 def login_required(f):
     @wraps(f)
-    def decorated_function(*args, **kwargs):
+    def decorated_function(**kwargs):
         if not DEVELOPMENT:
             if not "oauth_token" in session.keys():
+                # before redirect, capture the commit id
+                session['commit_id'] = kwargs.get('commit_id')
                 return redirect(url_for('login'))
             with database.Session() as db_session:
-                user = db_session.query(database.user).filter(database.user.id == session['decoded']["sub"]).all()
+                user = db_session.query(database.user).filter(database.user.id == session['user_data']["sub"]).all()
                 if len(user) == 0:
                      return redirect(url_for('login'))
-            return f(session['decoded'],*args, **kwargs)
+            user_data = session['user_data']
         else:
-            with open('decoded.json') as json_file:
-                decoded = json.load(json_file)
-            return f(decoded, *args, **kwargs)
+            try:
+                with open('decoded.json') as json_file:
+                    user_data = json.load(json_file)
+            except:
+                user_data = {
+                    'sub': 'development-id',
+                    'email': 'test@example.org',
+                    'family_name': 'User',
+                    'given_name': 'Test',
+                    'name': 'Test User',
+                }
+
+        return f(user_data=user_data, **kwargs)
     return decorated_function
 
 
+def with_sandbox(orig):
+    @wraps(orig)
+    def inner(commit_id=None, **kwargs):
+        pr_title = NONE
+        if commit_id:
+            args = pr_manager.is_authorized_commit_id(commit_id)
+            if not args:
+                abort(404)
+            repo, sha, number, title = args
+            pr_title = f'#{number} {title}'
+        return orig(commit_id=commit_id, pr_title=pr_title, **kwargs)
+    return inner
+
+
+@application.route("/sandbox/<commit_id>/")
 @application.route("/")
 @login_required
-def index(decoded):
+@with_sandbox
+def index(user_data, pr_title=None, commit_id=None):
     if DEVELOPMENT:
         with database.Session() as db_session:
-            user = db_session.query(database.user).filter(database.user.id == decoded["sub"]).all()
+            user = db_session.query(database.user).filter(database.user.id == user_data["sub"]).all()
             if len(user) == 0:
-                db_session.add(database.user(str(decoded["sub"]),
-                                            str(decoded.get('email', '')),
-                                            str(decoded.get('family_name', '')),
-                                            str(decoded.get('given_name', '')),
-                                            str(decoded.get('name', ''))))
+                db_session.add(database.user(str(user_data["sub"]),
+                                            str(user_data.get('email', '')),
+                                            str(user_data.get('family_name', '')),
+                                            str(user_data.get('given_name', '')),
+                                            str(user_data.get('name', ''))))
                 db_session.commit()
 
-    return render_template('index.html', decoded=decoded, username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
+    return render_template('index.html', commit_id=commit_id, pr_title=pr_title, user_data=user_data, username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
 
 
+# @todo still requires sandbox parameters
 @application.route('/login', methods=['GET'])
 def login():
     bs = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=[
@@ -191,29 +219,38 @@ def callback():
     key = requests.get(discovery_response['jwks_uri']).content.decode("utf-8")
     id_token = t['id_token']
 
-    decoded = jwt.decode(id_token, key=key)
-    session['decoded'] = decoded
+    user_data = jwt.decode(id_token, key=key)
+    session['user_data'] = user_data
 
     with database.Session() as db_session:
-        user = db_session.query(database.user).filter(database.user.id == decoded["sub"]).all()
+        user = db_session.query(database.user).filter(database.user.id == user_data["sub"]).all()
         if len(user) == 0:
-            db_session.add(database.user(str(decoded["sub"]),
-                                        str(decoded.get('email', '')),
-                                        str(decoded.get('family_name', '')),
-                                        str(decoded.get('given_name', '')),
-                                        str(decoded.get('name', ''))))
+            db_session.add(database.user(str(user_data["sub"]),
+                                        str(user_data.get('email', '')),
+                                        str(user_data.get('family_name', '')),
+                                        str(user_data.get('given_name', '')),
+                                        str(user_data.get('name', ''))))
             db_session.commit()
 
-    return redirect(url_for('index'))
+    if cid := session.get('commit_id'):
+        # Restore and then discard the commit_id stored before
+        # redirecting to /login
+        del session['commit_id']
+        return redirect(url_for('index', commit_id=cid))
+    else:
+        return redirect(url_for('index'))
 
 
 @application.route("/logout")
 @login_required
-def logout(decoded):
-    session.clear()  # Wipe out the user and the token cache from the session
-    return redirect(  # Also need to log out from the Microsoft Identity platform
-        "https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/logout"
-        "?post_logout_redirect_uri=" + url_for("index", _external=True))
+def logout(user_data):
+    if DEVELOPMENT:
+        return redirect(url_for('index'))
+    else:
+        session.clear()  # Wipe out the user and the token cache from the session
+        return redirect(  # Also need to log out from the Microsoft Identity platform
+            "https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/logout"
+            "?post_logout_redirect_uri=" + url_for("index", _external=True))
 
 
 def process_upload(filewriter, callback_url=None):
@@ -270,23 +307,24 @@ def process_upload_multiple(files, callback_url=None):
     return id
 
 
-def process_upload_validation(files, validation_config, user_id, callback_url=None):
+def process_upload_validation(files, validation_config, user_id, commit_id=None, callback_url=None):
 
     ids = []
     filenames = []
 
     with database.Session() as session:
         for file in files:
-            fn = file.filename
-            filenames.append(fn)
-            def filewriter(fn): return file.save(fn)
             id = utils.generate_id()
-            ids.append(id)
             d = utils.storage_dir_for_id(id)
+            fn = file.filename
+            
+            filenames.append(fn)
+            ids.append(id)
+            
             os.makedirs(d)
-            filewriter(os.path.join(d, id+".ifc"))
-            session.add(database.model(id, fn, user_id))
-            session.commit()
+            file.save(os.path.join(d, id+".ifc"))
+            session.add(database.model(id, fn, user_id, commit_id))
+        session.commit()
 
         user = session.query(database.user).filter(database.user.id == user_id).all()[0]
 
@@ -296,18 +334,18 @@ def process_upload_validation(files, validation_config, user_id, callback_url=No
     if DEVELOPMENT or NO_REDIS:
         for id in ids:
             t = threading.Thread(target=lambda: worker.process(
-                id, validation_config, callback_url))
+                id, validation_config, commit_id=commit_id, callback_url=callback_url))
             t.start()
     else:
         for id in ids:
-            q.enqueue(worker.process, id, validation_config, callback_url)
+            q.enqueue(worker.process, id, validation_config, commit_id=commit_id, callback_url=callback_url)
 
     return ids
 
 
 @application.route('/reprocess/<id>', methods=['POST'])
 @login_required
-def reprocess(decoded,id):
+def reprocess(user_data,id):
     ids = []
 
     if DEVELOPMENT:
@@ -321,14 +359,18 @@ def reprocess(decoded,id):
 
     return ids
 
+@application.route('/sandbox/<commit_id>/', methods=['POST'])
 @application.route('/', methods=['POST'])
+@with_sandbox
 @login_required
-def put_main(decoded):
+def put_main(user_data, pr_title, commit_id=None):
+    if commit_id and not pr_manager.is_authorized_commit_id(commit_id):
+        abort(404)
 
     ids = []
     files = []
 
-    user_id = decoded["sub"]
+    user_id = user_data["sub"]
 
     for key, f in request.files.items():
 
@@ -341,20 +383,16 @@ def put_main(decoded):
         validation_config=json.loads(config_file.read())
 
     if VALIDATION:
-        ids = process_upload_validation(files, validation_config, user_id)
+        ids = process_upload_validation(files, validation_config, user_id, commit_id)
+        if commit_id:
+            arg = {'commit_id': commit_id}
+        else:
+            arg = {}
+        url = url_for('dashboard', **arg)
 
     elif VIEWER:
         ids = process_upload_multiple(files)
-
-    idstr = ""
-    for i in ids:
-        idstr += i
-
-    if VALIDATION:
-        url = url_for('dashboard')
-
-    elif VIEWER:
-        url = url_for('check_viewer', id=idstr)
+        url = url_for('check_viewer', id="".join(ids))
 
     if request.accept_mimetypes.accept_json:
         return jsonify({"url": url})
@@ -366,25 +404,28 @@ def check_viewer(id):
         abort(404)
     return render_template('progress.html', id=id)
 
+
+@application.route('/sandbox/<commit_id>/dashboard', methods=['GET'])
 @application.route('/dashboard', methods=['GET'])
 @login_required
-def dashboard(decoded):
-    user_id = decoded['sub']
+@with_sandbox
+def dashboard(user_data, pr_title, commit_id=None):
+    user_id = user_data['sub']
     # Retrieve user data
     with database.Session() as session:
-        if str(decoded["email"]) in [os.getenv("ADMIN_EMAIL"), os.getenv("DEV_EMAIL")]:
+        if str(user_data["email"]) in [os.getenv("ADMIN_EMAIL"), os.getenv("DEV_EMAIL")]:
             saved_models = session.query(database.model).filter(database.model.deleted!=1).all()
         else:
             saved_models = session.query(database.model).filter(database.model.user_id == user_id, database.model.deleted!=1).all()
         saved_models.sort(key=lambda m: m.date, reverse=True)
         saved_models = [model.serialize() for model in saved_models]
 
-    return render_template('dashboard.html', saved_models=saved_models, username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
+    return render_template('dashboard.html', commit_id=commit_id, pr_title=pr_title, saved_models=saved_models, username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
 
 
 @application.route('/valprog/<id>', methods=['GET'])
 @login_required
-def get_validation_progress(decoded, id):
+def get_validation_progress(user_data, id):
     if not utils.validate_id(id):
         abort(404)
 
@@ -396,7 +437,7 @@ def get_validation_progress(decoded, id):
         for i in all_ids:
             model = session.query(database.model).filter(database.model.code == i).all()[0]
             
-            if model.user_id != decoded["sub"]:
+            if model.user_id != user_data["sub"]:
                 abort(404)
 
             file_info.append({"number_of_geometries": model.number_of_geometries,
@@ -409,20 +450,20 @@ def get_validation_progress(decoded, id):
 
 @application.route('/update_info/<code>', methods=['POST'])
 @login_required
-def update_info(decoded, code):
+def update_info(user_data, code):
     try:  
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == code).all()[0]
             original_license = model.license
             data = request.get_data()
-            decoded_data = json.loads(data)
+            user_data_data = json.loads(data)
 
-            property = decoded_data["type"]
-            setattr(model, property, decoded_data["val"])
+            property = user_data_data["type"]
+            setattr(model, property, user_data_data["val"])
 
             user = session.query(database.user).filter(database.user.id == model.user_id).all()[0]
 
-            if decoded_data["type"] == "license":
+            if user_data_data["type"] == "license":
                 send_simple_message(f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}", user.email)
             session.commit()
         return jsonify( {"progress": data.decode("utf-8")})
@@ -431,8 +472,8 @@ def update_info(decoded, code):
 
 @application.route('/error/<code>/', methods=['GET'])
 @login_required
-def error(decoded, code): 
-    return render_template('error.html',username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
+def error(user_data, code): 
+    return render_template('error.html',username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
    
 @application.route('/pp/<id>', methods=['GET'])
 def get_progress(id):
@@ -503,7 +544,7 @@ def get_viewer(id):
 
 @application.route('/reslogs/<i>/<ids>')
 @login_required
-def log_results(decoded, i, ids):
+def log_results(user_data, i, ids):
     all_ids = utils.unconcatenate_ids(ids)
     with database.Session() as session:
         model = session.query(database.model).filter(
@@ -545,7 +586,7 @@ class Error:
 
 @application.route('/report2/<id>')
 @login_required
-def view_report2(decoded, id):
+def view_report2(user_data, id):
     with database.Session() as session:
         session = database.Session()
 
@@ -658,19 +699,19 @@ def view_report2(decoded, id):
     #                         model=m,
     #                         results=results,
     #                         errors=errors,
-    #                         username=f"{decoded['given_name']} {decoded['family_name']}")
+    #                         username=f"{user_data['given_name']} {user_data['family_name']}")
     # else:
     return render_template("report_v2.html",
                     model=m,
                     tasks=tasks,
                     results=results,
-                    username=f"{decoded.get('given_name', '')} {decoded.get('family_name', '')}")
+                    username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
 
 
 
 @application.route('/download/<id>', methods=['GET'])
 @login_required
-def download_model(decoded, id):
+def download_model(user_data, id):
     with database.Session() as session:
         session = database.Session()
         model = session.query(database.model).filter(database.model.id == id).all()[0]
@@ -681,7 +722,7 @@ def download_model(decoded, id):
 
 @application.route('/delete/<id>', methods=['POST'])
 @login_required
-def delete(decoded, id):
+def delete(user_data, id):
     with database.Session() as session:
         session = database.Session()
         model = session.query(database.model).filter(database.model.id == id).all()[0]

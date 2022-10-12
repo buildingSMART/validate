@@ -65,6 +65,13 @@
                 <td></td> -->
         </tr>
 
+        {% if model.commit_id %}
+        <tr>
+            <td>Pull request commit id</td>
+            <td>{{model.commit_id}}</td>
+        </tr>
+        {% endif %}
+
         <tr>
             <td>Date</td>
             <td>{{model.date}}</td>

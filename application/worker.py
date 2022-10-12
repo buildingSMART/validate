@@ -22,6 +22,9 @@
 #                                                                                #
 ##################################################################################
 
+import functools
+import inspect
+import itertools
 import os
 import sys
 import json
@@ -36,6 +39,8 @@ import shutil
 
 import threading
 import requests
+
+import pr_manager
 
 on_windows = platform.system() == 'Windows'
 ext = ".exe" if on_windows else ""
@@ -91,8 +96,8 @@ class syntax_validation_task(task):
         check_program = os.path.join(os.getcwd(), "checks", "step-file-parser", "main.py")
         # try if there is pypy in the path, otherwise default to the current
         # python interpreter.
-        proc = subprocess.Popen([shutil.which("pypy3") or sys.executable, check_program, id + ".ifc", "--progress"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-   
+        proc = subprocess.run([shutil.which("pypy3") or sys.executable, check_program, id + ".ifc"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == id).all()[0]
          
@@ -101,7 +106,7 @@ class syntax_validation_task(task):
             session.commit()
             validation_task_id = str(validation_task.id)
             
-            output = proc.stderr.read()
+            output = proc.stderr
             output = output.decode("utf-8").strip()
             syntax_result = database.syntax_result(validation_task_id)
             syntax_result.msg = output
@@ -115,20 +120,8 @@ class syntax_validation_task(task):
             session.commit()
             session.close()
 
-        i = 0
-        while True:
-            ch = proc.stdout.read(1)
-            
-            if not ch and proc.poll() is not None:
-                break
-
-            if ch and ord(ch) == ord('.'):
-                i += 1
-                self.sub_progress(i)
-
-        if proc.poll() != 0:
-            raise RuntimeError()
-
+        if proc.returncode != 0:            
+            raise RuntimeError(f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}")
 
 
 class ifc_validation_task(task):
@@ -195,6 +188,7 @@ class mvd_validation_task(task):
 
 class gherkin_validation_task(task):
     est_time = 10
+    repo_dir = ''
     
     def execute(self, directory, id):
         check_program = os.path.join(os.getcwd(), "checks", "check_gherkin.py")
@@ -204,12 +198,16 @@ class gherkin_validation_task(task):
             validation_task = self.db_class(model.id)
             session.add(validation_task)
             session.commit()
-            validation_task_id = str(validation_task.id)
+            validation_task_id = str(validation_task.id)       
+
+        env_copy = os.environ.copy()
+        env_copy['GHERKIN_REPO_DIR'] = self.repo_dir
 
         subprocess.check_call([sys.executable, check_program, id + ".ifc", str(validation_task_id), self.flag],
             cwd=directory,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            env=env_copy
         )
 
 class ia_validation_task(gherkin_validation_task):
@@ -362,7 +360,7 @@ class svg_generation_task(task):
                 self.sub_progress(i)
 
 
-def do_process(id, validation_config, ids_spec):
+def do_process(id, validation_config, commit_id, ids_spec):
 
     d = utils.storage_dir_for_id(id)
 
@@ -413,6 +411,10 @@ def do_process(id, validation_config, ids_spec):
             print("Executing task 'print' on ", id, ' in ', directory, file=sys.stderr)
     """
     
+    gherkin_repo_dir = None
+
+    if commit_id:
+        gherkin_repo_dir = pr_manager.initialize_repository_for_commit_id(commit_id)
 
     for fn in glob.glob("task_*.py"):
         mdl = importlib.import_module(fn.split('.')[0])
@@ -437,6 +439,15 @@ def do_process(id, validation_config, ids_spec):
         nonlocal elapsed
         begin_end = (elapsed / total_est_time * 99, (elapsed + t.est_time) / total_est_time * 99)
         task = t(begin_end)
+        
+        # In case we're running a 'sandbox' for a specific commit_id, we have cloned the repository
+        # to a temporary directory stored in this variable.
+        if gherkin_repo_dir:
+            # Get the Method Resolution Order (base-classes) of the task and see if it's based on
+            # the gherkin repository.
+            if 'gherkin_validation_task' in map(operator.attrgetter('__name__'), inspect.getmro(t)):
+                t.repo_dir = gherkin_repo_dir
+
         try:
             task(d, *args)
         except:
@@ -464,10 +475,10 @@ def do_process(id, validation_config, ids_spec):
     set_progress(id, elapsed)
 
 
-def process(ids, validation_config, ids_spec = None , callback_url=None):
+def process(ids, validation_config, commit_id=None, ids_spec=None , callback_url=None):
 
     try:
-        do_process(ids, validation_config, ids_spec)
+        do_process(ids, validation_config, commit_id, ids_spec)
         status = "success"
     except Exception as e:
         traceback.print_exc(file=sys.stdout)

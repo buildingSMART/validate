@@ -6,7 +6,7 @@
 
 
 
-{% block link %}<a href="/dashboard">Go to dashboard</a>{% endblock %}
+{% block link %}<a href="{%if commit_id%}/sandbox/{{commit_id}}{%endif%}/dashboard">Go to dashboard</a>{% endblock %}
 {% block content %}
 
             <div class="hidden_menu">

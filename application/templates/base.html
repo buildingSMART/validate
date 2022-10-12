@@ -15,12 +15,14 @@
 
 
 
-    <div class="full-screen">
+    <div class="full-screen {% if commit_id %} sandbox {% endif %}">
         <div class="header">
-            
+
             <a href="/"><img class="bsdd-logo"src="{{url_for('static', filename='navbar/BuildingSMART_CMYK_validation_service.png')}}" /></a>
             <div class="banner">BETA</div>
-            
+            {% if pr_title %}
+                <h2 style="font-weight:normal">Sandbox for <b>{{pr_title}}</b></h2>
+            {% endif %}
             
             <div class="bar_info">
                 <div class="container" onclick="myFunction(this)">
