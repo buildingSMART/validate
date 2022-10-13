@@ -3,5 +3,5 @@
 	url = https://github.com/IfcOpenShell/step-file-parser
 [submodule "application/checks/gherkin-rules"]
 	path = application/checks/gherkin_rules
-	url = https://github.com/AECgeeks/ifc-gherkin-rules
+	url = https://github.com/buildingSMART/ifc-gherkin-rules
 

@@ -158,7 +158,7 @@ def login_required(f):
 def with_sandbox(orig):
     @wraps(orig)
     def inner(commit_id=None, **kwargs):
-        pr_title = NONE
+        pr_title = None
         if commit_id:
             args = pr_manager.is_authorized_commit_id(commit_id)
             if not args:
