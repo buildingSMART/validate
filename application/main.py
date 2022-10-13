@@ -596,33 +596,19 @@ def view_report2(user_data, id):
         m = model.serialize(True)
 
         tasks = {t['task_type']: t for t in m['tasks']}
-
         results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
-
+  
         if m["status_syntax"] != 'n':
-            syntax_validation_task = session.query(database.syntax_validation_task).filter(database.syntax_validation_task.validated_file == model.id).all()[0]
-            syntax_result = session.query(database.syntax_result).filter(database.syntax_result.task_id == syntax_validation_task.id).all()[0]
-            results["syntax_result"] = syntax_result.serialize() 
+            results["syntax_result"] = tasks["syntax_validation_task"]["results"][0]
 
         if m["status_schema"] != 'n':
-            schema_validation_task = session.query(database.schema_validation_task).filter(
-            database.schema_validation_task.validated_file == model.id).all()[0]
-            schema_result = session.query(database.schema_result).filter(database.schema_result.task_id == schema_validation_task.id).all()[0]
-            results["schema_result"] = schema_result.serialize()
-            
+            results["schema_result"] = tasks["schema_validation_task"]["results"][0]
             if not results["schema_result"]['msg']:
                 results["schema_result"]['msg'] = "Valid"
             
         hierarchical_bsdd_results = {}
         if m["status_bsdd"] != 'n':
-            # @todo use relationship model.tasks instead of all these fragmented queries
-            bsdd_validation_task = session.query(database.bsdd_validation_task).filter(
-                database.bsdd_validation_task.validated_file == model.id).all()[0]
-
-            bsdd_results = session.query(database.bsdd_result).filter(
-                database.bsdd_result.task_id == bsdd_validation_task.id).all()
-            bsdd_results = [bsdd_result.serialize() for bsdd_result in bsdd_results]
-
+            bsdd_results = tasks["bsdd_validation_task"]["results"]
             errors = {}
             for bsdd_result in bsdd_results:
                 if bsdd_result["domain_file"] not in errors.keys():
@@ -683,15 +669,9 @@ def view_report2(user_data, id):
                 hierarchical_bsdd_results[bsdd_result["domain_file"]][bsdd_result["classification_file"]].append(bsdd_result)
                 
             results["bsdd_results"]["bsdd"] = hierarchical_bsdd_results
-            bsdd_validation_task = bsdd_validation_task.serialize()
-
+            bsdd_validation_task = tasks["bsdd_validation_task"]
             results["bsdd_results"]["task"] = bsdd_validation_task
-
-            instances = session.query(database.ifc_instance).filter(
-                database.ifc_instance.file == model.id).all()
-           
-            instances = {instance.id: instance.serialize() for instance in instances}
-            
+            instances = {instance.id: instance.serialize() for instance in model.instances}
             results["bsdd_results"]["instances"] = instances 
     
     # if 'errors' in locals():
