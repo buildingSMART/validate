@@ -107,7 +107,7 @@ class syntax_validation_task(task):
             validation_task_id = str(validation_task.id)
             
             output = proc.stderr
-            output = output.decode("utf-8").strip()
+            output = output.decode("utf-8", errors='ignore').strip()
             syntax_result = database.syntax_result(validation_task_id)
             syntax_result.msg = output
             session.add(syntax_result)
@@ -139,7 +139,7 @@ class ifc_validation_task(task):
             validation_task_id = str(validation_task.id)
            
             output = proc.stderr.read()
-            output = "\n".join(output.decode("utf-8").strip().split("\n")[1:])
+            output = "\n".join(output.decode("utf-8", errors='ignore').strip().split("\n")[1:])
             
             model.status_schema = 'v'
             if len(output):
