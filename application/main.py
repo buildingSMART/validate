@@ -698,7 +698,7 @@ def download_model(user_data, id):
         code = model.code
     path = utils.storage_file_for_id(code, "ifc")
 
-    return send_file(path, attachment_filename=model.filename, as_attachment=True, conditional=True)
+    return send_file(path, download_name=model.filename, as_attachment=True, conditional=True)
 
 @application.route('/delete/<id>', methods=['POST'])
 @login_required
