@@ -123,7 +123,13 @@ table {
 /* Phones */
 @media only screen and (max-width: 600px) {
   .submit-area{
-    width:60%;
+    max-width: 60%;
+    min-width: 60%;
+  }
+
+  table{
+    font-size: small;
+    margin: 0 auto;
   }
 
   .hidden_banner{
@@ -175,6 +181,12 @@ table {
 
 /* Phones landscape */
 @media only screen and (max-width: 600px) and (orientation : landscape) {
+
+
+  .submit-area{
+    max-width: 60%;
+    min-width: 60%;
+  }
   .bar_text {
     display: none;
   }
@@ -217,14 +229,13 @@ table {
 /* Tablets */
 @media only screen and (max-width: 925px) and (orientation : landscape) {
 
-  .main {
-    display: block;
+  .submit-area{
+    max-width: 60%;
+    min-width: 60%;
   }
 
   .full-screen>.main {
     overflow: scroll;
-    display: block;
-
   }
 
   .bar_text {
@@ -234,20 +245,15 @@ table {
 
   .visible_menu {
     width: 100%;
-
-
   }
 
   .hidden_menu {
     width: 100%;
-
-
   }
 
   .material_container {
     display: none;
   }
-
 
   .container {
     display: flex;
