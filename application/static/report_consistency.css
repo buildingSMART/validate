@@ -114,6 +114,14 @@ table pre {
     align-content: center;
     display:inline;
   }
+  .submit-area{
+    max-width: 60%;
+    min-width: 60%;
+  }
+
+  table{
+    font-size: small;
+  }
 
   .banner{
     display: none;
@@ -159,7 +167,10 @@ table pre {
 
 
 /* Phones landscape */
-
+.submit-area{
+  max-width: 60%;
+  min-width: 60%;
+}
 @media only screen and (max-width: 600px) and (orientation : landscape) {
   .bar_text {
     display: none;
@@ -181,9 +192,7 @@ table pre {
   .bar_info {
     height: 100%;
     width: 65px;
-    background-color: #04AA6D;
     display: flex;
-    /* flex-direction: column; */
     justify-content: center;
     display: flex;
   }
@@ -204,13 +213,7 @@ table pre {
     display: none;
   }
 
-  .submit-area {
-    width: 70%;
-    height: 55%;
-  }
-
   .visible_menu {
-    /* min-height: 5%; */
     width: 100%;
   }
 
