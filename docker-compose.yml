@@ -35,6 +35,7 @@ services:
       - SERVER_NAME=${SERVER_NAME}
       - MG_KEY=${MG_KEY}
       - MG_EMAIL=${MG_EMAIL}
+      - DEV_EMAIL=${DEV_EMAIL}
       - CRYPTOGRAPHY_DONT_BUILD_RUST=1
       - SECRET_KEY=${SECRET_KEY}
       
