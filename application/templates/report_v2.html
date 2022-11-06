@@ -228,7 +228,7 @@
                             <!-- IFC entity type -->
                             <tr class="{{classification}}" style="display: none; font-style: bold;text-align:center;background-color:{{validation_colors[bsdd_result['val_ifc_type']]}};">
                                 {% if results["bsdd_results"]["instances"] %}
-                                    <td> {{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['global_id']}}</td>
+                                    <td> {{bsdd_result['global_id']}}</td>
                                 {% else %}
                                     <td> Not instance classified</td>
                                 {% endif %}
@@ -236,7 +236,7 @@
                                 <td>{{bsdd_result['bsdd_type_constraint']}}</td>
 
                                 {% if results["bsdd_results"]["instances"] %}
-                                    <td>{{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['ifc_type']}}</td>
+                                    <td>{{bsdd_result['ifc_type']}}</td>
                                 {% else %}
                                     <td> Not instance classified</td>
                                 {% endif %}
@@ -246,7 +246,7 @@
                             {% if bsdd_result['ifc_property_set'] %}
                             <tr class="{{classification}}" style="display: none; font-style: bold;text-align:center;background-color:{{validation_colors[bsdd_result['val_property_set']]}};">
                                 {% if results["bsdd_results"]["instances"] %}
-                                    <td> {{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['global_id']}}</td>
+                                    <td> {{bsdd_result['global_id']}}</td>
                                 {% else %}
                                     <td> Not instance classified</td>
                                 {% endif %}
@@ -261,7 +261,7 @@
                             {% if bsdd_result['ifc_property_name'] %}
                             <tr class="{{classification}}" style="display: none; font-style: bold;text-align:center; background-color:{{validation_colors[bsdd_result['val_property_name']]}};">
                                 {% if results["bsdd_results"]["instances"] %}
-                                    <td> {{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['global_id']}}</td>
+                                    <td> {{bsdd_result['global_id']}}</td>
                                 {% else %}
                                     <td> Not instance classified</td>
                                 {% endif %}
@@ -276,7 +276,7 @@
                             {% if bsdd_result['ifc_property_type'] %}
                             <tr class="{{classification}}" style="display: none; font-style: bold;text-align:center;background-color:{{validation_colors[bsdd_result['val_property_type']]}};">
                                 {% if results["bsdd_results"]["instances"] %}
-                                    <td> {{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['global_id']}}</td>
+                                    <td> {{bsdd_result['global_id']}}</td>
                                 {% else %}
                                     <td> Not instance classified</td>
                                 {% endif %}
@@ -290,7 +290,7 @@
                             {% if bsdd_result['ifc_property_value'] %}
                                 <tr class="{{classification}}" style="display: none; font-style: bold;text-align:center;background-color:{{validation_colors[bsdd_result['val_property_value']]}};">
                                     {% if results["bsdd_results"]["instances"] %}
-                                        <td> {{results["bsdd_results"]["instances"][bsdd_result["instance_id"]]['global_id']}}</td>
+                                        <td> {{bsdd_result['global_id']}}</td>
                                     {% else %}
                                         <td> Not instance classified</td>
                                     {% endif %}
