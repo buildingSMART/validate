@@ -315,7 +315,7 @@ def process_upload_validation(files, validation_config, user_id, commit_id=None,
         user = session.query(database.user).filter(database.user.id == user_id).all()[0]
 
     msg = f"{len(filenames)} file(s) were uploaded by user {user.name} ({user.email}): {(', ').join(filenames)}"
-    utils.send_message(msg, [os.getenv("CONTACT_EMAIL"), os.getenv("DEV_EMAIL")])
+    utils.send_message(msg, [os.getenv("CONTACT_EMAIL")])
 
     if DEVELOPMENT or NO_REDIS:
         for id in ids:
@@ -450,7 +450,7 @@ def update_info(user_data, code):
             user = session.query(database.user).filter(database.user.id == model.user_id).all()[0]
 
             if user_data_data["type"] == "license":
-                utils.send_message(f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}", [os.getenv("DEV_EMAIL")])
+                utils.send_message(f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}", [os.getenv("CONTACT_EMAIL")])
             session.commit()
         return jsonify( {"progress": data.decode("utf-8")})
     except:
