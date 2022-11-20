@@ -74,7 +74,7 @@ def send_message(msg_content, user_email, html=None):
         auth=("api", os.getenv("MG_KEY")),
 
         data={"from": from_,
-              "to": [user_email],
+              "to": user_email,
               "html":html,
               "subject": "Validation Service update",
               "text": msg_content})
