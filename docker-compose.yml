@@ -36,6 +36,7 @@ services:
       - MG_KEY=${MG_KEY}
       - MG_EMAIL=${MG_EMAIL}
       - DEV_EMAIL=${DEV_EMAIL}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
       - CONTACT_EMAIL=${CONTACT_EMAIL}
       - CRYPTOGRAPHY_DONT_BUILD_RUST=1
       - SECRET_KEY=${SECRET_KEY}
@@ -85,6 +86,7 @@ services:
       - MG_KEY=${MG_KEY}
       - MG_EMAIL=${MG_EMAIL}
       - DEV_EMAIL=${DEV_EMAIL}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
       - CONTACT_EMAIL=${CONTACT_EMAIL}
     depends_on:
       - redis
