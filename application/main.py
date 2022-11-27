@@ -120,7 +120,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(**kwargs):
         if not DEVELOPMENT:
-            if not "oauth_token" in session.keys():
+            if not "oauth_token" in session.keys() or 'user_data' not in session:
                 # before redirect, capture the commit id
                 session['commit_id'] = kwargs.get('commit_id')
                 return redirect(url_for('login'))
