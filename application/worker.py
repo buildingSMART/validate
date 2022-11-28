@@ -471,6 +471,25 @@ def do_process(id, validation_config, commit_id, ids_spec):
     for t in tasks_on_aggregate:
         run_task(t, [id, input_files], aggregate_model=True)
 
+    with database.Session() as session:
+        model = session.query(database.model).filter(database.model.code == id).all()[0]
+        filename = model.filename
+        html_notification = f'<div>\
+        Dear user of the Validation Service,<br> \
+        <br>\
+        Your file <b>{filename}</b> has been uploaded and checked by the Validation Service.<br>\
+        <br>\
+        The validation report is available <a href="{os.getenv("SERVER_NAME")}/report2/{id}">here</a>.<br>\
+        Please report any bug/inconsistency/comment to <a href="mailto:validate@buildingsmart.org">validate@buildingsmart.org</a>.<br>\
+        <br>\
+        Best regards,<br>\
+        The Validation Service team</div><br>\
+        <img src="{os.getenv("SERVER_NAME")}/static/navbar/BuildingSMART_CMYK_validation_service.png" width="250px" height="60px"/>'
+        email_text = "File checked."
+        user = session.query(database.user).filter(database.user.id == model.user_id).all()[0]
+    utils.send_message(email_text, [user.email], html_notification)
+    print(f'for file {id} email sent to {user.email} with content {html_notification}')
+
     elapsed = 100
     set_progress(id, elapsed)
 

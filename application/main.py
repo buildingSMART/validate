@@ -46,24 +46,10 @@ from requests_oauthlib import OAuth2Session
 from authlib.jose import jwt
 
 import utils
+import bsdd_utils
 import database
 import worker
 import pr_manager
-
-def send_simple_message(msg_content, user_email):
-    dom = os.getenv("SERVER_NAME")
-    base_url = f"https://api.eu.mailgun.net/v3/{dom}/messages"
-    from_ = f"Validation Service <bsdd_val@{dom}>"
-    email = os.getenv("MG_EMAIL")
-
-    return requests.post(
-        base_url,
-        auth=("api", os.getenv("MG_KEY")),
-
-        data={"from": from_,
-              "to": [email, user_email],
-              "subject": "Validation service update",
-              "text": msg_content})
 
 
 application = Flask(__name__)
@@ -71,6 +57,11 @@ application = Flask(__name__)
 
 DEVELOPMENT = os.environ.get(
     'environment', 'production').lower() == 'development'
+
+if not DEVELOPMENT:
+    assert os.getenv("DEV_EMAIL")
+    assert os.getenv("ADMIN_EMAIL")
+    assert os.getenv("CONTACT_EMAIL")
 
 VALIDATION = 1
 VIEWER = 0
@@ -329,7 +320,7 @@ def process_upload_validation(files, validation_config, user_id, commit_id=None,
         user = session.query(database.user).filter(database.user.id == user_id).all()[0]
 
     msg = f"{len(filenames)} file(s) were uploaded by user {user.name} ({user.email}): {(', ').join(filenames)}"
-    send_simple_message(msg, user.email)
+    utils.send_message(msg, [os.getenv("CONTACT_EMAIL")])
 
     if DEVELOPMENT or NO_REDIS:
         for id in ids:
@@ -464,7 +455,7 @@ def update_info(user_data, code):
             user = session.query(database.user).filter(database.user.id == model.user_id).all()[0]
 
             if user_data_data["type"] == "license":
-                send_simple_message(f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}", user.email)
+                utils.send_message(f"User {user.name} ({user.email}) changed license of its file {model.filename} from {original_license} to {model.license}", [os.getenv("CONTACT_EMAIL")])
             session.commit()
         return jsonify( {"progress": data.decode("utf-8")})
     except:
@@ -593,87 +584,26 @@ def view_report2(user_data, id):
         model = session.query(database.model).filter(
             database.model.code == id).all()[0]
 
-        m = model.serialize(True)
+        tasks = {t.task_type: t for t in model.tasks}
 
-        tasks = {t['task_type']: t for t in m['tasks']}
         results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
   
-        if m["status_syntax"] != 'n':
-            results["syntax_result"] = tasks["syntax_validation_task"]["results"][0]
+        if model.status_syntax != 'n':
+            results["syntax_result"] = tasks["syntax_validation_task"].results[0].serialize()
 
-        if m["status_schema"] != 'n':
-            results["schema_result"] = tasks["schema_validation_task"]["results"][0]
+        if model.status_schema != 'n':
+            results["schema_result"] = tasks["schema_validation_task"].results[0].serialize()
             if not results["schema_result"]['msg']:
                 results["schema_result"]['msg'] = "Valid"
-            
-        hierarchical_bsdd_results = {}
-        if m["status_bsdd"] != 'n':
-            bsdd_results = tasks["bsdd_validation_task"]["results"]
-            errors = {}
-            for bsdd_result in bsdd_results:
-                if bsdd_result["domain_file"] not in errors.keys():
-                    errors[bsdd_result["domain_file"]]= {}
-
-                if bsdd_result["classification_file"] not in errors[bsdd_result["domain_file"]].keys():
-                    errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]] = []
-
-                validation_subsections = ["val_ifc_type", "val_property_set", "val_property_name", "val_property_type", "val_property_value"]
-                validation_results = [bsdd_result[subsection] for subsection in validation_subsections]
     
-                file_values = [ 
-                            bsdd_result["bsdd_type_constraint"],
-                            bsdd_result["ifc_property_set"],
-                            bsdd_result["ifc_property_name"],
-                            bsdd_result["ifc_property_type"],
-                            bsdd_result["ifc_property_value"]
-                ]
-                
-                # For now handles the case when the classification is not retrieved from the API 
-                if None not in validation_results:
-                    if sum(validation_results) != len(validation_results):
-                        validation_constraints_subsections = ["propertySet","name","dataType", "predefinedValue", "possibleValues"]
-
-                        validation_constraints= [bsdd_result['bsdd_type_constraint']]
-
-                        for subsection in validation_constraints_subsections:
-                            constraint = json.loads(bsdd_result["bsdd_property_constraint"])
-                            if subsection in constraint.keys():
-                                validation_constraints.append(constraint[subsection])
-                
-                        error = Error(bsdd_result["domain_file"],
-                                    bsdd_result["classification_file"],
-                                    validation_constraints,
-                                    validation_results,
-                                    file_values)
-                        
-                        if error not in errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]] :
-                            
-                            errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]].append(error)
-                        
-                        errors[bsdd_result["domain_file"]][bsdd_result["classification_file"]][-1].instances.append(bsdd_result["instance_id"])
-
-                
-                if bsdd_result["bsdd_property_constraint"]:
-                    bsdd_result["bsdd_property_constraint"] = json.loads(
-                        bsdd_result["bsdd_property_constraint"])
-                else:
-                    bsdd_result["bsdd_property_constraint"] = 0
-
-                if bsdd_result["domain_file"] not in hierarchical_bsdd_results.keys():
-                    hierarchical_bsdd_results[bsdd_result["domain_file"]]= {}
-
-                if bsdd_result["classification_file"] not in hierarchical_bsdd_results[bsdd_result["domain_file"]].keys():
-                    hierarchical_bsdd_results[bsdd_result["domain_file"]][bsdd_result["classification_file"]] = []
-
-
-                hierarchical_bsdd_results[bsdd_result["domain_file"]][bsdd_result["classification_file"]].append(bsdd_result)
-                
+        hierarchical_bsdd_results = {}
+        if model.status_bsdd != 'n':
+            hierarchical_bsdd_results = bsdd_utils.get_hierarchical_bsdd(model.code)
             results["bsdd_results"]["bsdd"] = hierarchical_bsdd_results
             bsdd_validation_task = tasks["bsdd_validation_task"]
             results["bsdd_results"]["task"] = bsdd_validation_task
-            instances = {instance.id: instance.serialize() for instance in model.instances}
-            results["bsdd_results"]["instances"] = instances 
-    
+            results["bsdd_results"]["instances"] = len(model.instances) > 0
+            
     # if 'errors' in locals():
     #     return render_template("report_v1.html",
     #                         model=m,
@@ -682,7 +612,7 @@ def view_report2(user_data, id):
     #                         username=f"{user_data['given_name']} {user_data['family_name']}")
     # else:
     return render_template("report_v2.html",
-                    model=m,
+                    model=model,
                     tasks=tasks,
                     results=results,
                     username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")

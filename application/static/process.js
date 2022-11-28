@@ -236,6 +236,7 @@ function poll(unsavedConcat) {
 
                     bar.style.width = 100 * 2 + 'px';
                     percentage.innerHTML = "100%"
+
                     completeTable(i);
 
                 }
