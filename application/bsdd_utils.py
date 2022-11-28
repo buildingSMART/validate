@@ -23,8 +23,12 @@ def get_hierarchical_bsdd(id):
                     bsdd_result['global_id'], bsdd_result['ifc_type'] = inst.global_id, inst.ifc_type
 
                 if bsdd_result["bsdd_property_constraint"]:
-                    bsdd_result["bsdd_property_constraint"] = json.loads(
-                        bsdd_result["bsdd_property_constraint"])
+                    # Quick fix to handle the case with no constraint
+                    try:
+                        bsdd_result["bsdd_property_constraint"] = json.loads(
+                            bsdd_result["bsdd_property_constraint"])
+                    except:
+                        bsdd_result["bsdd_property_constraint"] = 0
                 else:
                     bsdd_result["bsdd_property_constraint"] = 0
 
