@@ -47,7 +47,7 @@ import datetime
 
 if DEVELOPMENT or NO_POSTGRES:
     file_path = os.path.join(os.path.dirname(__file__), "ifc-pipeline.db") 
-    engine = create_engine(f'sqlite:///{file_path}', connect_args={'check_same_thread': False})
+    engine = create_engine(f'sqlite:///{file_path}', connect_args={'check_same_thread': False, 'timeout': 100})
 else:
     host = os.environ.get('POSTGRES_HOST', 'localhost')
     password = os.environ['POSTGRES_PASSWORD']
