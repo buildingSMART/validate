@@ -206,7 +206,7 @@
             <td colspan=9 class="rowheader">bSDD</td>
         </tr>
     
-        {% if results["bsdd_results"]["bsdd"] %}
+        {% if model.status_bsdd != 'n' %}
             {% for domain, classification_dicts in results["bsdd_results"]["bsdd"].items() %}
                 {% if domain == "no IfcClassification" %}
                     <tr><td style="text-align:center;background-color: {{validation_colors[2]}};" colspan=9>No classification in the file</td></tr>
@@ -320,6 +320,10 @@
                             
                         {% endfor %}
                 {% endif %}
+            {% else %}
+            <tr>
+                <td style="text-align:center;background-color: {{validation_colors[1]}};" colspan=9>Valid</td>
+            </tr>
             {% endfor %}
 
         {% else %}

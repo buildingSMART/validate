@@ -16,7 +16,13 @@ def get_hierarchical_bsdd(id):
         if model.status_bsdd != 'n':
             for bsdd_result in bsdd_task.results:
                 
-                bsdd_result = bsdd_result.serialize()
+                validity = (getattr(bsdd_result, a) for a in ('val_ifc_type', 'val_property_name', 'val_property_set', 'val_property_type', 'val_property_value'))
+                validity = (1 if v is None else v for v in validity)
+
+                if len(bsdd_task.results) > 16 and sum(validity) == 5:
+                    continue
+
+                bsdd_result = bsdd_result.serialize()              
              
                 if bsdd_result["instance_id"]:
                     inst = get_inst(bsdd_result["instance_id"])
