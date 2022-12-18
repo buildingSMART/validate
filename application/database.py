@@ -160,7 +160,11 @@ class validation_task(Base, Serializable):
 
     def __init__(self, validated_file):
         self.validated_file = validated_file
-
+   
+class general_info_task(validation_task):
+    __mapper_args__ = {
+        "polymorphic_identity": "general_info_task",
+    }
 
 class bsdd_validation_task(validation_task):
     results = relationship("bsdd_result")
@@ -169,7 +173,6 @@ class bsdd_validation_task(validation_task):
         "polymorphic_identity": "bsdd_validation_task",
     }
     
-
 class schema_validation_task(validation_task):
     results = relationship("schema_result")
 
