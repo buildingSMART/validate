@@ -89,6 +89,7 @@ html, body {
     grid-template-rows: 60px 1fr 30px;
     grid-template-columns: 1fr;
     box-sizing: border-box;
+    overflow-y: scroll;
   }
 
   .sandbox {
@@ -245,9 +246,7 @@ html, body {
   background: #eee;
   border-width: 1px;
   border-color: #ddd;
-  height:200px;
   min-height: 200px;
-  max-height: 200px;
 }
 
 .dropzone:hover {
