@@ -503,8 +503,7 @@ def process(ids, validation_config, commit_id=None, ids_spec=None , callback_url
         traceback.print_exc(file=sys.stdout)
 
         status = "failure"
-        for id in ids:    
-            set_progress(id, -2)
+        set_progress(ids, -2)
 
     if callback_url is not None:       
         r = requests.post(callback_url, data={"status": status, "id": ids})
