@@ -13,6 +13,7 @@ def perform(ifc_fn, task_id, rule_type=gherkin_rules.RuleType.ALL):
         file_id = model.id
         
         results = list(gherkin_rules.run(ifc_fn, instance_as_str=False, rule_type=rule_type))
+        results = [r for r in results if 'Rule disabled' not in r]
         instances = set((inst_id, inst_type) for _a, _b, _c, (inst_id, inst_type), _d in filter(lambda r: r[3], results))
 
         def commit_instance(p):
