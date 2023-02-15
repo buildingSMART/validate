@@ -99,7 +99,7 @@ if not DEVELOPMENT and not NO_REDIS:
     from rq import Queue
 
     q = Queue(connection=Redis(host=os.environ.get(
-        "REDIS_HOST", "localhost")), default_timeout=3600)
+        "REDIS_HOST", "localhost")), default_timeout=(3600 * 2))
 
 
 if not DEVELOPMENT:
