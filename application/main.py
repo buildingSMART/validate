@@ -671,9 +671,7 @@ def view_report2(user_data, code):
             results["syntax_result"] = tasks["syntax_validation_task"].results[0].serialize()
 
         if model.status_schema != 'n':
-            results["schema_result"] = tasks["schema_validation_task"].results[0].serialize()
-            if not results["schema_result"]['msg']:
-                results["schema_result"]['msg'] = "Valid"
+            results["schema_result"] = [r.serialize() for r in tasks["schema_validation_task"].results]
     
         hierarchical_bsdd_results = {}
         if model.status_bsdd != 'n':
@@ -688,7 +686,8 @@ def view_report2(user_data, code):
     return jsonify({
          "model":model.serialize(),
          "tasks":tasks,
-         "results":results
+         "results":results,
+         "instances": {i.id:{'guid':i.global_id, 'type': i.ifc_type} for i in model.instances}
     })
 
 

@@ -174,7 +174,7 @@ class bsdd_validation_task(validation_task):
     }
     
 class schema_validation_task(validation_task):
-    results = relationship("schema_result")
+    results = relationship("schema_result", order_by='schema_result.constraint_type.asc(),schema_result.attribute.asc()')
 
     __mapper_args__ = {
         "polymorphic_identity": "schema_validation_task",
@@ -283,7 +283,10 @@ class schema_result(Base, Serializable):
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     msg = Column(String, default="msg")
-
+    constraint_type = Column(Enum('schema', 'global_rule', 'simpletype_rule', 'entity_rule', name='schema_constraint_types'), default="private")
+    attribute = Column(String)
+    instance_id = Column(Integer, ForeignKey('instances.id'))
+    
     def __init__(self, task_id):
         self.task_id = task_id
 

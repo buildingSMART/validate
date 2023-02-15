@@ -131,53 +131,48 @@ class ifc_validation_task(task):
     est_time = 15
 
     def execute(self, directory, id):
-        proc = subprocess.Popen([sys.executable, "-m", "ifcopenshell.validate", "--rules", id + ".ifc"], cwd=directory,stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.Popen([sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", id + ".ifc"], cwd=directory,stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == id).all()[0]
-            
+            file_id = model.id
+
             validation_task = database.schema_validation_task(model.id)
             session.add(validation_task)
             session.commit()
             validation_task_id = str(validation_task.id)
             self.validation_task_id = validation_task_id
-            
-           
-            output = proc.stderr.read()
-            output = "\n".join(output.decode("utf-8", errors='ignore').strip().split("\n")[1:])
-            
-            model.status_schema = 'v'
-            if len(output):
-                model.status_schema = 'i'
-                
-                """
-                for result in output.split("\n"):
-                    res = json.loads(result)
-                    if res["level"] == "error":
-                        model.status_schema = 'i'
-                        break
-                    elif res["level"] == "warning":
-                        model.status_schema = 'w'
-                """
 
-            schema_result = database.schema_result(validation_task_id)
-            schema_result.msg = output
-            session.add(schema_result)
+            output = list(filter(None, proc.stdout.read().split("\n")))
+            model.status_schema = 'i' if len(output) else 'v'
+            results = list(map(json.loads, output))
+
+            # @todo internal C++ errors result in an instance as string, what to do?
+            instances = set((r['instance']['id'], r['instance']['type']) for r in results if r.get('instance') and isinstance(r['instance'], dict))
+
+            # @todo the commit_instance() routine is duplicated from check_gherkin.py
+            def commit_instance(p):
+                inst_id, inst_type = p
+                instance = database.ifc_instance(f"#{inst_id}", inst_type, file_id)
+                session.add(instance)
+                session.flush()
+                instance_id = instance.id
+                session.commit()
+                return instance_id
+
+            instance_ids = map(commit_instance, instances)
+            instance_to_id = dict(zip(instances, instance_ids))
+
+            for d in results:
+                schema_result = database.schema_result(validation_task_id)
+                schema_result.msg = d["message"]
+                schema_result.attribute = d.get("attribute")
+                schema_result.constraint_type = d["type"]
+                if (inst := d.get('instance')) and isinstance(inst, dict):
+                    schema_result.instance_id = instance_to_id[(inst['id'], inst['type'])]
+                session.add(schema_result)
+
             session.commit()
-
-        i = 0
-        while True:
-            ch = proc.stdout.read(1)
-            
-            if not ch and proc.poll() is not None:
-                break
-
-            if ch and ord(ch) == ord('.'):
-                i += 1
-                self.sub_progress(i)
-        
-        if proc.poll() != 0:
-            raise RuntimeError()
 
 
 class mvd_validation_task(task):

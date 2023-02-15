@@ -13,6 +13,7 @@ import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment'
 import { PageContext } from './Page';
 
+import SchemaResult from './SchemaResult';
 
 function Report() {
 
@@ -89,7 +90,7 @@ function Report() {
           <GeneralTable data={reportData} type={"overview"} />
 
           <MinimalTreeView status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]["msg"]} />
-          <MinimalTreeView status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]["msg"]} />
+          <SchemaResult status={reportData["model"]["status_schema"]} content={reportData["results"]["schema_result"]} instances={reportData.instances} />
 
           <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />
 
