@@ -166,7 +166,7 @@ class ifc_validation_task(task):
             for d in results:
                 schema_result = database.schema_result(validation_task_id)
                 schema_result.msg = d["message"]
-                schema_result.attribute = d.get("attribute")
+                schema_result.attribute = d["attribute"]
                 schema_result.constraint_type = d["type"]
                 if (inst := d.get('instance')) and isinstance(inst, dict):
                     schema_result.instance_id = instance_to_id[(inst['id'], inst['type'])]

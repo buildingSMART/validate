@@ -11,9 +11,9 @@ export default function SchemaResult({ summary, content, status, instances }) {
   let grouped = [];
   for (let c of content) {
     if (grouped.length === 0 || c.attribute !== grouped[grouped.length-1][0]) {
-      grouped.push([[c.attribute ? c.attribute : 'Uncategorized'],[]])
+      grouped.push([c.attribute ? c.attribute : 'Uncategorized',[]])
     }
-    grouped[grouped.length-1][1].push(c)
+    grouped[grouped.length-1][1].push(c);
   }
 
   return (
