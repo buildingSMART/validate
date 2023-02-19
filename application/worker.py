@@ -97,7 +97,7 @@ class syntax_validation_task(task):
         check_program = os.path.join(os.getcwd(), "checks", "step-file-parser", "main.py")
         # try if there is pypy in the path, otherwise default to the current
         # python interpreter.
-        proc = subprocess.run([shutil.which("pypy3") or sys.executable, check_program, id + ".ifc"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        proc = subprocess.run([shutil.which("pypy3") or sys.executable, check_program, "--json", id + ".ifc"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == id).all()[0]
@@ -107,23 +107,25 @@ class syntax_validation_task(task):
             session.commit()
             validation_task_id = str(validation_task.id)
             self.validation_task_id = validation_task_id
-          
-            
-            output = proc.stderr
-            output = output.decode("utf-8", errors='ignore').strip()
-            syntax_result = database.syntax_result(validation_task_id)
-            syntax_result.msg = output
-            session.add(syntax_result)
 
-            if output.lower() == 'valid':
+            output = proc.stdout.strip()
+            if not output:
                 model.status_syntax = 'v'
             else:
-                model.status_syntax = 'i'  
+                model.status_syntax = 'i'
+                output = json.loads(output)
+                # only a single result now in the current approach
+                syntax_result = database.syntax_result(validation_task_id)
+                syntax_result.msg = output['message']
+                syntax_result.error_type = output['type']
+                syntax_result.lineno = output['lineno']
+                syntax_result.column = output['column']
+                session.add(syntax_result)
             
             session.commit()
             session.close()
 
-        if proc.returncode != 0:            
+        if proc.returncode != 0:
             raise RuntimeError(f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}")
 
 

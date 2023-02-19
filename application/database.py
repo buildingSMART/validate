@@ -283,7 +283,7 @@ class schema_result(Base, Serializable):
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     msg = Column(String, default="msg")
-    constraint_type = Column(Enum('schema', 'global_rule', 'simpletype_rule', 'entity_rule', name='schema_constraint_types'), default="private")
+    constraint_type = Column(Enum("uncategorized", 'schema', 'global_rule', 'simpletype_rule', 'entity_rule', name='schema_constraint_types'), default="uncategorized")
     attribute = Column(String)
     instance_id = Column(Integer, ForeignKey('instances.id'))
     
@@ -297,6 +297,9 @@ class syntax_result(Base, Serializable):
     id = Column(Integer, primary_key=True)
     task_id = Column(Integer, ForeignKey('validation_tasks.id'))
     msg = Column(String, default="msg")
+    error_type = Column(Enum("uncategorized", 'unexpected_token', 'unexpected_character', 'duplicate_name', name='syntax_error_types'), default="uncategorized")
+    lineno = Column(Integer)
+    column = Column(Integer)
 
     def __init__(self, task_id):
         self.task_id = task_id

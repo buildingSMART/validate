@@ -668,7 +668,7 @@ def view_report2(user_data, code):
         results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
   
         if model.status_syntax != 'n':
-            results["syntax_result"] = tasks["syntax_validation_task"].results[0].serialize()
+            results["syntax_result"] = [r.serialize() for r in tasks["syntax_validation_task"].results]
 
         if model.status_schema != 'n':
             results["schema_result"] = [r.serialize() for r in tasks["schema_validation_task"].results]
