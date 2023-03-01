@@ -123,24 +123,30 @@ def login_required(f):
             if not "oauth_token" in session.keys() or 'user_data' not in session:
                 # before redirect, capture the commit id
                 session['commit_id'] = kwargs.get('commit_id')
-                return redirect(url_for('login'))
+                abort(403)
             with database.Session() as db_session:
                 user = db_session.query(database.user).filter(database.user.id == session['user_data']["sub"]).all()
                 if len(user) == 0:
-                     return redirect(url_for('login'))
+                    abort(403)
             user_data = session['user_data']
         else:
-            try:
-                with open('decoded.json') as json_file:
-                    user_data = json.load(json_file)
-            except:
-                user_data = {
+            user_data = {
                     'sub': 'development-id',
                     'email': 'test@example.org',
                     'family_name': 'User',
                     'given_name': 'Test',
                     'name': 'Test User',
                 }
+            with database.Session() as db_session:
+                user = db_session.query(database.user).filter(database.user.id == 'development-id').all()
+                if len(user) == 0:
+                    db_session.add(database.user(str(user_data["sub"]),
+                                                str(user_data.get('email', '')),
+                                                str(user_data.get('family_name', '')),
+                                                str(user_data.get('given_name', '')),
+                                                str(user_data.get('name', ''))))
+                    db_session.commit()
+
 
         return f(user_data=user_data, **kwargs)
     return decorated_function
@@ -161,7 +167,7 @@ def with_sandbox(orig):
 
 
 @application.route("/sandbox/<commit_id>/")
-@application.route("/")
+@application.route("/api/")
 @login_required
 @with_sandbox
 def index(user_data, pr_title=None, commit_id=None):
@@ -180,22 +186,44 @@ def index(user_data, pr_title=None, commit_id=None):
 
 
 # @todo still requires sandbox parameters
-@application.route('/login', methods=['GET'])
+@application.route('/api/login', methods=['GET'])
 def login():
     bs = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=[
                        "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
     authorization_url, state = bs.authorization_url(authorization_base_url)
     session['oauth_state'] = state
-    return redirect(authorization_url)
+    return jsonify({"redirect":authorization_url})
 
-
-@application.route("/callback")
+@application.route('/api/sandbox/me/<commit_id>', methods=['GET'])
+@application.route('/api/me', methods=['GET'])
+@with_sandbox
+def me(pr_title=None, commit_id=None):
+    if not DEVELOPMENT:
+        if not "oauth_token" in session.keys():   
+            bs = OAuth2Session(client_id, redirect_uri=redirect_uri, scope=[
+                            "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
+            authorization_url, state = bs.authorization_url(authorization_base_url)
+            session['oauth_state'] = state
+            return jsonify({"redirect":authorization_url})
+        else:
+            return jsonify({"user_data":session["user_data"], "sandbox_info":{"pr_title":pr_title, "commit_id":commit_id}})
+    else:
+        return jsonify(
+                    {"user_data":
+                        {'sub': 'development-id',
+                            'email': 'test@example.org',
+                            'family_name': 'User',
+                            'given_name': 'Test',
+                            'name': 'Test User'},
+                    "sandbox_info":{"pr_title":pr_title, "commit_id":commit_id}
+                })
+   
+@application.route("/callback/")
 def callback():
     bs = OAuth2Session(client_id, state=session['oauth_state'], redirect_uri=redirect_uri, scope=[
                        "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
     try:
-        t = bs.fetch_token(token_url, client_secret=client_secret,
-                           authorization_response=request.url, response_type="token")
+        t = bs.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url, response_type="token")
     except:
         return redirect(url_for('login'))
         
@@ -209,6 +237,7 @@ def callback():
     discovery_response = requests.get(BS_DISCOVERY_URL).json()
     key = requests.get(discovery_response['jwks_uri']).content.decode("utf-8")
     id_token = t['id_token']
+
 
     user_data = jwt.decode(id_token, key=key)
     session['user_data'] = user_data
@@ -227,22 +256,19 @@ def callback():
         # Restore and then discard the commit_id stored before
         # redirecting to /login
         del session['commit_id']
-        return redirect(url_for('index', commit_id=cid))
+        return redirect("/") #todo: also add the commit ID
     else:
-        return redirect(url_for('index'))
+        return redirect("/")
 
 
-@application.route("/logout")
-@login_required
-def logout(user_data):
+@application.route("/api/logout")
+def logout():
     if DEVELOPMENT:
         return redirect(url_for('index'))
     else:
-        session.clear()  # Wipe out the user and the token cache from the session
-        return redirect(  # Also need to log out from the Microsoft Identity platform
-            "https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/logout"
-            "?post_logout_redirect_uri=" + url_for("index", _external=True))
-
+        session.clear()  # Wipe out the user and the token cache from the session 
+        # Also need to log out from the Microsoft Identity platform
+        return jsonify({"redirect":f"https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/oauth2/v2.0/logout?post_logout_redirect_uri=https://{os.environ['SERVER_NAME']}/"})
 
 def process_upload(filewriter, callback_url=None):
 
@@ -316,11 +342,11 @@ def process_upload_validation(files, validation_config, user_id, commit_id=None,
             file.save(os.path.join(d, id+".ifc"))
             session.add(database.model(id, fn, user_id, commit_id))
         session.commit()
-
-        user = session.query(database.user).filter(database.user.id == user_id).all()[0]
-
-    msg = f"{len(filenames)} file(s) were uploaded by user {user.name} ({user.email}): {(', ').join(filenames)}"
-    utils.send_message(msg, [os.getenv("CONTACT_EMAIL")])
+   
+        if not DEVELOPMENT:
+            user = session.query(database.user).filter(database.user.id == user_id).all()[0]
+            msg = f"{len(filenames)} file(s) were uploaded by user {user.name} ({user.email}): {(', ').join(filenames)}"
+            utils.send_message(msg, [os.getenv("CONTACT_EMAIL")])
 
     if DEVELOPMENT or NO_REDIS:
         for id in ids:
@@ -336,8 +362,14 @@ def process_upload_validation(files, validation_config, user_id, commit_id=None,
 
 @application.route('/reprocess/<id>', methods=['POST'])
 @login_required
-def reprocess(user_data,id):
+def reprocess(user_data, id):
     ids = []
+
+    with database.Session() as session:
+        model = session.query(database.model).filter(database.model.code == code).all()[0]
+
+        if model.user_id != user_data["sub"]:
+            abort(403)
 
     if DEVELOPMENT:
         for id in ids:
@@ -350,8 +382,8 @@ def reprocess(user_data,id):
 
     return ids
 
-@application.route('/sandbox/<commit_id>/', methods=['POST'])
-@application.route('/', methods=['POST'])
+@application.route('/api/sandbox/<commit_id>', methods=['POST'])
+@application.route('/api/', methods=['POST'])
 @with_sandbox
 @login_required
 def put_main(user_data, pr_title, commit_id=None):
@@ -360,15 +392,12 @@ def put_main(user_data, pr_title, commit_id=None):
 
     ids = []
     files = []
-
     user_id = user_data["sub"]
 
     for key, f in request.files.items():
-
         if key.startswith('file'):
             file = f
             files.append(file)
-
 
     with open('config.json', 'r') as config_file:
         validation_config=json.loads(config_file.read())
@@ -379,7 +408,11 @@ def put_main(user_data, pr_title, commit_id=None):
             arg = {'commit_id': commit_id}
         else:
             arg = {}
-        url = url_for('dashboard', **arg)
+        
+        if commit_id:
+            url = f"/sandbox/dashboard/{commit_id}"
+        else:
+            url = "/dashboard"
 
     elif VIEWER:
         ids = process_upload_multiple(files)
@@ -397,7 +430,7 @@ def check_viewer(id):
 
 
 @application.route('/sandbox/<commit_id>/dashboard', methods=['GET'])
-@application.route('/dashboard', methods=['GET'])
+@application.route('/api/dashboard', methods=['GET'])
 @login_required
 @with_sandbox
 def dashboard(user_data, pr_title, commit_id=None):
@@ -411,9 +444,45 @@ def dashboard(user_data, pr_title, commit_id=None):
         saved_models.sort(key=lambda m: m.date, reverse=True)
         saved_models = [model.serialize() for model in saved_models]
 
-    return render_template('dashboard.html', commit_id=commit_id, pr_title=pr_title, saved_models=saved_models, username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
+    return render_template('dashboard.html',
+                           commit_id=commit_id,
+                           pr_title=pr_title,
+                           saved_models=saved_models,
+                           username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}"
+                           )
 
+@application.route('/sandbox/<commit_id>/models', methods=['GET'])
+@application.route('/api/models', methods=['GET'])
+@login_required
+@with_sandbox
+def models(user_data, pr_title, commit_id=None):
+    user_id = user_data['sub']
+    # Retrieve user data
+    with database.Session() as session:
+        if str(user_data["email"]) in [os.getenv("ADMIN_EMAIL"), os.getenv("DEV_EMAIL")]:
+            saved_models = session.query(database.model).filter(database.model.deleted!=1).all()
+        else:
+            saved_models = session.query(database.model).filter(database.model.user_id == user_id, database.model.deleted!=1).all()
+        saved_models.sort(key=lambda m: m.date, reverse=True)
+        saved_models = [model.serialize() for model in saved_models]
+    return jsonify({"models":saved_models})
 
+@application.route('/sandbox/<commit_id>/models_paginated/<start>/<end>', methods=['GET'])
+@application.route('/api/models_paginated/<start>/<end>', methods=['GET'])
+@login_required
+@with_sandbox
+def models_paginated(user_data, start, end, pr_title, commit_id=None):
+    user_id = user_data['sub']
+    # Retrieve user data
+    with database.Session() as session:
+        if str(user_data["email"]) in [os.getenv("ADMIN_EMAIL"), os.getenv("DEV_EMAIL")]:
+            saved_models = [m.serialize() for m in session.query(database.model).filter(database.model.deleted!=1).order_by(database.model.id.desc()).slice(int(start),int(end)).all()]
+            count = session.query(database.model).filter(database.model.deleted!=1).count()
+        else:
+            saved_models = [m.serialize() for m in session.query(database.model).filter(database.model.user_id==user_id).filter(database.model.deleted!=1).order_by(database.model.id.desc()).slice(int(start),int(end)).all()]
+            count = session.query(database.model).filter(database.model.user_id==user_id).filter(database.model.deleted!=1).count()
+    return jsonify({"models":saved_models, "count":count})
+  
 @application.route('/valprog/<id>', methods=['GET'])
 @login_required
 def get_validation_progress(user_data, id):
@@ -445,6 +514,10 @@ def update_info(user_data, code):
     try:  
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == code).all()[0]
+
+            if model.user_id != user_data["sub"]:
+                abort(403)
+
             original_license = model.license
             data = request.get_data()
             user_data_data = json.loads(data)
@@ -541,6 +614,9 @@ def log_results(user_data, i, ids):
         model = session.query(database.model).filter(
             database.model.code == all_ids[int(i)]).all()[0]
 
+        if model.user_id != user_data["sub"]:
+            abort(403)
+
         response = {"results": {}, "time": None}
 
         response["results"]["syntaxlog"] = model.status_syntax
@@ -575,14 +651,58 @@ class Error:
 
 
 
-@application.route('/report2/<id>')
+@application.route('/api/report2/<code>')
 @login_required
-def view_report2(user_data, id):
+def view_report2(user_data, code):
+    with database.Session() as session:
+        session = database.Session()
+
+        model = session.query(database.model).filter(
+            database.model.code == code).all()[0]
+
+        if model.user_id != user_data["sub"]:
+            abort(403)
+
+        tasks = {t.task_type: t for t in model.tasks}
+
+        results = { "syntax_result":0, "schema_result":0, "bsdd_results":{"tasks":0, "bsdd":0, "instances":0}}
+  
+        if model.status_syntax != 'n':
+            results["syntax_result"] = tasks["syntax_validation_task"].results[0].serialize()
+
+        if model.status_schema != 'n':
+            results["schema_result"] = tasks["schema_validation_task"].results[0].serialize()
+            if not results["schema_result"]['msg']:
+                results["schema_result"]['msg'] = "Valid"
+    
+        hierarchical_bsdd_results = {}
+        if model.status_bsdd != 'n':
+            hierarchical_bsdd_results = bsdd_utils.get_hierarchical_bsdd(model.code)
+            results["bsdd_results"]["bsdd"] = hierarchical_bsdd_results
+            bsdd_validation_task = tasks["bsdd_validation_task"]
+            results["bsdd_results"]["task"] = bsdd_validation_task.serialize()
+            results["bsdd_results"]["instances"] = len(model.instances) > 0
+
+        tasks = {task_type: t.serialize(full=True) if (task_type == "informal_propositions_task" or task_type == "implementer_agreements_task") else  t.serialize() for task_type, t in tasks.items()}
+
+    return jsonify({
+         "model":model.serialize(),
+         "tasks":tasks,
+         "results":results
+    })
+
+
+@application.route('/results/<id>')
+@login_required
+def results(user_data, id):
     with database.Session() as session:
         session = database.Session()
 
         model = session.query(database.model).filter(
             database.model.code == id).all()[0]
+
+        if model.user_id != user_data["sub"]:
+            abort(403)
 
         tasks = {t.task_type: t for t in model.tasks}
 
@@ -603,40 +723,37 @@ def view_report2(user_data, id):
             bsdd_validation_task = tasks["bsdd_validation_task"]
             results["bsdd_results"]["task"] = bsdd_validation_task
             results["bsdd_results"]["instances"] = len(model.instances) > 0
-            
-    # if 'errors' in locals():
-    #     return render_template("report_v1.html",
-    #                         model=m,
-    #                         results=results,
-    #                         errors=errors,
-    #                         username=f"{user_data['given_name']} {user_data['family_name']}")
-    # else:
-    return render_template("report_v2.html",
-                    model=model,
-                    tasks=tasks,
-                    results=results,
-                    username=f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}")
+  
+    return jsonify({"model":model,
+                    "tasks":tasks,
+                    "results":results,
+                    "username":f"{user_data.get('given_name', '')} {user_data.get('family_name', '')}"})
 
 
-
-@application.route('/download/<id>', methods=['GET'])
+@application.route('/api/download/<id>', methods=['GET'])
 @login_required
 def download_model(user_data, id):
     with database.Session() as session:
         session = database.Session()
         model = session.query(database.model).filter(database.model.id == id).all()[0]
+        if model.user_id != user_data["sub"]:
+            abort(403)
         code = model.code
     path = utils.storage_file_for_id(code, "ifc")
 
     return send_file(path, download_name=model.filename, as_attachment=True, conditional=True)
 
-@application.route('/delete/<id>', methods=['POST'])
+@application.route('/api/delete/<id>', methods=['POST'])
 @login_required
 def delete(user_data, id):
+    ids = [int(i) for i in id.split('.')]
     with database.Session() as session:
         session = database.Session()
-        model = session.query(database.model).filter(database.model.id == id).all()[0]
-        model.deleted = 1
+        models = session.query(database.model).filter(database.model.id.in_(ids)).all()
+        if set(m.user_id for m in models) != {user_data["sub"]}:
+            abort(403)
+        for model in models:
+            model.deleted = 1
         session.commit()
     return jsonify({"status":"success", "id":id})
 
@@ -678,7 +795,6 @@ def get_model(fn):
         return response
     else:
         return send_file(path)
-
 
 """
 # Create a file called routes.py with the following

@@ -50,18 +50,16 @@ services:
       - ./models:/data
       
   nginx:
-    image: nginx:1.17-alpine
+    build: ui
     depends_on:
       - frontend
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx:/etc/nginx/conf.d
       - ./docker-volumes/certbot/conf:/etc/letsencrypt
       - ./docker-volumes/certbot/www:/var/www/certbot
     entrypoint: "/bin/sh -c \"nginx -g 'daemon off;' & while true; do nginx -t && nginx -s reload; sleep 1h; done\""
-    
   
   certbot:
     ports: []

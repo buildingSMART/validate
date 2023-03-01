@@ -47,7 +47,6 @@ RUN /bin/bash -c '(cat /tmp/.git/$(cat /tmp/.git/HEAD | cut -d \  -f 2)) || cat 
 RUN sed -i "4i<script>console.log('pipeline version: $(cat /version)');</script>" /www/application/templates/*.html
 RUN rm -rf /tmp/.git
 
-
 COPY application/queue.conf /etc/supervisord.conf
 
 WORKDIR /www/application
