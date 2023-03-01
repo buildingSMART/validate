@@ -5,8 +5,21 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import TreeItem from '@mui/lab/TreeItem';
 import { statusToColor } from './mappings'
 import Paper from '@mui/material/Paper';
+import TablePagination from '@mui/material/TablePagination';
+import { useEffect, useState } from 'react';
 
 export default function SyntaxResult({ content, status }) {
+  const [rows, setRows] = React.useState([])
+  const [page, setPage] = useState(0);
+
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };  
+
+  useEffect(() => {
+    setRows(content.slice(page * 10, page * 10 + 10))
+  }, [page, content]);
+
   return (
     <Paper sx={{overflow: 'hidden'}}>
       <TreeView
@@ -33,8 +46,8 @@ export default function SyntaxResult({ content, status }) {
         }}
       >
         <TreeItem nodeId="0" label="Syntax">
-        { content.length
-            ? content.map(item => {
+        { rows.length
+            ? rows.map(item => {
                 return <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}>
                     <TreeItem nodeId="syntax-0" label={<div class='caption'>{(item.error_type || 'syntax_error').replace('_', ' ')}</div>}>
@@ -57,7 +70,20 @@ export default function SyntaxResult({ content, status }) {
                   </TreeView>
               })
             : <div>{content ? "Valid" : "Not checked"}</div> }
-          </TreeItem>
+          {
+            content.length
+            ? <TablePagination
+                sx={{display: 'flex', justifyContent: 'center', backgroundColor: statusToColor[status]}}
+                rowsPerPageOptions={[10]}
+                component="div"
+                count={content.length}
+                rowsPerPage={10}
+                page={page}
+                onPageChange={handleChangePage}
+              />
+            : null
+          }
+        </TreeItem>
       </TreeView>
     </Paper>
   );

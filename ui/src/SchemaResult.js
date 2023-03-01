@@ -5,16 +5,27 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import TreeItem from '@mui/lab/TreeItem';
 import { statusToColor } from './mappings'
 import Paper from '@mui/material/Paper';
+import TablePagination from '@mui/material/TablePagination';
+import { useEffect, useState } from 'react';
 
 export default function SchemaResult({ summary, content, status, instances }) {
+  const [data, setRows] = React.useState([])
+  const [page, setPage] = useState(0);
 
-  let grouped = [];
-  for (let c of (content || [])) {
-    if (grouped.length === 0 || c.attribute !== grouped[grouped.length-1][0]) {
-      grouped.push([c.attribute ? c.attribute : 'Uncategorized',[]])
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };  
+
+  useEffect(() => {
+    let grouped = [];
+    for (let c of (content || []).slice(page * 10, page * 10 + 10)) {
+      if (grouped.length === 0 || (c.attribute ? c.attribute : 'Uncategorized') !== grouped[grouped.length-1][0]) {
+        grouped.push([c.attribute ? c.attribute : 'Uncategorized',[]])
+      }
+      grouped[grouped.length-1][1].push(c);
     }
-    grouped[grouped.length-1][1].push(c);
-  }
+    setRows(grouped)
+  }, [page, content]);
 
   return (
     <Paper sx={{overflow: 'hidden'}}>
@@ -24,7 +35,6 @@ export default function SchemaResult({ summary, content, status, instances }) {
         defaultExpandIcon={<ChevronRightIcon />}
         defaultExpanded={["0"]}
         sx={{
-          "pre": { margin: 0 },
           "width": "850px",
           "backgroundColor": statusToColor[status],
           ".MuiTreeItem-root .MuiTreeItem-root": { backgroundColor: "#ffffff80", overflow: "hidden" },
@@ -33,7 +43,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
           "> li > .MuiTreeItem-content": { padding: "16px" },
           ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
           ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
-          ".caption" : { paddingTop: "1em" },
+          ".caption" : { paddingTop: "1em", textTransform: 'capitalize' },
           ".subcaption" : { visibility: "hidden", fontSize: '80%' },
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
@@ -42,8 +52,8 @@ export default function SchemaResult({ summary, content, status, instances }) {
         }}
       >
         <TreeItem nodeId="0" label="Schema">
-          { grouped.length
-            ? grouped.map(([hd, rows]) => {
+          { data.length
+            ? data.map(([hd, rows]) => {
                 return <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}>
                     <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')} - {hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? rows[0].msg.split('\n')[0] : '\u00A0'}</div></div>}>
@@ -67,6 +77,19 @@ export default function SchemaResult({ summary, content, status, instances }) {
                   </TreeView>
               })
             : <div>{content ? "Valid" : "Not checked"}</div> }
+          {
+            content.length
+            ? <TablePagination
+                sx={{display: 'flex', justifyContent: 'center', backgroundColor: statusToColor[status]}}
+                rowsPerPageOptions={[10]}
+                component="div"
+                count={content.length}
+                rowsPerPage={10}
+                page={page}
+                onPageChange={handleChangePage}
+              />
+            : null
+          }
         </TreeItem>
       </TreeView>
     </Paper>
