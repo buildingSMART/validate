@@ -14,8 +14,6 @@ import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment'
 import { PageContext } from './Page';
 
-import SchemaResult from './SchemaResult';
-
 function Report() {
 
   const context = useContext(PageContext);
