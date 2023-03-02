@@ -13,7 +13,7 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Link from '@mui/material/Link';
 
-import {PageContext} from './Page';
+import { PageContext } from './Page';
 import { useContext } from 'react';
 
 
@@ -32,8 +32,10 @@ function AppLogo() {
 }
 
 const pages_ = [{ "label": 'Upload', "href": "/" },
-{ "label": "Dashboard",
-  "href": "/dashboard"}];
+{
+  "label": "Dashboard",
+  "href": "/dashboard"
+}];
 
 const settings_ = [{ "label": 'Upload new file', "href": "/" },
 { "label": 'Dashboard', "href": "/dashboard" },
@@ -43,23 +45,25 @@ function ResponsiveAppBar({ user }) {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
-    const context = useContext(PageContext);
+  const context = useContext(PageContext);
 
 
-    let pages;
-    let settings;
+  let pages;
+  let settings;
 
-    if (context.sandboxId){
-      pages = [{ "label": 'Upload', "href": `/sandbox/${context.sandboxId}`},
-      { "label": "Dashboard",
-        "href": `/sandbox/dashboard/${context.sandboxId}`}];
-      settings = [{ "label": 'Upload new file', "href": `/sandbox/${context.sandboxId}` },
-      { "label": 'Dashboard', "href": `/sandbox/dashboard/${context.sandboxId}`},
-      { "label": 'Logout', "href": "/logout" }]
-    }else{
-      pages = pages_;
-      settings = settings_;
-    }
+  if (context.sandboxId) {
+    pages = [{ "label": 'Upload', "href": `/sandbox/${context.sandboxId}` },
+    {
+      "label": "Dashboard",
+      "href": `/sandbox/dashboard/${context.sandboxId}`
+    }];
+    settings = [{ "label": 'Upload new file', "href": `/sandbox/${context.sandboxId}` },
+    { "label": 'Dashboard', "href": `/sandbox/dashboard/${context.sandboxId}` },
+    { "label": 'Logout', "href": "/logout" }]
+  } else {
+    pages = pages_;
+    settings = settings_;
+  }
 
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
@@ -81,7 +85,7 @@ function ResponsiveAppBar({ user }) {
     color: 'grey',
     borderBottom: "thin solid rgb(238, 238, 238)",
     boxShadow: "none",
-    ".MuiToolbar-root" : {
+    ".MuiToolbar-root": {
       minHeight: '10vh',
     }
   };
@@ -184,7 +188,14 @@ function ResponsiveAppBar({ user }) {
           <Box sx={{ flexGrow: 0 }}>
             <Tooltip title="Open settings">
               <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                <Avatar sx={{ bgcolor: "grey" }}>
+                <Avatar
+                  sx={{
+                    bgcolor: "grey",
+                    "&:hover": {
+                      border: "2px solid darkgrey",
+                    },
+                  }}
+                >
                   {Array.from(user["given_name"])[0] + Array.from(user["family_name"])[0]}
                 </Avatar>
               </IconButton>
