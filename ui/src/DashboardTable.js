@@ -362,7 +362,7 @@ export default function DashboardTable({ models }) {
                   }
 
                   <TableCell align="left">
-                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover">
+                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick="event.stopPropagation()">
                       {'Download file'}
                     </Link>
                   </TableCell>
