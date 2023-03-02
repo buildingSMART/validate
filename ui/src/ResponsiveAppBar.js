@@ -87,7 +87,8 @@ function ResponsiveAppBar({ user }) {
     boxShadow: "none",
     ".MuiToolbar-root": {
       minHeight: '10vh',
-    }
+    },
+    zIndex: (theme) => theme.zIndex.drawer + 1
   };
 
   return (

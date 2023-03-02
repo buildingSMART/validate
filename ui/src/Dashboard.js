@@ -9,6 +9,7 @@ import Button from '@mui/material/Button';
 import HomeIcon from '@mui/icons-material/Home';
 import CheckIcon from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
+import SideMenu from './SideMenu';
 import Typography from '@mui/material/Typography';
 
 import { useEffect, useState, useContext } from 'react';
@@ -57,22 +58,8 @@ function Dashboard() {
             style={{
             }}
           >
-            <div style={{
-              width: '15%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'start',
-              marginLeft: '2%',
-              marginTop: '1%'
-            }}>
-              <Button href={context.sandboxId?`/sandbox/${context.sandboxId}`:"/"}>
-                <HomeIcon style={{ minWidth: '40px', 'borderLeft': context.pageTitle == "home" ? '5px solid #1976d2' : 'none' }} /> <Typography style={{ textTransform: 'none' }}>Home</Typography>
-              </Button>
-              <Button href={context.sandboxId?`/sandbox/dashboard/${context.sandboxId}`:"/dashboard"}>
-                <CheckIcon style={{ minWidth: '40px', 'borderLeft': context.pageTitle == "dashboard" ? '5px solid #1976d2' : 'none' }} />  <Typography style={{ textTransform: 'none' }}>Validation</Typography>
-              </Button>
-            </div>
-
+            <SideMenu />
+            
             <Grid
               container
               flex={1}
