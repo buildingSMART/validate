@@ -57,9 +57,10 @@
 }
 
 .dropzone {
-  overflow: overlay;
+  overflow: auto;
   text-align: center;
-  min-height: 40%;
+  min-height: 200px;
+  max-height: 200px;
 } 
 
 .submit-button{
