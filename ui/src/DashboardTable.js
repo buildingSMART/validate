@@ -82,7 +82,7 @@ const headCells = [
     label: 'IFC Syntax and Schema',
     width: 100,
     align: 'center',
-    tooltip: 'Step Physical File syntax, (inverse) attribute types and cardinalities and where rules and function constraints'
+    tooltip: 'STEP Physical File Syntax / IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints'
   },
   {
     id: 'rules',
