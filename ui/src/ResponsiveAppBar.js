@@ -80,11 +80,14 @@ function ResponsiveAppBar({ user }) {
     background: 'white',
     color: 'grey',
     borderBottom: "thin solid rgb(238, 238, 238)",
-    boxShadow: "none"
+    boxShadow: "none",
+    ".MuiToolbar-root" : {
+      minHeight: '10vh',
+    }
   };
 
   return (
-    <AppBar position="static" style={styleAppBar}>
+    <AppBar position="static" sx={styleAppBar}>
       <Container maxWidth="xl">
         <Toolbar disableGutters>
           <Typography

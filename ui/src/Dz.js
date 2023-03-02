@@ -13,7 +13,7 @@ function Dz() {
         var dz = new window.Dropzone("#ifc_dropzone",
             {
                 uploadMultiple: true,
-                acceptedFiles: ".ifc, .xml",
+                acceptedFiles: ".ifc",
                 parallelUploads: 100,
                 maxFiles: 100,
                 maxFilesize: 8 * 1024,
@@ -33,11 +33,19 @@ function Dz() {
             }
         });
 
-        var submitButton = document.querySelector("#submit");
-        submitButton.addEventListener("click", function () {
-            dz.processQueue();
+        dz.on("totaluploadprogress", function (progress) {
+            const pb = document.querySelector(".dropzone .progress-bar");
+            const w = (pb.parentNode.offsetWidth - 2) / 100. * progress;
+            pb.style.width = `${w}px`;
         });
 
+        var submitButton = document.querySelector("#submit");
+        submitButton.addEventListener("click", function () {
+            const pb = document.querySelector(".dropzone .progress-bar");
+            pb.style.display = 'block';
+            pb.style.width = `0px`;
+            dz.processQueue();
+        });
 
     }, []);
 
@@ -45,6 +53,7 @@ function Dz() {
         <div>
             <div className="submit-area" id="ifc_tab">
                 <form action={context.sandboxId?`${FETCH_PATH}/api/sandbox/${context.sandboxId}`:`${FETCH_PATH}/api/`} className="dropzone" id="ifc_dropzone">
+                    <div className="progress-bar"></div>
                     <div className="dz-message" data-dz-message><span><i className="material-icons">file_upload</i> Click or drop files here to upload for validation</span></div>
                 </form>
                 <Button className="submit-button" variant="contained" id="submit">Upload & Validate</Button>
