@@ -24,9 +24,14 @@ root.render(
       <Route path="/dashboard" element={<Page pageTitle="dashboard"><Dashboard/></Page>} />
       <Route path="sandbox/dashboard/:commitId" element={<Page pageTitle="dashboard"><Dashboard/></Page>} />
 
-      <Route path="/report/:modelCode"element={<Page pageTitle="report"><Report/></Page>} />
-      <Route path="/sandbox/report/:commitId/:modelCode" element = {<Page pageTitle="report"><Report/></Page>} />
+      <Route path="/report_syntax_schema/:modelCode"element={<Page pageTitle="report"><Report kind="syntax_and_schema"/></Page>} />
+      <Route path="/report_bsdd/:modelCode"element={<Page pageTitle="report"><Report kind="bsdd"/></Page>} />
+      <Route path="/report_rules/:modelCode"element={<Page pageTitle="report"><Report kind="rules"/></Page>} />
 
+      <Route path="/sandbox/report_syntax_schema/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="syntax_and_schema"/></Page>} />
+      <Route path="/sandbox/report_bsdd/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="bsdd"/></Page>} />
+      <Route path="/sandbox/report_rules/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="rules"/></Page>} />
+      
       <Route path="/callback" element={<Callback />} />
       <Route path="/logout" element={<Logout />} />
     </Routes>

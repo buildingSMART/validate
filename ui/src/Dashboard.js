@@ -40,7 +40,6 @@ function Dashboard() {
       })
   }, []);
 
-
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
     return (
