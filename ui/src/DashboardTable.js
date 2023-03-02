@@ -89,7 +89,7 @@ const headCells = [
     label: 'Rules',
     width: 100,
     align: 'center',
-    tooltip: 'Implementer agreements and informal propositions'
+    tooltip: 'Implementer Agreements and Informal Propositions'
   },
   {
     id: 'bsdd',
