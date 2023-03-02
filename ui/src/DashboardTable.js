@@ -81,13 +81,15 @@ const headCells = [
     id: 'syntax_and_schema',
     label: 'IFC Syntax and Schema',
     width: 100,
-    align: 'center'
+    align: 'center',
+    tooltip: 'Step Physical File syntax, (inverse) attribute types and cardinalities and where rules and function constraints'
   },
   {
     id: 'rules',
     label: 'Rules',
     width: 100,
-    align: 'center'
+    align: 'center',
+    tooltip: 'Implementer agreements and informal propositions'
   },
   {
     id: 'bsdd',
@@ -131,7 +133,15 @@ function EnhancedTableHead(props) {
             width={headCell.width}
             sx={{fontWeight: 'bold'}}
           >
-            {headCell.label}
+            {
+              headCell.tooltip
+                ? <Tooltip title={headCell.tooltip}>
+                    <span style={{borderBottom: 'dotted 2px gray', display: 'inline-block'}}>{headCell.label}
+                      <span style={{fontSize: '.83em', verticalAlign: 'super'}}>{headCell.tooltip ? 'ⓘ' : ''}</span>
+                    </span>
+                  </Tooltip>
+                : headCell.label
+            }
           </TableCell>
         ))}
       </TableRow>
