@@ -41,7 +41,7 @@ function wrap_status(status, href) {
   if (status === 'n') {
     return statusToIcon[status];
   } else {
-    return <IconButton component={Link} href={href}>
+    return <IconButton component={Link} href={href} onClick="event.stopPropagation()">
       {statusToIcon[status]}
     </IconButton>;
   }
