@@ -461,10 +461,14 @@ def do_process(id, validation_config, commit_id, ids_spec):
             try:
                 vt_id = task.validation_task_id
                 with database.Session() as session:
-                    validation_task = session.query(database.validation_task).filter(database.validation_task.id == vt_id).all()[0]
-                    validation_task.validation_start_time = start_time
-                    validation_task.validation_end_time = end_time
-                    session.commit()
+                    validation_task = session.query(database.validation_task).filter(database.validation_task.id == vt_id).all()
+                    if validation_task:       
+                        validation_task = validation_task[0]         
+                        validation_task.validation_start_time = start_time
+                        validation_task.validation_end_time = end_time
+                        session.commit()
+                    else:
+                        print(f"Failed setting task start and end time for task with id {vt_id!r}")    
             except:
                 traceback.print_exc(file=sys.stdout)
         except:
