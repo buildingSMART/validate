@@ -59,75 +59,80 @@ export default function BsddTreeView({ bsddResults, status }) {
                           results.map((result) => {
                             return <div >
                               <br></br>
-                              <TableContainer sx={{
-                                minWidth: 650,
-                                "width": "90%",
-                                "padding": "10px"
-                              }} >
-                                <Table sx={{
+
+                              {
+                                (domain != "no IfcClassification" && classification != "no IfcClassificationReference") &&
+                                <TableContainer sx={{
                                   minWidth: 650,
-                                  "backgroundColor": "rgb(238, 238, 238)",
-                                }}
-                                  size="small"
-                                  aria-label="a dense table">
-                                  <TableHead>
-                                    <TableRow>
-                                      <TableCell align="center">Instance</TableCell>
-                                      <TableCell align="center">Requirement</TableCell>
-                                      <TableCell align="center">Required</TableCell>
-                                      <TableCell align="center">Observed</TableCell>
+                                  "width": "90%",
+                                  "padding": "10px"
+                                }} >
+                                  <Table sx={{
+                                    minWidth: 650,
+                                    "backgroundColor": "rgb(238, 238, 238)",
+                                  }}
+                                    size="small"
+                                    aria-label="a dense table">
+                                    <TableHead>
+                                      <TableRow>
+                                        <TableCell align="center">Instance</TableCell>
+                                        <TableCell align="center">Requirement</TableCell>
+                                        <TableCell align="center">Required</TableCell>
+                                        <TableCell align="center">Observed</TableCell>
 
-                                    </TableRow>
-                                  </TableHead>
-                                  <TableBody>
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
 
-                                    {/* IFC TYPE */}
-                                    <BsddReportRow valid={result.val_ifc_type}
-                                      key={"0"}
-                                      instance={result.global_id}
-                                      requirement={"IFC entity type"}
-                                      required={result.bsdd_type_constraint}
-                                      observed={result.ifc_type}
-                                    />
+                                      {/* IFC TYPE */}
+                                      <BsddReportRow valid={result.val_ifc_type}
+                                        key={"0"}
+                                        instance={result.global_id}
+                                        requirement={"IFC entity type"}
+                                        required={result.bsdd_type_constraint}
+                                        observed={result.ifc_type}
+                                      />
 
-                                    {/* PROPERTY SET  */}
-                                    <BsddReportRow valid={result.val_property_set}
-                                      key={"1"}
-                                      instance={result.global_id}
-                                      requirement={"Property Set"}
-                                      required={result.bsdd_property_constraint.propertySet}
-                                      observed={result.ifc_property_set}
-                                    />
+                                      {/* PROPERTY SET  */}
+                                      <BsddReportRow valid={result.val_property_set}
+                                        key={"1"}
+                                        instance={result.global_id}
+                                        requirement={"Property Set"}
+                                        required={result.bsdd_property_constraint.propertySet}
+                                        observed={result.ifc_property_set}
+                                      />
 
-                                    {/* PROPERTY */}
-                                    <BsddReportRow valid={result.val_property_name}
-                                      key={"2"}
-                                      instance={result.global_id}
-                                      requirement={"Property Name"}
-                                      required={result.bsdd_property_constraint.name}
-                                      observed={result.ifc_property_value}
-                                    />
+                                      {/* PROPERTY */}
+                                      <BsddReportRow valid={result.val_property_name}
+                                        key={"2"}
+                                        instance={result.global_id}
+                                        requirement={"Property Name"}
+                                        required={result.bsdd_property_constraint.name}
+                                        observed={result.ifc_property_value}
+                                      />
 
-                                    {/* DATA TYPE */}
-                                    <BsddReportRow valid={result.val_property_type}
-                                      key={"3"}
-                                      instance={result.global_id}
-                                      requirement={"Property Value Type"}
-                                      required={result.bsdd_property_constraint.dataType}
-                                      observed={result.ifc_property_type}
-                                    />
+                                      {/* DATA TYPE */}
+                                      <BsddReportRow valid={result.val_property_type}
+                                        key={"3"}
+                                        instance={result.global_id}
+                                        requirement={"Property Value Type"}
+                                        required={result.bsdd_property_constraint.dataType}
+                                        observed={result.ifc_property_type}
+                                      />
 
-                                    {/* PROPERTY VALUE */}
-                                    <BsddReportRow valid={result.val_property_value}
-                                      key={"4"}
-                                      instance={result.global_id}
-                                      requirement={"Property Value"}
-                                      required={result.bsdd_property_constraint.predefinedValue}
-                                      observed={result.ifc_property_value}
-                                    />
-                                  </TableBody>
-                                </Table>
-                              </TableContainer>
+                                      {/* PROPERTY VALUE */}
+                                      <BsddReportRow valid={result.val_property_value}
+                                        key={"4"}
+                                        instance={result.global_id}
+                                        requirement={"Property Value"}
+                                        required={result.bsdd_property_constraint.predefinedValue}
+                                        observed={result.ifc_property_value}
+                                      />
+                                    </TableBody>
+                                  </Table>
+                                </TableContainer>
+                              }
+
                             </div>
                           }
                           )
