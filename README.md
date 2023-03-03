@@ -88,3 +88,9 @@ Start flask with
 ~~~
 ./run_local.sh
 ~~~
+
+## Running `psql`
+
+~~~
+docker exec -it $(docker ps -q --filter name=db) psql -U postgres bimsurfer2
+~~~
