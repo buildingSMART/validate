@@ -9,6 +9,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import HomeIcon from '@mui/icons-material/Home';
 import CheckIcon from '@mui/icons-material/Check';
+import Divider from '@mui/material/Divider';
 
 import { PageContext } from './Page';
 import { useContext } from 'react';
@@ -25,6 +26,7 @@ export default function SideMenu() {
                 width: drawerWidth,
                 flexShrink: 0,
                 [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+                display: { xs:'none', md: 'flex'},
             }}
         >
             <Toolbar />
@@ -43,6 +45,7 @@ export default function SideMenu() {
                 </List>
 
                 <List style={{ position: "absolute", bottom: "0", width: "100%" }}>
+                <Divider />
                     <ListItem key={"test"} disablePadding>
                         <ListItemButton>
                             <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.5.1`} />
