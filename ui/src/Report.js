@@ -128,6 +128,10 @@ function Report({ kind }) {
                     (kind === "rules")
                     && <h2> Rules Report</h2>
                   }
+                  {
+                    (kind === "file")
+                    && <h2> File metrics</h2>
+                  }
 
                   <GeneralTable data={reportData} type={"general"} />
                 
