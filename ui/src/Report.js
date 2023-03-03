@@ -76,7 +76,7 @@ function Report({ kind }) {
             }}
           >
             <SideMenu />
-            
+
             <Grid
               container
               flex={1}
@@ -116,11 +116,21 @@ function Report({ kind }) {
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
 
-                  <h2>Validation Report</h2>
+                  {
+                    (kind === "syntax_and_schema")
+                    && <h2>Syntax and Schema Report</h2>
+                  }
+                  {
+                    (kind === "bsdd")
+                    && <h2>bSDD Report</h2>
+                  }
+                  {
+                    (kind === "rules")
+                    && <h2> Rules Report</h2>
+                  }
 
                   <GeneralTable data={reportData} type={"general"} />
-                  <GeneralTable data={reportData} type={"overview"} />
-
+                
                   {
                     (kind === "syntax_and_schema")
                       ? <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />
