@@ -13,6 +13,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import IconButton from '@mui/material/IconButton';
+import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CircularStatic from "./CircularStatic";
@@ -29,7 +30,8 @@ const statusToIcon = {
   "n": <BrowserNotSupportedIcon color="disabled" />,
   "v": <CheckCircleIcon sx={{ color: "#2ab672" }} />,
   "i": <ErrorIcon color="error" />,
-  "w": <WarningIcon color="warning" />
+  "w": <WarningIcon color="warning" />,
+  "info":<InfoIcon color="primary"/>
 }
 
 function status_combine(...args) {
@@ -338,7 +340,7 @@ export default function DashboardTable({ models }) {
                       }}
                     />
                   </TableCell>
-                  <TableCell align="left">{row.filename}</TableCell>
+                  <TableCell align="left">{row.filename} {wrap_status("info", context.sandboxId ? `/sandbox/report_file/${context.sandboxId}/${row.code}` : `/report_file/${row.code}`)}</TableCell>
                   <TableCell align="center">
                     {wrap_status(status_combine(row.status_syntax, row.status_schema), context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
                   </TableCell>
@@ -348,7 +350,7 @@ export default function DashboardTable({ models }) {
                   <TableCell align="center">
                     {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}
                   </TableCell>
-                  
+                
                   {
                     // (row.progress == 100) ?
                     // <TableCell align="left">
