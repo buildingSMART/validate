@@ -31,14 +31,14 @@ function AppLogo() {
   )
 }
 
-const pages_ = [{ "label": 'Upload', "href": "/" },
+const pages_ = [{ "label": 'Home', "href": "/" },
 {
-  "label": "Dashboard",
+  "label": "Validation",
   "href": "/dashboard"
 }];
 
-const settings_ = [{ "label": 'Upload new file', "href": "/" },
-{ "label": 'Dashboard', "href": "/dashboard" },
+const settings_ = [{ "label": 'Home', "href": "/" },
+{ "label": 'Validation', "href": "/dashboard" },
 { "label": 'Logout', "href": "/logout" }]
 
 function ResponsiveAppBar({ user }) {
@@ -87,7 +87,8 @@ function ResponsiveAppBar({ user }) {
     boxShadow: "none",
     ".MuiToolbar-root": {
       minHeight: '10vh',
-    }
+    },
+    zIndex: (theme) => theme.zIndex.drawer + 1
   };
 
   return (
@@ -176,7 +177,7 @@ function ResponsiveAppBar({ user }) {
               <Button
                 key={page["label"]}
                 onClick={handleCloseNavMenu}
-                sx={{ my: 2, color: 'grey', display: 'block' }}
+                sx={{ my: 2, color: 'grey', display: 'block', visibility: { md: 'hidden' } }}
               >
                 <Link color="inherit" href={page["href"]} underline="none">
                   {page["label"]}
