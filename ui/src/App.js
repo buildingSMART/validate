@@ -81,9 +81,11 @@ function App() {
                   alignItems="center"
                   justifyContent="space-between"
                   style={{
-                    minHeight: '100vh', gap: '15px',
+                    minHeight: '100vh',
                     background: `url(${require('./background.jpg')}) fixed`,
-                    border: context.sandboxId ? 'solid 12px red' : 'none'
+                    backgroundSize: 'cover',
+                    border: context.sandboxId ? 'solid 12px red' : 'none',
+                    gap: '12em'
                   }}
                 >
                   {context.sandboxId && <h2
@@ -121,16 +123,34 @@ function App() {
                     </Box>
                   </Box>
                     
-                  <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 1em', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
-                    <Typography variant="h6" sx={{paddingTop: '2em'}}>What is the Validation Service?</Typography>
-                    <Typography  align='left' paragraph>
-                      The Validation Service enables to upload IFC files to check them against different specifications and provide meaningful output results to the user.
+                  <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 5em', boxSizing: 'border-box', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
+                    <Typography style={{fontWeight: 'bold'}} sx={{paddingTop: '2em'}}>What it is</Typography>
+                    <Typography align='left' paragraph>The bSI Validation Service is a free, online platform for validating IFC files, developed by buildingSMART – with the help of software vendors and bSI projects</Typography>
+
+                    <Typography style={{fontWeight: 'bold'}}>What it does</Typography>
+
+                    <Typography align='left' paragraph>Given an IFC file, the Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification)</Typography>
+
+                    <Typography style={{fontWeight: 'bold'}}>What is being checked</Typography>
+
+                    <Typography align='left' paragraph>The IFC file is valid when it conforms to:
+
+                    <ul>
+                        <li><b>Syntax</b> The STEP Physical File syntax</li>
+                        <li><b>Schema</b> The IFC schema referenced in the file including formal propositions encoded in the EXPRESS where rule and function language</li>
+                        <li><b>Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
+                        <li><b>bSDD</b> The Validation Service validates the content of an IFC file against the requirements encoded in the bSDD domain referenced from a classification encoded in the file</li>
+                    </ul>
+
                     </Typography>
 
-                    <Typography variant="h6" >What does it check?</Typography>
-                    <Typography  align='left' paragraph sx={{paddingBottom: '2em'}}>
-                    The Validation Service checks IFC files against the STEP Syntax, the IFC Schema, constraining rules and the bSDD.
-                    </Typography>
+                    <Typography style={{fontWeight: 'bold'}}>What is NOT being checked</Typography>
+
+                    <Typography align='left' paragraph>Outside of the constraints encoded in bSDD, the bSI Validation Service does not check project-specific, national-specific, organization-specific rules or constraints. Case-specific validation is where the mandate of the bSI Validation Service ends.</Typography>
+
+                    <Typography style={{fontWeight: 'bold'}}>Visualisation</Typography>
+
+                    <Typography align='left' paragraph sx={{paddingBottom: '2em'}}>For multiple reasons, geometric visualisation is not within the scope nor the mandate of the Validation Service. Many errors are invisible in a viewer or unrelated to a geometric representation or prevent visualisation altogether.</Typography>
 
                     <Footer/>
                   </div>
