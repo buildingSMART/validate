@@ -30,13 +30,13 @@ export default function SideMenu() {
             <Toolbar />
             <Box sx={{ overflow: 'auto' }}>
                 <List>
-                    {['Home', 'Validation'].map((text, index) => (
-                        <ListItem key={text} disablePadding>
+                    {['Home', 'Dashboard'].map((text, index) => (
+                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle == text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
                             <ListItemButton href={text === "Home" ? context.sandboxId ? `/sandbox/${context.sandboxId}` : "/" : context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard"}>
                                 <ListItemIcon>
                                     {text === "Home" ? <HomeIcon /> : <CheckIcon />}
                                 </ListItemIcon>
-                                <ListItemText primary={text} />
+                                <ListItemText primary={text == "Dashboard" ? "Validation" : text} />
                             </ListItemButton>
                         </ListItem>
                     ))}
