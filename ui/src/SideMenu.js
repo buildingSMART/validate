@@ -30,7 +30,7 @@ export default function SideMenu() {
             }}
         >
             <Toolbar />
-            <Box sx={{ overflow: 'auto' }}>
+            <Box sx={{ overflow: 'auto' , paddingTop:'5vh'}}>
                 <List>
                     {['Home', 'Dashboard'].map((text, index) => (
                         <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle == text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
