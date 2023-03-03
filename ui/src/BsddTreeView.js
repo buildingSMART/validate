@@ -49,17 +49,16 @@ export default function BsddTreeView({ bsddResults, status }) {
           {
             Object.entries(bsdd).map(([domain, classifications]) => {
 
-              return <TreeItem nodeId={11} label={`Domain: ${domain}`}>
+              return <TreeItem nodeId={11} label={`Domain: ${domain}`} disabled={domain == "no IfcClassification" ? true : false}>
                 <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}>
                   {
                     Object.entries(classifications).map(([classification, results]) => {
-                      return <TreeItem nodeId={12} label={`Classification: ${classification}`}>
+                      return <TreeItem nodeId={12} label={`Classification: ${classification}`} disabled={classification == "no IfcClassificationReference" ? true : false}>
                         {
                           results.map((result) => {
                             return <div >
                               <br></br>
-
                               {
                                 (domain != "no IfcClassification" && classification != "no IfcClassificationReference") &&
                                 <TableContainer sx={{
