@@ -293,7 +293,7 @@ export default function DashboardTable({ models }) {
   }
 
   return (
-    <Box sx={{ width: '100%', marginLeft: '5px', alignSelf: 'start', width: '95%' }}>
+    <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
       <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
       <TableContainer>
@@ -308,6 +308,9 @@ export default function DashboardTable({ models }) {
               // border: 'solid 1px rgba(0,0,0,30%)',
               boxShadow: '2px 2px 3px rgba(0,0,0,30%)'
             },
+            '*' : {
+              lineHeight: '1em'
+            }
           }}
           aria-labelledby="tableTitle"
           size={dense ? 'small' : 'medium'}

@@ -7,24 +7,29 @@ import StepContent from '@mui/material/StepContent';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-
-const steps = [
-  {
-    label: 'Select the IFC file(s) you want to validate',
-    description: ``,
-  },
-  {
-    label: 'Click on "Upload & Validate"',
-    description:
-      '',
-  },
-  {
-    label: 'Check the detailed results by clicking on the icons',
-    description: ``,
-  },
-];
+import { PageContext } from './Page';
+import {useContext} from 'react';
 
 export default function VerticalLinearStepper() {
+  const context = useContext(PageContext);
+  const maybe_subsequent = context.pageTitle === 'home' ? 'on the subsequent page' : '';
+
+  const steps = [
+    {
+      label: 'Select the IFC file(s) you want to validate',
+      description: ``,
+    },
+    {
+      label: 'Click on "Upload & Validate"',
+      description:
+        '',
+    },
+    {
+      label: `Check the detailed results by clicking on the icons ${maybe_subsequent}`,
+      description: ``,
+    }
+  ];
+
   const [activeStep, setActiveStep] = React.useState(0);
 
   const handleNext = () => {

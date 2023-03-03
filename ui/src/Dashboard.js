@@ -44,7 +44,7 @@ function Dashboard() {
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
     return (
-      <div>
+      <div class="dashboard">
         <Grid direction="column"
           container
           style={{
@@ -103,8 +103,8 @@ function Dashboard() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    alignSelf: 'normal',
-                    width: '100%'
+                    alignSelf: 'center',
+                    paddingTop: '3em'
                   }}>
                     <Box
                       style={{

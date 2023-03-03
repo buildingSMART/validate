@@ -42,7 +42,7 @@ function App() {
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
     return (
-      <div>
+      <div class="home">
         <Grid direction="column"
           container
           style={{
@@ -81,7 +81,8 @@ function App() {
                   alignItems="center"
                   justifyContent="space-between"
                   style={{
-                    minHeight: '100vh', gap: '15px', backgroundColor: 'rgb(242 246 248)',
+                    minHeight: '100vh', gap: '15px',
+                    background: `url(${require('./background.jpg')}) fixed`,
                     border: context.sandboxId ? 'solid 12px red' : 'none'
                   }}
                 >
@@ -96,27 +97,16 @@ function App() {
                     }}
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
-                    
-                  <div style={{alignSelf:"start", marginLeft:"5px"}}>
-                    <Typography variant="h6" >What is the Validation Service?</Typography>
-                    <Typography  align='left' paragraph>
-                      The Validation Service enables to upload IFC files to check them against different specifications and provide meaningful output results to the user.
-                    </Typography>
-                  </div>
 
-                  <div style={{alignSelf:"start", marginLeft:"5px"}}>
-                    <Typography variant="h6" >What does it check?</Typography>
-                    <Typography  align='left' paragraph>
-                    The Validation Service checks IFC files against the STEP Syntax, the IFC Schema, constraining rules and the bSDD.
-                    </Typography>
-                  </div>
-                
                   <Box sx={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    alignSelf: 'normal',
-                    width: '100%'
+                    alignSelf: 'center',
+                    borderRadius: '4px',
+                    boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
+                    backgroundColor: '#ffffff',
+                    padding: '0px 32px 0px 0px'
                   }}>
                     <Box
                       style={{
@@ -130,7 +120,21 @@ function App() {
                       <VerticalLinearStepper />
                     </Box>
                   </Box>
-                  <Footer />
+                    
+                  <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 1em', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
+                    <Typography variant="h6" sx={{paddingTop: '2em'}}>What is the Validation Service?</Typography>
+                    <Typography  align='left' paragraph>
+                      The Validation Service enables to upload IFC files to check them against different specifications and provide meaningful output results to the user.
+                    </Typography>
+
+                    <Typography variant="h6" >What does it check?</Typography>
+                    <Typography  align='left' paragraph sx={{paddingBottom: '2em'}}>
+                    The Validation Service checks IFC files against the STEP Syntax, the IFC Schema, constraining rules and the bSDD.
+                    </Typography>
+
+                    <Footer/>
+                  </div>
+                
                 </Grid>
               </div>
             </Grid>
