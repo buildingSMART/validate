@@ -57,6 +57,7 @@ application = Flask(__name__)
 
 DEVELOPMENT = os.environ.get(
     'environment', 'production').lower() == 'development'
+DEVELOPMENT = True
 if not DEVELOPMENT:
     assert os.getenv("DEV_EMAIL")
     assert os.getenv("ADMIN_EMAIL")
@@ -582,14 +583,9 @@ def build_implementer_agreement_results(user_data, id):
         instances = {i: i for i in model.instances}
 
         imp_agreement_results = [imp_ag.serialize() for imp_ag in tasks['implementer_agreements_task'].results]
-        instances_results = [ins.serialize() for ins in instances]
 
         then_statements = []
-        unique_steps = set()
-
-        for imp_ag in tasks['implementer_agreements_task'].results:
-            imp_ag = imp_ag.serialize()
-            unique_steps.add(imp_ag['step'])
+        unique_steps = set(imp_ag['step'] for imp_ag in imp_agreement_results)
         for unique_step in unique_steps:
             results_related_to_step = [result for result in imp_agreement_results if result['step'] == unique_step]
             imp_ag_dict = {}
@@ -598,7 +594,7 @@ def build_implementer_agreement_results(user_data, id):
             step_results = []
             for result in results_related_to_step:
                 step_results_dict = {}
-                instances_row = next((item for item in instances_results if item["id"] == result['instance_id']), None)
+                instances_row = next((item for item in instances if item.id == result['instance_id']), None)
                 step_results_dict['entity_id'] = result.get('instance_id')
                 step_results_dict['msg'] = result.get('message')
                 if result['message'] == 'Rule passed':
@@ -607,7 +603,10 @@ def build_implementer_agreement_results(user_data, id):
                     step_results_dict['status'] = 'n'
                 else:
                     step_results_dict['status'] = 'i'
-                step_results_dict['entity_type'] = instances_row.get('ifc_type')
+                if instances_row:
+                    step_results_dict['entity_type'] = instances_row.ifc_type
+                else:
+                    step_results_dict['entity_type'] = None
                 step_results.append(step_results_dict)
             imp_ag_dict['results'] = step_results
             then_statements.append(imp_ag_dict)
@@ -624,14 +623,9 @@ def build_informal_propositions_results(user_data, id):
         instances = {i: i for i in model.instances}
 
         inf_propositions_results = [imp_ag.serialize() for imp_ag in tasks['informal_propositions_task'].results]
-        instances_results = [ins.serialize() for ins in instances]
 
         then_statements = []
-        unique_steps = set()
-
-        for inf_prop in tasks['informal_propositions_task'].results:
-            inf_prop = inf_prop.serialize()
-            unique_steps.add(inf_prop['step'])
+        unique_steps = set(inf_prop['step'] for inf_prop in inf_propositions_results)
         for unique_step in unique_steps:
             results_related_to_step = [result for result in inf_propositions_results if result['step'] == unique_step]
             imp_ag_dict = {}
@@ -640,7 +634,7 @@ def build_informal_propositions_results(user_data, id):
             step_results = []
             for result in results_related_to_step:
                 step_results_dict = {}
-                instances_row = next((item for item in instances_results if item["id"] == result['instance_id']), None)
+                instances_row = next((item for item in instances if item.id == result['instance_id']), None)
                 step_results_dict['entity_id'] = result.get('instance_id')
                 step_results_dict['msg'] = result.get('message')
                 if result['message'] == 'Rule passed':
@@ -650,7 +644,7 @@ def build_informal_propositions_results(user_data, id):
                 else:
                     step_results_dict['status'] = 'i'
                 if instances_row:
-                    step_results_dict['entity_type'] = instances_row.get('ifc_type')
+                    step_results_dict['entity_type'] = instances_row.ifc_type
                 else:
                     step_results_dict['entity_type'] = None
                 step_results.append(step_results_dict)
