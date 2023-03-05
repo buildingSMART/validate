@@ -57,7 +57,6 @@ application = Flask(__name__)
 
 DEVELOPMENT = os.environ.get(
     'environment', 'production').lower() == 'development'
-
 if not DEVELOPMENT:
     assert os.getenv("DEV_EMAIL")
     assert os.getenv("ADMIN_EMAIL")
@@ -573,47 +572,7 @@ class Error:
                (self.validation_results == other.validation_results)
 
 
-@application.route('/build_implementer_agreement_results/<id>')
-@login_required
-def build_implementer_agreement_results(user_data, id):
-    with database.Session() as session:
-
-        model = session.query(database.model).filter(database.model.code == id).all()[0]
-        tasks = {t.task_type: t for t in model.tasks}
-        instances = {i: i for i in model.instances}
-
-        imp_agreement_results = [imp_ag.serialize() for imp_ag in tasks['implementer_agreements_task'].results]
-
-        then_statements = []
-        unique_steps = set(imp_ag['step'] for imp_ag in imp_agreement_results)
-        for unique_step in unique_steps:
-            results_related_to_step = [result for result in imp_agreement_results if result['step'] == unique_step]
-            imp_ag_dict = {}
-            imp_ag_dict['text'] = unique_step
-            imp_ag_dict['lineno'] = None
-            step_results = []
-            for result in results_related_to_step:
-                step_results_dict = {}
-                instances_row = next((item for item in instances if item.id == result['instance_id']), None)
-                step_results_dict['entity_id'] = result.get('instance_id')
-                step_results_dict['msg'] = result.get('message')
-                if result['message'] == 'Rule passed':
-                    step_results_dict['status'] = 'v'
-                elif result['message'] == 'Rule disabled':
-                    step_results_dict['status'] = 'n'
-                else:
-                    step_results_dict['status'] = 'i'
-                if instances_row:
-                    step_results_dict['entity_type'] = instances_row.ifc_type
-                else:
-                    step_results_dict['entity_type'] = None
-                step_results.append(step_results_dict)
-            imp_ag_dict['results'] = step_results
-            then_statements.append(imp_ag_dict)
-
-    return jsonify(then_statements)
-
-@application.route('/build_informal_propositions_results/<id>')
+@application.route('/build_results/<id>')
 @login_required
 def build_informal_propositions_results(user_data, id):
     with database.Session() as session:
@@ -623,14 +582,17 @@ def build_informal_propositions_results(user_data, id):
         instances = {i: i for i in model.instances}
 
         inf_propositions_results = [imp_ag.serialize() for imp_ag in tasks['informal_propositions_task'].results]
+        imp_agreement_results = [imp_ag.serialize() for imp_ag in tasks['implementer_agreements_task'].results]
+        results = inf_propositions_results + imp_agreement_results
 
         then_statements = []
-        unique_steps = set(inf_prop['step'] for inf_prop in inf_propositions_results)
-        for unique_step in unique_steps:
-            results_related_to_step = [result for result in inf_propositions_results if result['step'] == unique_step]
-            imp_ag_dict = {}
-            imp_ag_dict['text'] = unique_step
-            imp_ag_dict['lineno'] = None
+
+        unique_steps_inf_prop = set((inf_prop['step'], 'informal_proposition') for inf_prop in inf_propositions_results)
+        unique_steps_imp_ag = set((imp_ag['step'], 'implementer_agreement') for imp_ag in imp_agreement_results)
+
+        for unique_step, step_type in unique_steps_inf_prop | unique_steps_imp_ag:
+            results_related_to_step = [result for result in results if result['step'] == unique_step]
+            results_dict = {'step_type': step_type, 'text': unique_step, 'lineno': None}
             step_results = []
             for result in results_related_to_step:
                 step_results_dict = {}
@@ -648,8 +610,8 @@ def build_informal_propositions_results(user_data, id):
                 else:
                     step_results_dict['entity_type'] = None
                 step_results.append(step_results_dict)
-            imp_ag_dict['results'] = step_results
-            then_statements.append(imp_ag_dict)
+            results_dict['results'] = step_results
+            then_statements.append(results_dict)
 
     return jsonify(then_statements)
 
