@@ -57,7 +57,7 @@ application = Flask(__name__)
 
 DEVELOPMENT = os.environ.get(
     'environment', 'production').lower() == 'development'
-DEVELOPMENT = True
+
 if not DEVELOPMENT:
     assert os.getenv("DEV_EMAIL")
     assert os.getenv("ADMIN_EMAIL")
