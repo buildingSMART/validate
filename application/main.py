@@ -574,7 +574,7 @@ class Error:
 
 @application.route('/build_results/<id>')
 @login_required
-def build_informal_propositions_results(user_data, id):
+def build_rules_results(user_data, id):
     with database.Session() as session:
 
         model = session.query(database.model).filter(database.model.code == id).all()[0]
