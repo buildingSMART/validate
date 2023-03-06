@@ -572,7 +572,7 @@ class Error:
                (self.validation_results == other.validation_results)
 
 
-@application.route('/build_results/<id>')
+@application.route('/api/rules_results/<id>')
 @login_required
 def build_rules_results(user_data, id):
     with database.Session() as session:
