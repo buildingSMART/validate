@@ -20,7 +20,7 @@ RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser==0.12.0
 RUN python3 -m pip install --upgrade pip
 
 
-RUN python3 -m pip install flask flask-cors numpy gunicorn rq redis SQLAlchemy==1.4.31 psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse behave pytest --upgrade
+RUN python3 -m pip install flask==2.2.2 flask-cors numpy gunicorn rq redis SQLAlchemy==1.4.31 psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse behave pytest --upgrade
 
 
 # IfcConvert v0.7.0
