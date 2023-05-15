@@ -720,8 +720,33 @@ def view_report2(user_data, code):
             bsdd_validation_task = tasks["bsdd_validation_task"]
             results["bsdd_results"]["task"] = bsdd_validation_task.serialize()
             results["bsdd_results"]["instances"] = len(model.instances) > 0
+            
+        def filter_duplicates(*args):
+            """
+            Filter out duplicate messages for passed or disabled
+            """
+            
+            seen = set()
+            def inner():
+                for r in args:
+                    for x in r['results']:
+                        if x['message'] in ('Rule passed', 'Rule disabled'):
+                            key = x['feature'], x['message']
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                        yield x
+            
+            return {'results': list(inner())}
 
-        tasks = {task_type: t.serialize(full=True) if (task_type == "informal_propositions_task" or task_type == "implementer_agreements_task") else  t.serialize() for task_type, t in tasks.items()}
+        tasks = {task_type: t.serialize(full=True) if (task_type == "informal_propositions_task" or task_type == "implementer_agreements_task") else t.serialize() for task_type, t in tasks.items()}
+        
+        # @nb post-hoc concat in code pending proper rewrite
+        tasks["gherkin_rules"] = filter_duplicates(tasks["implementer_agreements_task"], tasks["informal_propositions_task"])
+        del tasks["implementer_agreements_task"]
+        del tasks["informal_propositions_task"]
+        
+        
 
     return jsonify({
          "model":model.serialize(),

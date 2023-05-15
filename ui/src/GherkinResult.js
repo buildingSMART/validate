@@ -6,8 +6,21 @@ import TreeItem from '@mui/lab/TreeItem';
 import Paper from '@mui/material/Paper';
 import { statusToColor } from './mappings'
 
-function GherkinResults({ status, gherkin_task, task_type }) {
-    let label = task_type==="implementer_agreements_task"?"Implementer Agreements":"Informal Propositions";
+function GherkinResults({ status, gherkin_task }) {
+    let label = "Rules"
+    
+    const messageToStatus = (msg) => {
+        if (msg === "Rule passed") {
+            return "v";
+        } else if (msg === "Rule disabled") {
+            return "n";
+        } else {
+            return "i";
+        }
+    };
+    
+    let previousStatus = null;
+    
     return <Paper sx={{overflow: 'hidden'}}><TreeView
         aria-label="file system navigator"
         defaultCollapseIcon={<ExpandMoreIcon />}
@@ -19,9 +32,19 @@ function GherkinResults({ status, gherkin_task, task_type }) {
         (<TreeItem nodeId="0" label={label}>
         {
             gherkin_task.results.map((result) => {
-
+                const status = messageToStatus(result.message);
+                const border = previousStatus !== null && previousStatus !== status
+                    ? 'solid 1px gray'
+                    : 'none';
+                previousStatus = status;
+                
                 return (
-                    <div>
+                    <div style={{
+                        backgroundColor: statusToColor[status],
+                        marginLeft: '-17px',
+                        paddingLeft: '17px',
+                        borderTop: border
+                    }}>
                         <a href={result.feature_url}>{result.feature}</a> <br></br>
                         <b>{result.step}</b>
                         <div>{result.message}</div>

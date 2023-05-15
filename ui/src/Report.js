@@ -152,15 +152,9 @@ function Report({ kind }) {
                   }
                   {
                     (kind === "rules")
-                      ? <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks["implementer_agreements_task"]} task_type="implementer_agreements_task" />
+                      ? <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules} />
                       : null
                   }
-                  {
-                    (kind === "rules")
-                      ? <GherkinResults status={reportData["model"]["status_ip"]} gherkin_task={reportData.tasks["informal_propositions_task"]} task_type="informal_propositions_task" />
-                      : null
-                  }
-
                   <Footer />
                 </Grid>
               </div>
