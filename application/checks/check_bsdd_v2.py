@@ -18,7 +18,11 @@ def get_domain(classification_uri):
 
 
 def validate_ifc_classification_reference(relating_classification):
-    uri = relating_classification.Location
+    try:
+        uri = relating_classification.Location
+    except:
+        # IFC4.3
+        uri = relating_classification.Specification
     bsdd_response = get_classification_object(uri)
     if bsdd_response.status_code != 200:
         return 0
