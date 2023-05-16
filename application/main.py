@@ -39,7 +39,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import Flask, request, session, send_file, render_template, abort, jsonify, redirect, url_for, make_response
 from flask_cors import CORS
 
-from flasgger import Swagger, validate
+# from flasgger import Swagger, validate
 
 import requests
 from requests_oauthlib import OAuth2Session
@@ -53,6 +53,26 @@ import pr_manager
 
 
 application = Flask(__name__)
+
+try:
+    import orjson
+    has_orjson = True
+except:
+    has_orjson = False
+    
+if has_orjson:
+
+    from flask.json.provider import JSONProvider
+    import orjson
+
+    class OrJSONProvider(JSONProvider):
+        def dumps(self, obj, *, option=None, **kwargs):
+            return orjson.dumps(obj, option=orjson.OPT_NON_STR_KEYS).decode()
+
+        def loads(self, s, **kwargs):
+            return orjson.loads(s)
+
+    application.json = OrJSONProvider(application)
 
 
 DEVELOPMENT = os.environ.get(
@@ -89,7 +109,7 @@ application.config['SWAGGER'] = {
         },
     ]
 }
-swagger = Swagger(application)
+# swagger = Swagger(application)
 
 NO_REDIS = os.environ.get('NO_REDIS', '0').lower() in {'1', 'true'}
 
