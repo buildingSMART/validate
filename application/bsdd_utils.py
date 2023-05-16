@@ -19,7 +19,7 @@ def get_hierarchical_bsdd(id):
                 validity = (getattr(bsdd_result, a) for a in ('val_ifc_type', 'val_property_name', 'val_property_set', 'val_property_type', 'val_property_value'))
                 validity = (1 if v is None else v for v in validity)
 
-                if len(bsdd_task.results) > 16 and sum(validity) == 5:
+                if len(bsdd_task.results) > 1024 and sum(validity) == 5:
                     continue
 
                 bsdd_result = bsdd_result.serialize()              
