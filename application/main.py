@@ -748,7 +748,7 @@ def view_report2(user_data, code):
             
             seen = set()
             def inner():
-                for r in args:
+                for r in filter(None, args):
                     for x in r['results']:
                         if x['message'] in ('Rule passed', 'Rule disabled'):
                             key = x['feature'], x['message']
@@ -762,9 +762,15 @@ def view_report2(user_data, code):
         tasks = {task_type: t.serialize(full=True) if (task_type == "informal_propositions_task" or task_type == "implementer_agreements_task") else t.serialize() for task_type, t in tasks.items()}
         
         # @nb post-hoc concat in code pending proper rewrite
-        tasks["gherkin_rules"] = filter_duplicates(tasks["implementer_agreements_task"], tasks["informal_propositions_task"])
-        del tasks["implementer_agreements_task"]
-        del tasks["informal_propositions_task"]
+        tasks["gherkin_rules"] = filter_duplicates(tasks.get("implementer_agreements_task"), tasks.get("informal_propositions_task"))
+        try:
+            del tasks["implementer_agreements_task"]
+        except KeyError:
+            pass
+        try:
+            del tasks["informal_propositions_task"]
+        except KeyError:
+            pass
         
         
 
