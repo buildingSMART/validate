@@ -25,6 +25,7 @@ import Link from '@mui/material/Link';
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
+import HandleAsyncError from './HandleAsyncError';
 
 const statusToIcon = {
   "n": <BrowserNotSupportedIcon color="disabled" />,
@@ -219,6 +220,7 @@ export default function DashboardTable({ models }) {
   const [progress, setProgress] = useState(0);
 
   const context = useContext(PageContext);
+  const handleAsyncError = HandleAsyncError();
 
   useEffect(() => {
     fetch(`${FETCH_PATH}/api/models_paginated/${page * rowsPerPage}/${page * rowsPerPage + rowsPerPage}`)
@@ -226,13 +228,11 @@ export default function DashboardTable({ models }) {
       .then((json) => {
         setRows(json["models"]);
         setCount(json["count"]);
-        json["models"].map((m) => {
-          if (m.progress < 100) {
-            setProgress(progress + m.progress + 3);
-          }
-        })
-      });
-  }, [page, rowsPerPage, progress, deleted]);
+        if (json.models.some(m => (m.progress < 100))) {
+          setTimeout(() => {setProgress(progress + 1)}, 5000)
+        }
+      }).catch(handleAsyncError);
+  }, [page, rowsPerPage, progress, deleted, handleAsyncError]);
 
 
   const handleSelectAllClick = (event) => {

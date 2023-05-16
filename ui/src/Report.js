@@ -14,6 +14,7 @@ import SideMenu from './SideMenu';
 import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment'
 import { PageContext } from './Page';
+import HandleAsyncError from './HandleAsyncError';
 
 function Report({ kind }) {
   const context = useContext(PageContext);
@@ -28,6 +29,8 @@ function Report({ kind }) {
   const [prTitle, setPrTitle] = useState("")
   const [commitId, setCommitId] = useState("")
 
+  const handleAsyncError = HandleAsyncError();
+
   useEffect(() => {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
       .then(response => response.json())
@@ -41,8 +44,8 @@ function Report({ kind }) {
           data["sandbox_info"]["pr_title"] && setPrTitle(data["sandbox_info"]["pr_title"]);
           data["sandbox_info"]["commit_id"] && setCommitId(data["sandbox_info"]["commit_id"]);
         }
-      })
-  }, []);
+      }).catch(handleAsyncError);
+  }, [context, handleAsyncError]);
 
 
   function getReport(code) {
@@ -56,9 +59,9 @@ function Report({ kind }) {
 
   useEffect(() => {
     getReport(modelCode);
-  }, []);
+  }, [modelCode]);
 
-  if (isLoggedIn && isLoaded) {
+  if (isLoggedIn) {
     console.log("Report data ", reportData)
     return (
       <div>
@@ -115,46 +118,21 @@ function Report({ kind }) {
                     }}
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
+                  {isLoaded
+                    ? <>
+                        {(kind === "syntax_and_schema") && <h2>Syntax and Schema Report</h2>}
+                        {(kind === "bsdd") && <h2>bSDD Report</h2>}
+                        {(kind === "rules") && <h2>Rules Report</h2>}
+                        {(kind === "file") && <h2>File metrics</h2>}
 
-                  {
-                    (kind === "syntax_and_schema")
-                    && <h2>Syntax and Schema Report</h2>
-                  }
-                  {
-                    (kind === "bsdd")
-                    && <h2>bSDD Report</h2>
-                  }
-                  {
-                    (kind === "rules")
-                    && <h2> Rules Report</h2>
-                  }
-                  {
-                    (kind === "file")
-                    && <h2> File metrics</h2>
-                  }
+                        <GeneralTable data={reportData} type={"general"} />
 
-                  <GeneralTable data={reportData} type={"general"} />
-                
-                  {
-                    (kind === "syntax_and_schema")
-                      ? <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />
-                      : null
-                  }
-                  {
-                    (kind === "syntax_and_schema")
-                      ? <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />
-                      : null
-                  }
-                  {
-                    (kind === "bsdd")
-                      ? <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />
-                      : null
-                  }
-                  {
-                    (kind === "rules")
-                      ? <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules} />
-                      : null
-                  }
+                        {(kind === "syntax_and_schema") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
+                        {(kind === "syntax_and_schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
+                        {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
+                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules} />}
+                      </>
+                    : <div>Loading...</div>}
                   <Footer />
                 </Grid>
               </div>
