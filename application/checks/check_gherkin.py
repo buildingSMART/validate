@@ -28,8 +28,19 @@ def perform(ifc_fn, task_id, rule_type=gherkin_rules.RuleType.ALL):
 
         seen = set()
 
+        # A feature can pass for some instances and fail for others. Only emit the rule passed message
+        # when this scenario is not reported failing at all.
+        #
+        # Failing features are reported as feature/scenario.version
+        non_passed_feature_names = set(feature_name.split('/')[0] for feature_name, feature_url, step, inst, message in results if message != 'Rule passed')
+
         for feature_name, feature_url, step, inst, message in results:
             if message == 'Rule passed':
+                # Passing features are only reported as feature.version
+                if feature_name.split('.')[0] in non_passed_feature_names:
+                    # skip non-passed on other instance
+                    continue
+
                 key = (feature_name, feature_url, step)
                 if key in seen:
                     continue
