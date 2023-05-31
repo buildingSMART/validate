@@ -500,7 +500,12 @@ def do_process(id, validation_config, commit_id, ids_spec):
         <br>\
         Your file <b>{filename}</b> has been uploaded and checked by the Validation Service.<br>\
         <br>\
-        The validation report is available <a href="{os.getenv("SERVER_NAME")}/report2/{id}">here</a>.<br>\
+        The validation reports can be found here:\
+        <ul>\
+        <li><a href="{os.getenv("SERVER_NAME")}/report_syntax_schema/{id}">syntax and schema</a></li>\
+        <li><a href="{os.getenv("SERVER_NAME")}/report_rules/{id}">rules</a></li>\
+        <li><a href="{os.getenv("SERVER_NAME")}/report_bsdd/{id}">bSDD</a></li>\
+        </ul>\
         Please report any bug/inconsistency/comment to <a href="mailto:validate@buildingsmart.org">validate@buildingsmart.org</a>.<br>\
         <br>\
         Best regards,<br>\
