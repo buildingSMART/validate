@@ -24,11 +24,11 @@ RUN python3 -m pip install 'flask>=2.3' flask-cors numpy gunicorn rq redis SQLAl
 
 
 # IfcConvert v0.7.0
-RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.7.0-64d98f1-linux64.zip -O /tmp/IfcConvert.zip
+RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.7.0-b33e58f-linux64.zip -O /tmp/IfcConvert.zip
 RUN unzip /tmp/IfcConvert.zip -d /usr/bin
 
 # IfcOpenShell-Python v0.7.0
-RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2])))'`-v0.7.0-64d98f1-linux64.zip
+RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2])))'`-v0.7.0-b33e58f-linux64.zip
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
 
