@@ -118,8 +118,8 @@ class syntax_validation_task(task):
                 syntax_result = database.syntax_result(validation_task_id)
                 syntax_result.msg = output['message']
                 syntax_result.error_type = output['type']
-                syntax_result.lineno = output['lineno']
-                syntax_result.column = output['column']
+                syntax_result.lineno = output.get('lineno')
+                syntax_result.column = output.get('column')
                 session.add(syntax_result)
             
             session.commit()
