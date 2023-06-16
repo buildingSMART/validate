@@ -67,8 +67,8 @@ export default function SchemaResult({ summary, content, status, instances }) {
                               return <tr>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '?'}</td>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].type : '?'}</td>
-                                <td><span class='pre'>{row.constraint_type !== 'schema' ? row.msg.split('\n').slice(2).join('\n') : row.msg}</span></td>
-                              </tr>
+                                <td><span class='pre'>{row.constraint_type !== 'schema' ? row.msg.split('\n').slice(2).flatMap(item => item.length > 75 ? item.match(/.{1,75}/g) : item).join('\n') : row.msg}</span></td>                            
+                            </tr>
                             })
                           }
                         </tbody>
