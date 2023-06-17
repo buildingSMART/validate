@@ -48,7 +48,11 @@ export default function SchemaResult({ summary, content, status, instances }) {
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
           "td, th": { padding: '0.2em 0.5em', verticalAlign: 'top' },
-          ".pre": { whiteSpace: 'pre' }
+          ".pre": {
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            // overflowWrap: 'break-word'
+          }
         }}
       >
         <TreeItem nodeId="0" label="Schema">
@@ -67,7 +71,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                               return <tr>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '?'}</td>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].type : '?'}</td>
-                                <td><span class='pre'>{row.constraint_type !== 'schema' ? row.msg.split('\n').slice(2).flatMap(item => item.length > 75 ? item.match(/.{1,75}/g) : item).join('\n') : row.msg}</span></td>                            
+                                <td><span class='pre'>{row.constraint_type !== 'schema' ? row.msg.split('\n').slice(2).join('\n') : row.msg}</span></td>
                             </tr>
                             })
                           }
