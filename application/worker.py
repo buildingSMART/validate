@@ -86,15 +86,15 @@ class general_info_task(task):
     est_time = 1
     
     def execute(self, directory, id):
-        info_program = os.path.join(os.getcwd(), "checks", "info.py")
-        subprocess.call([sys.executable, info_program, id + ".ifc", os.path.join(os.getcwd())], cwd=directory)
+        info_program = os.path.join(os.path.dirname(__file__), "checks", "info.py")
+        subprocess.call([sys.executable, info_program, id + ".ifc"], cwd=directory)
 
 
 class syntax_validation_task(task):
     est_time = 20
 
     def execute(self, directory, id):
-        check_program = os.path.join(os.getcwd(), "checks", "step-file-parser", "main.py")
+        check_program = os.path.join(os.path.dirname(__file__), "checks", "step-file-parser", "main.py")
         # try if there is pypy in the path, otherwise default to the current
         # python interpreter.
         proc = subprocess.run([shutil.which("pypy3") or sys.executable, check_program, "--json", id + ".ifc"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -133,7 +133,7 @@ class ifc_validation_task(task):
     est_time = 15
 
     def execute(self, directory, id):
-        proc = subprocess.Popen([sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", id + ".ifc"], cwd=directory,stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        proc = subprocess.Popen([sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", id + ".ifc"], cwd=directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
 
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == id).all()[0]
@@ -193,7 +193,7 @@ class gherkin_validation_task(task):
     repo_dir = ''
     
     def execute(self, directory, id):
-        check_program = os.path.join(os.getcwd(), "checks", "check_gherkin.py")
+        check_program = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
 
         with database.Session() as session:
             model = session.query(database.model).filter(database.model.code == id).all()[0]
@@ -239,7 +239,7 @@ class bsdd_validation_task(task):
         self.validation_task_id = validation_task_id
         session.close()
 
-        check_program = os.path.join(os.getcwd() + "/checks", "check_bsdd_v2.py")
+        check_program = os.path.join(os.path.dirname(__file__), "checks", "check_bsdd_v2.py")
 
         proc = subprocess.Popen([sys.executable, check_program, "--input", id + ".ifc", "--task",validation_task_id], cwd=directory, stdout=subprocess.PIPE)
 
@@ -261,7 +261,7 @@ class ids_validation_task(task):
     est_time = 10
 
     def execute(self, directory, id):
-        check_program = os.path.join(os.getcwd() + "/checks", "ids.py")
+        check_program = os.path.join(os.path.dirname(__file__), "checks", "ids.py")
         #todo allow series of ids specs to be processed
         ids_files = [f for f in os.listdir(directory) if f.endswith(".xml")]
         proc = subprocess.Popen([sys.executable, check_program, ids_files[0], id + ".ifc"], cwd=directory, stdout=subprocess.PIPE)
