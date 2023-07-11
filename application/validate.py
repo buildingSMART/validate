@@ -34,6 +34,8 @@ if __name__ == "__main__":
             syntax_validation_task((0, 1))(*args)
             ifc_validation_task((1, 2))(*args)
         except RuntimeError as e:
+            import traceback
+            traceback.print_exc()
             pass
 
         with database.Session() as session:
