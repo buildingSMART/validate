@@ -188,6 +188,7 @@ class syntax_validation_task(validation_task):
     }
 
 class gherkin_task(validation_task):
+    __abstract__ = True
     results = relationship("gherkin_result")
 
 class informal_propositions_task(gherkin_task):
