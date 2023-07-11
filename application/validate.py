@@ -1,6 +1,7 @@
-import glob
+import io
 import os
 import sys
+import glob
 import shutil
 import tempfile
 
@@ -13,10 +14,10 @@ import utils
 if __name__ == "__main__":
     i = utils.generate_id()
 
-    # with tempfile.TemporaryDirectory() as tmpdirname:
-    tmpdirname = tempfile.mkdtemp()
-    if True:
-        for fn in glob.glob(os.path.join(os.path.dirname(sys.argv[1]), "*.exp")):
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        print(sys.argv[1])
+
+        for fn in glob.glob(os.path.join(os.path.dirname(sys.argv[1]), "*.exp")) + glob.glob("*.exp"):
             shutil.copyfile(fn, os.path.join(tmpdirname, os.path.basename(fn)))
             if os.path.exists(fn + ".cache.dat"):
                 shutil.copyfile(fn + ".cache.dat", os.path.join(tmpdirname, os.path.basename(fn + ".cache.dat")))
@@ -31,8 +32,10 @@ if __name__ == "__main__":
             session.commit()
 
         try:
+            old_stdout, sys.stdout = sys.stdout, io.StringIO()
             syntax_validation_task((0, 1))(*args)
             ifc_validation_task((1, 2))(*args)
+            sys.stdout = old_stdout
         except RuntimeError as e:
             import traceback
             traceback.print_exc()
@@ -45,6 +48,9 @@ if __name__ == "__main__":
                 .all()[0]
             )
 
+            def lookup(iid):
+                return session.get(database.ifc_instance, iid).global_id
+
             for ch in ["syntax", "schema"]:
                 if getattr(m, f"status_{ch}") != "v":
                     t = [
@@ -53,5 +59,9 @@ if __name__ == "__main__":
                         if isinstance(t, getattr(database, f"{ch}_validation_task"))
                     ][0]
                     for r in t.results:
+                        if r.instance_id:
+                            print(lookup(r.instance_id))
+                        if r.attribute:
+                            print(r.attribute)
                         print(r.msg)
                     exit(1)
