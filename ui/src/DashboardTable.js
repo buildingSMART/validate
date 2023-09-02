@@ -44,7 +44,7 @@ function wrap_status(status, href) {
   if (status === 'n') {
     return statusToIcon[status];
   } else {
-    return <IconButton component={Link} href={href} target="_blank" onClick="event.stopPropagation()">
+    return <IconButton component={Link} href={href} target="_blank" onClick={evt => evt.stopPropagation()}>
       {statusToIcon[status]}
     </IconButton>;
   }
@@ -377,7 +377,7 @@ export default function DashboardTable({ models }) {
                   }
 
                   <TableCell align="left">
-                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick="event.stopPropagation()">
+                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick={evt => evt.stopPropagation()}>
                       {'Download file'}
                     </Link>
                   </TableCell>

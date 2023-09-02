@@ -190,6 +190,10 @@ class syntax_validation_task(validation_task):
 class gherkin_task(validation_task):
     results = relationship("gherkin_result")
 
+    __mapper_args__ = {
+        "polymorphic_abstract": True
+    }
+
 class informal_propositions_task(gherkin_task):
     __mapper_args__ = {
         "polymorphic_identity": "informal_propositions_task",

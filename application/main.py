@@ -824,7 +824,6 @@ def results(user_data, id):
 @login_required
 def download_model(user_data, id):
     with database.Session() as session:
-        session = database.Session()
         model = session.query(database.model).filter(database.model.id == id).all()[0]
         if model.user_id != user_data["sub"]:
             abort(403)
