@@ -145,7 +145,7 @@ class ifc_validation_task(task):
             validation_task_id = str(validation_task.id)
             self.validation_task_id = validation_task_id
 
-            output = list(filter(None, proc.stdout.read().split("\n")))
+            output = list(filter(None, proc.communicate()[0].split("\n")))
             model.status_schema = 'i' if len(output) else 'v'
             results = list(map(json.loads, output))
 
