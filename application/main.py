@@ -243,8 +243,10 @@ def callback():
                        "openid profile", "https://buildingSMARTservices.onmicrosoft.com/api/read"])
     try:
         t = bs.fetch_token(token_url, client_secret=client_secret, authorization_response=request.url, response_type="token")
-    except:
-        return redirect(url_for('login'))
+    except Exception as e:
+        import sys, traceback
+        traceback.print_exc(file=sys.stdout)
+        return "ERROR LOGGING IN"
         
     BS_DISCOVERY_URL = (
         "https://authentication.buildingsmart.org/buildingSMARTservices.onmicrosoft.com/b2c_1a_signupsignin_c/v2.0/.well-known/openid-configuration"
