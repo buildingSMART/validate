@@ -32,6 +32,10 @@ RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-b
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
 
+# Temporary 'hotfix'
+RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/validate.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/validate.py
+RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/entity_instance.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/entity_instance.py
+RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/express/rule_executor.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/express/rule_executor.py
 
 # Server
 WORKDIR /www
