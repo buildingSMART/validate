@@ -1,6 +1,7 @@
 FROM ubuntu:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
+ARG IFCOPENSHELL_VERSION=v0.7.0-f8b09b3
 
 WORKDIR /
 RUN apt-get -y update && apt-get -y --no-install-recommends --no-install-suggests install git python3 python3-pip unzip wget libpq-dev build-essential libssl-dev libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python3-setuptools python3-dev python3-wheel supervisor
@@ -18,24 +19,16 @@ RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install --upgrade pip
 RUN /pypy3.8-v7.3.7-linux64/bin/python3 -m pip install lark-parser==0.12.0
 
 RUN python3 -m pip install --upgrade pip
-
-
 RUN python3 -m pip install 'flask>=2.3' flask-cors numpy gunicorn rq redis SQLAlchemy psycopg2 psycopg2cffi sqlalchemy-utils Flask-BasicAuth flasgger requests pyparsing XlsxWriter requests_oauthlib Authlib requests argparse behave pytest orjson --upgrade
 
-
 # IfcConvert v0.7.0
-RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-v0.7.0-9cc1f5f-linux64.zip -O /tmp/IfcConvert.zip
+RUN wget https://s3.amazonaws.com/ifcopenshell-builds/IfcConvert-${IFCOPENSHELL_VERSION}-linux64.zip -O /tmp/IfcConvert.zip
 RUN unzip /tmp/IfcConvert.zip -d /usr/bin
 
 # IfcOpenShell-Python v0.7.0
-RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2])))'`-v0.7.0-9cc1f5f-linux64.zip
+RUN wget -O /tmp/ifcopenshell_python.zip https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-`python3 -c 'import sys;print("".join(map(str, sys.version_info[0:2])))'`-${IFCOPENSHELL_VERSION}-linux64.zip
 RUN mkdir -p `python3 -c 'import site; print(site.getusersitepackages())'`
 RUN unzip -d `python3 -c 'import site; print(site.getusersitepackages())'` /tmp/ifcopenshell_python.zip
-
-# Temporary 'hotfix'
-RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/validate.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/validate.py
-RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/entity_instance.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/entity_instance.py
-RUN wget -O `python3 -c 'import site; print(site.getusersitepackages())'`/ifcopenshell/express/rule_executor.py https://raw.githubusercontent.com/IfcOpenShell/IfcOpenShell/v0.7.0/src/ifcopenshell-python/ifcopenshell/express/rule_executor.py
 
 # Server
 WORKDIR /www
