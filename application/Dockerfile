@@ -1,7 +1,7 @@
 FROM ubuntu:latest
 
 ARG DEBIAN_FRONTEND=noninteractive
-ARG IFCOPENSHELL_VERSION=v0.7.0-f8b09b3
+ARG IFCOPENSHELL_VERSION=v0.7.0-c35be50
 
 WORKDIR /
 RUN apt-get -y update && apt-get -y --no-install-recommends --no-install-suggests install git python3 python3-pip unzip wget libpq-dev build-essential libssl-dev libffi-dev libxml2-dev libxslt1-dev zlib1g-dev python3-setuptools python3-dev python3-wheel supervisor
