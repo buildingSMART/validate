@@ -1,1 +1,0 @@
-export const FETCH_PATH = process.env.REACT_APP_FETCH_PATH;
