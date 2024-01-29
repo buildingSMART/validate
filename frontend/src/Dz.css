@@ -1,0 +1,86 @@
+.dz-message .material-icons {
+    display: block;
+    opacity: 0.5;
+    font-size: 3em;
+}
+
+.dz-image {
+    display: none !important;  
+}
+
+.dz-details {
+    width: auto !important;
+    position: inherit !important;
+    padding: 0 !important;
+}
+
+.dz-preview {
+    border: solid 1px #aaa;
+    width: 75%;
+    padding: 1em !important;
+    background: #ddd;
+}
+
+.dz-progress {
+    position: relative !important;
+    margin: 0.5em !important;
+    width: 80% !important;
+    margin-left: -40% !important;
+    display: none;
+}
+
+.dropzone {
+  width: 100%;
+  background: #eee;
+  border-width: 1px;
+  border-color: #ddd;
+  min-height: 200px;
+}
+
+.dropzone:hover {
+  background: #f4f4f4;
+}
+
+.submit-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  justify-content: space-evenly;
+  gap: 32px;
+  max-width: 300px;
+  min-width: 300px;
+}
+
+.dashboard .submit-area {
+  border-radius: 4px;
+  box-shadow: rgb(0 0 0 / 50%) 2px 2px 8px;
+  background-color: #ffffff;
+}
+
+.home .submit-area {
+  border-right: thin solid rgb(238, 238, 238);
+}
+
+.dropzone {
+  overflow: auto;
+  text-align: center;
+  min-height: 200px;
+  max-height: 200px;
+} 
+
+.submit-button{
+  height: 40px;
+  margin-bottom: 1%;
+  margin-top: 1%;
+  text-align: center;
+}
+
+.dropzone .progress-bar {
+  display: none;
+  height: 0.2em;
+  background: darkgreen;
+  position: relative;
+  left: -20px;
+  top: -20px;
+}
