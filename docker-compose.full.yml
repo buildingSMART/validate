@@ -117,8 +117,8 @@ services:
             POSTGRES_DB: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        ports:
-            - 5432:${POSTGRES_PORT}
+        expose:
+            - ${POSTGRES_PORT}
 
     # Mailpit
     mailpit:
