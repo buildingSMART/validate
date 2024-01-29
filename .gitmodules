@@ -1,0 +1,9 @@
+[submodule "backend/apps/ifc_validation/checks/ifc_gherkin_rules"]
+	path = backend/apps/ifc_validation/checks/ifc_gherkin_rules
+	url = https://github.com/buildingSMART/ifc-gherkin-rules
+[submodule "backend/apps/ifc_validation/checks/step_file_parser"]
+	path = backend/apps/ifc_validation/checks/step_file_parser
+	url = https://github.com/IfcOpenShell/step-file-parser
+[submodule "backend/apps/ifc_validation_models"]
+	path = backend/apps/ifc_validation_models
+	url = https://github.com/buildingSMART/ifc-validation-data-model
