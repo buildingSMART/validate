@@ -1,0 +1,192 @@
+version: '3.8'
+
+services:
+
+    # Frontend - React + nginx
+    frontend:
+        image: buildingsmart/validationsvc-frontend:${VERSION}
+        build:
+            context: .
+            dockerfile: ./docker/frontend/Dockerfile
+            target: run
+        restart: unless-stopped
+        container_name: frontend
+        ports:
+            - 80:80
+            - 443:443
+        volumes:
+            - ./docker/frontend/letsencrypt:/etc/letsencrypt
+            - static_data:/app/backend/django_static
+        depends_on:
+            - backend
+
+    # Backend - Django (x2)
+    backend:
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
+        entrypoint: /app/backend/server-entrypoint.sh
+        restart: unless-stopped
+        volumes:
+            - static_data:/app/backend/django_static
+            - files_data:/files_storage
+        expose:
+            - 8000
+        environment:
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            DJANGO_DB: ${DJANGO_DB}
+            DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+            POSTGRES_HOST: db
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        deploy: # example only
+            mode: replicated
+            replicas: 2 
+            endpoint_mode: vip
+        depends_on:
+            - db
+            - redis
+
+    # Worker - Celery worker + beat (x2)
+    worker:
+        image: buildingsmart/validationsvc-backend:${VERSION}
+        entrypoint: /app/backend/worker-entrypoint.sh
+        restart: unless-stopped
+        volumes:
+            - files_data:/files_storage
+        environment:
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            DJANGO_DB: ${DJANGO_DB}
+            POSTGRES_HOST: db
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        deploy: # example only
+            mode: replicated
+            replicas: 2 
+            endpoint_mode: vip
+        depends_on:
+            - db
+            - redis
+
+    # Worker Dashboard - Celery flower
+    flower:
+        image: mher/flower:2.0
+        container_name: flower
+        command: celery flower
+        restart: unless-stopped
+        environment:
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            TASK_COLUMNS: "name,uuid,state,args,kwargs,result,received,started,runtime,worker,retries,revoked,exception,eta"
+            FLOWER_PORT: 5555
+            FLOWER_UNAUTHENTICATED_API: true
+        ports:
+            - 5555:5555
+        depends_on:
+            - worker
+            - redis
+
+    # Redis
+    redis:
+        image: redis:7.2-alpine 
+        restart: unless-stopped
+        container_name: redis
+        ports:
+            - 6379:6379
+        volumes:
+            - redis_data:/data
+
+    # PostgreSQL DB
+    db:
+        image: postgres:16.1-alpine
+        restart: unless-stopped
+        container_name: db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data/
+        environment:
+            POSTGRES_DB: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - 5432:${POSTGRES_PORT}
+
+    # Mailpit
+    mailpit:
+        image: axllent/mailpit:v1.10
+        restart: unless-stopped
+        container_name: mailpit
+        volumes:
+            - ./docker/mailpit/authfile:/data/authfile
+            - mailpit_data:/data
+        environment:
+            MP_DATA_FILE: /data/mailpit.db
+            MP_UI_AUTH_FILE: /data/authfile
+            TZ: Europe/London
+        ports:
+            - 8025:8025
+            - 1025:1025
+
+    # Prometheus
+    prometheus:
+        image: prom/prometheus:v2.48.1
+        restart: unless-stopped
+        container_name: prometheus
+        command: --config.file=/etc/prometheus/prometheus.yml --no-scrape.adjust-timestamps
+        volumes:
+            - ./docker/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
+            - prometheus_data:/prometheus
+        ports:
+            - 9090:9090
+
+    # Grafana
+    grafana:
+        image: grafana/grafana:9.5.14
+        restart: unless-stopped
+        container_name: grafana
+        volumes:
+            - ./docker/grafana/grafana.ini:/etc/grafana/grafana.ini
+            - ./docker/grafana/provisioning/:/etc/grafana/provisioning/
+            - grafana_data:/var/lib/grafana
+        ports:
+            - 3000:3000
+        depends_on:
+            - prometheus
+
+    # OpenTelemetry Collector
+    otel_col:
+        image: otel/opentelemetry-collector-contrib:0.91.0 # contrib includes eg. Redis/PostgreSQL already
+        restart: unless-stopped
+        container_name: otel_col
+        ports:
+            - 4317:4317 # OTLP over gRPC receiver
+            - 4318:4318 # OTLP over HTTP receiver
+            - 8888:8888 # Prometheus metrics exposed by the collector
+            - 8889:8889 # Prometheus exporter metrics
+            - 1888:1888 # pprof extension
+            - 55679:55679 # zpages extension
+            - 13133:13133 # health_check extension
+        volumes:
+            - ./docker/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+            # no persistence by design
+        depends_on:
+            - prometheus
+
+volumes:
+    static_data:
+    files_data:
+    postgres_data:
+    redis_data:
+    otel_data:
+    prometheus_data:
+    grafana_data:
+    mailpit_data:

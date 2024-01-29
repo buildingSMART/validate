@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+
+    # Redis
+    redis:
+        image: redis:7.2-alpine 
+        restart: unless-stopped
+        container_name: redis
+        ports:
+            - 6379:6379
+        volumes:
+            - redis_data:/data
+
+    # PostgreSQL DB
+    db:
+        image: postgres:16.1-alpine
+        restart: unless-stopped
+        container_name: db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data/
+        environment:
+            POSTGRES_DB: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - 5432:${POSTGRES_PORT}
+
+    # Celery flower
+    flower:
+        image: mher/flower:2.0
+        container_name: flower
+        command: celery flower
+        restart: unless-stopped
+        environment:
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            TASK_COLUMNS: "name,uuid,state,args,kwargs,result,received,started,runtime,worker,retries,revoked,exception,eta"
+            FLOWER_PORT: 5555
+            FLOWER_UNAUTHENTICATED_API: true
+        ports:
+            - 5555:5555
+        depends_on:
+            - redis
+
+volumes:
+    postgres_data:
+    redis_data:

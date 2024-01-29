@@ -1,0 +1,15 @@
+# .dockerignore file for local docker build
+# important: not used for docker compose!
+**/.env
+**/.dev
+**/.ssh
+**/.DS_Store
+**/.gitignore
+**/venv
+**/Makefile
+**/__pycache__
+**/.pytest_cache
+**/tests
+**/.vscode
+**/.md
+**/.git

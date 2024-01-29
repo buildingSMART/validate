@@ -1,0 +1,122 @@
+version: '3.8'
+
+services:
+
+    # Frontend - React + nginx
+    frontend:
+        image: buildingsmart/validationsvc-frontend:${VERSION}
+        build:
+            context: .
+            dockerfile: ./docker/frontend/Dockerfile
+            target: run
+        restart: unless-stopped
+        container_name: frontend
+        ports:
+            - 80:80
+            - 443:443
+        volumes:
+            - ./docker/frontend/letsencrypt:/etc/letsencrypt
+            - static_data:/app/backend/django_static
+        depends_on:
+            - backend
+
+    # Backend - Django
+    backend:
+        image: buildingsmart/validationsvc-backend:${VERSION}
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
+        entrypoint: /app/backend/server-entrypoint.sh
+        restart: unless-stopped
+        container_name: backend
+        volumes:
+            - static_data:/app/backend/django_static
+            - files_data:/files_storage
+        ports:
+            - 8000:8000
+        environment:
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            DJANGO_DB: ${DJANGO_DB}
+            DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+            POSTGRES_HOST: db
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        depends_on:
+            - db
+            - redis
+
+    # Worker - Celery worker + beat
+    worker:
+        image: buildingsmart/validationsvc-backend:${VERSION}
+        entrypoint: /app/backend/worker-entrypoint.sh
+        restart: unless-stopped
+        container_name: worker
+        volumes:
+            - files_data:/files_storage
+        environment:
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            DJANGO_DB: ${DJANGO_DB}
+            POSTGRES_HOST: db
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        depends_on:
+            - db
+            - redis
+
+    # Worker Dashboard - Celery flower
+    flower:
+        image: mher/flower:2.0
+        container_name: flower
+        command: celery flower
+        restart: unless-stopped
+        environment:
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            TASK_COLUMNS: "name,uuid,state,args,kwargs,result,received,started,runtime,worker,retries,revoked,exception,eta"
+            FLOWER_PORT: 5555
+            FLOWER_UNAUTHENTICATED_API: true
+        ports:
+            - 5555:5555
+        depends_on:
+            - worker
+            - redis
+
+    # Redis
+    redis:
+        image: redis:7.2-alpine 
+        restart: unless-stopped
+        container_name: redis
+        ports:
+            - 6379:6379
+        volumes:
+            - redis_data:/data
+
+    # PostgreSQL DB
+    db:
+        image: postgres:16.1-alpine
+        restart: unless-stopped
+        container_name: db
+        volumes:
+            - postgres_data:/var/lib/postgresql/data/
+        environment:
+            POSTGRES_DB: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        ports:
+            - 5432:${POSTGRES_PORT}
+
+volumes:
+    static_data:
+    files_data:
+    postgres_data:
+    redis_data:

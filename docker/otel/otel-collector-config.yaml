@@ -1,0 +1,45 @@
+# see https://opentelemetry.io/docs/collector/configuration/
+
+# receivers configure how telemetry data gets into the collector
+receivers:
+  otlp:
+    protocols:
+      grpc:
+      http:
+
+# processors specify what happens with the received telemetry data
+processors:
+  batch:
+    send_batch_size: 1000
+    timeout: 10s
+
+# exporters configure how to send processed data to backend(s)
+exporters:
+  # azuremonitorexporter:
+  #   endpoint: azure_monitor_otlp:4317 # TODO
+  prometheusremotewrite:
+    endpoint: 0.0.0.0:8889
+  logging:
+
+# optional components that expand the capabilities of the collector
+extensions:
+  health_check:
+  pprof:
+  zpages:
+
+# pipelines glue the receivers, processors, and exporters together
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, logging]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, logging]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, logging]

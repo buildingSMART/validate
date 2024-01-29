@@ -1,0 +1,17 @@
+# .dockerignore file for docker compose
+**/.env
+**/.dev
+**/.ssh
+**/.DS_Store
+**/.gitignore
+**/.dockerignore
+**/venv
+**/Makefile
+**/__pycache__
+**/.pytest_cache
+**/tests
+**/.vscode
+**/.md
+**/.git
+**/build
+**/node_modules
