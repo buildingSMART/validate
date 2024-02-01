@@ -33,12 +33,12 @@ export default function SideMenu() {
             <Box sx={{ overflow: 'auto' , paddingTop:'5vh'}}>
                 <List>
                     {['Home', 'Dashboard'].map((text, index) => (
-                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle === text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
+                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle == text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
                             <ListItemButton href={text === "Home" ? context.sandboxId ? `/sandbox/${context.sandboxId}` : "/" : context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard"}>
                                 <ListItemIcon>
                                     {text === "Home" ? <HomeIcon /> : <CheckIcon />}
                                 </ListItemIcon>
-                                <ListItemText primary={text === "Dashboard" ? "Validation" : text} />
+                                <ListItemText primary={text == "Dashboard" ? "Validation" : text} />
                             </ListItemButton>
                         </ListItem>
                     ))}
@@ -48,7 +48,7 @@ export default function SideMenu() {
                 <Divider />
                     <ListItem key={"test"} disablePadding>
                         <ListItemButton>
-                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.6.0-alpha`} />
+                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.5.6`} />
                         </ListItemButton>
                     </ListItem>
                 </List>

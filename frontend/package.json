@@ -25,6 +25,7 @@
         "eject": "react-scripts eject",
         "backend": "cd ../backend && make start-backend"
     },
+    
     "eslintConfig": {
         "extends": [
             "react-app",

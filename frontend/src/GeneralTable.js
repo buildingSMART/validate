@@ -9,36 +9,23 @@ import Paper from '@mui/material/Paper';
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
-import WarningIcon from '@mui/icons-material/Warning';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import WarningIcon from '@mui/icons-material/Warning'
+
 
 const statusToIcon = {
   "n": <BrowserNotSupportedIcon color="disabled" />,
   "v": <CheckCircleIcon color="success" />,
   "i": <ErrorIcon color="error" />,
-  "w": <WarningIcon color="warning" />,
-  "p": <HourglassBottomIcon color="disabled" />
+  "w": <WarningIcon color="warning" />
 }
-
-function prettyPrintFileSize(fileSizeInBytes) {
-  var i = -1;
-  var units = ['kB', 'MB', 'GB', 'TB'];
-  do {
-    fileSizeInBytes /= 1024;
-    i++;
-  } while (fileSizeInBytes > 1024);
-
-  return Math.max(fileSizeInBytes, 0.01).toFixed(2) + ' ' + units[i];
-}
-
 function preprocessData(data, type) {
 
-  if (type === "general") {
+  if (type == "general") {
     return [
       ["Date", data["model"]["date"]],
       ["File name", data["model"]["filename"]],
       ["License", data["model"]["license"]],
-      ["File size", prettyPrintFileSize(data["model"]["size"])],
+      ["File size", data["model"]["size"]],
       ["Number of geometries", data["model"]["number_of_geometries"]],
       ["Number of properties", data["model"]["number_of_properties"]],
       ["IFC Schema", data["model"]["schema"]],
@@ -52,10 +39,8 @@ function preprocessData(data, type) {
       ["Syntax", statusToIcon[data["model"]["status_syntax"]]],
       ["Schema", statusToIcon[data["model"]["status_schema"]]],
       ["bSDD", statusToIcon[data["model"]["status_bsdd"]]],
-      ["Prerequisites", statusToIcon[data["model"]["status_prereq"]]],
       ["Implementer Agreements", statusToIcon[data["model"]["status_ia"]]],
       ["Informal Propositions", statusToIcon[data["model"]["status_ip"]]],
-      ["Industry Practices", statusToIcon[data["model"]["status_ind"]]],
     ]
   }
 
