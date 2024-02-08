@@ -16,6 +16,8 @@ start-full:
 	docker compose -f docker-compose.full.yml up -d
 
 # infra only (redis, postgres, flower)
+start-infra: start-infra-only
+
 start-infra-only:
 	docker compose -f docker-compose.infra_only.yml up -d
 
