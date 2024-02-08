@@ -1,18 +1,18 @@
 import ResponsiveAppBar from './ResponsiveAppBar'
 import Disclaimer from './Disclaimer';
-import { useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom';
 
-import Footer from './Footer'
+import Footer from './Footer';
 import Grid from '@mui/material/Grid';
 import GeneralTable from './GeneralTable';
-import SyntaxResult from './SyntaxResult.js'
+import SyntaxResult from './SyntaxResult';
 import SchemaResult from './SchemaResult';
 import BsddTreeView from './BsddTreeView'
 import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
 
 import { useEffect, useState, useContext } from 'react';
-import { FETCH_PATH } from './environment'
+import { FETCH_PATH } from './environment';
 import { PageContext } from './Page';
 import HandleAsyncError from './HandleAsyncError';
 
@@ -124,13 +124,18 @@ function Report({ kind }) {
                         {(kind === "bsdd") && <h2>bSDD Report</h2>}
                         {(kind === "rules") && <h2>Rules Report</h2>}
                         {(kind === "file") && <h2>File metrics</h2>}
+                        {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
                         <GeneralTable data={reportData} type={"general"} />
+
+                        <b><font color='red'>-- NOTE: Work In Progress --</font></b>
 
                         {(kind === "syntax_and_schema") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
                         {(kind === "syntax_and_schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
                         {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
-                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules} />}
+                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {/* TODO - should the above not check aggregate of all normative checks? (IA, IP, Pre-req, Industry)? */}
+                        {(kind === "industry") && <GherkinResults status={reportData["model"]["status_ind"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
                       </>
                     : <div>Loading...</div>}
                   <Footer />

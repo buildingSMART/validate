@@ -21,6 +21,8 @@ import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
 import WarningIcon from '@mui/icons-material/Warning';
+import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import BlockIcon from '@mui/icons-material/Block';
 import Link from '@mui/material/Link';
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
@@ -32,16 +34,18 @@ const statusToIcon = {
   "v": <CheckCircleIcon sx={{ color: "#2ab672" }} />,
   "i": <ErrorIcon color="error" />,
   "w": <WarningIcon color="warning" />,
+  "p": <HourglassBottomIcon color="disabled" />,
+  "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
   "info":<InfoIcon color="primary"/>
 }
 
 function status_combine(...args) {
-  const statuses = ["v", "n", "w", "i"];
+  const statuses = ["-", "p", "v", "n", "w", "i"];
   return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
 }
 
 function wrap_status(status, href) {
-  if (status === 'n') {
+  if (status === 'n' || status === 'p' || status === '-') {
     return statusToIcon[status];
   } else {
     return <IconButton component={Link} href={href} target="_blank" onClick={evt => evt.stopPropagation()}>
@@ -80,29 +84,50 @@ const headCells = [
     id: 'filename',
     label: 'File Name',
   },
+  // {
+  //   id: 'syntax_and_schema',
+  //   label: 'IFC Syntax and Schema',
+  //   width: 100,
+  //   align: 'center',
+  //   tooltip: 'STEP Physical File Syntax / IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints'
+  // },
   {
-    id: 'syntax_and_schema',
-    label: 'IFC Syntax and Schema',
+    id: 'syntax',
+    label: 'STEP Syntax',
     width: 100,
     align: 'center',
-    tooltip: 'STEP Physical File Syntax / IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints'
+    tooltip: 'STEP Physical File Syntax'
+  },
+  {
+    id: 'schema',
+    label: 'IFC Schema',
+    width: 100,
+    align: 'center',
+    tooltip: 'IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints'
   },
   {
     id: 'rules',
-    label: 'Rules',
+    label: 'Normative IFC Rules',
     width: 100,
     align: 'center',
     tooltip: 'Implementer Agreements and Informal Propositions'
   },
   {
+    id: 'industry',
+    label: 'IFC Best Practice',
+    width: 100,
+    align: 'center',
+    tooltip: 'Industry Practices'
+  },
+  {
     id: 'bsdd',
-    label: 'bSDD',
+    label: 'bSDD Compliance',
     width: 100,
     align: 'center'
   },
   {
     id: 'date',
-    label: '',
+    label: 'Date',
   },
   {
     id: 'download',
@@ -345,10 +370,16 @@ export default function DashboardTable({ models }) {
                   </TableCell>
                   <TableCell align="left">{row.filename} {wrap_status("info", context.sandboxId ? `/sandbox/report_file/${context.sandboxId}/${row.code}` : `/report_file/${row.code}`)}</TableCell>
                   <TableCell align="center">
-                    {wrap_status(status_combine(row.status_syntax, row.status_schema), context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                    {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
-                    {wrap_status(status_combine(row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
+                    {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                  </TableCell>
+                  <TableCell align="center">
+                    {wrap_status(status_combine(row.status_prereq, row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
+                  </TableCell>
+                  <TableCell align="center">
+                    {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}

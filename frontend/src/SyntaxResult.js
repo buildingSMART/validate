@@ -1,8 +1,7 @@
 import * as React from 'react';
-import TreeView from '@mui/lab/TreeView';
+import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import TreeItem from '@mui/lab/TreeItem';
 import { statusToColor } from './mappings'
 import Paper from '@mui/material/Paper';
 import TablePagination from '@mui/material/TablePagination';

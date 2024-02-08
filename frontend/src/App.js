@@ -125,11 +125,11 @@ function App() {
                     
                   <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 5em', boxSizing: 'border-box', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
                     <Typography style={{fontWeight: 'bold'}} sx={{paddingTop: '2em'}}>What it is</Typography>
-                    <Typography align='left' paragraph>The bSI Validation Service is a free, online platform for validating IFC files, developed by buildingSMART – with the help of software vendors and bSI projects</Typography>
+                    <Typography align='left' paragraph>The bSI Validation Service is a free, online platform for validating IFC files, developed by buildingSMART – with the help of software vendors and bSI projects.</Typography>
 
                     <Typography style={{fontWeight: 'bold'}}>What it does</Typography>
 
-                    <Typography align='left' paragraph>Given an IFC file, the Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification)</Typography>
+                    <Typography align='left' paragraph>Given an IFC file, the Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification).</Typography>
 
                     <Typography style={{fontWeight: 'bold'}}>What is being checked</Typography>
 
@@ -138,7 +138,7 @@ function App() {
                     <ul>
                         <li><b>Syntax</b> The STEP Physical File syntax</li>
                         <li><b>Schema</b> The IFC schema referenced in the file including formal propositions encoded in the EXPRESS where rule and function language</li>
-                        <li><b>Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
+                        <li><b>Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions, and industry best practices)</li>
                         <li><b>bSDD</b> The Validation Service validates the content of an IFC file against the requirements encoded in the bSDD domain referenced from a classification encoded in the file</li>
                     </ul>
 
