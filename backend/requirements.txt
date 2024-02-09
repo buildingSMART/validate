@@ -25,6 +25,8 @@ markdown
 pytest
 pydantic
 requests
+pydot
+numpy
 
 # ifc
 ifcopenshell
