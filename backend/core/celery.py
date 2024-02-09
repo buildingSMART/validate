@@ -12,6 +12,10 @@ logger = get_task_logger(__name__)
 
 class BaseTaskRequest(Request):
 
+    """
+    Default base class for all Celery task execution requests.
+    """
+
     def on_timeout(self, soft, timeout):
 
         super().on_timeout(soft, timeout)
@@ -30,7 +34,7 @@ class BaseTaskRequest(Request):
 class BaseTask(Task):
 
     """
-    Default base class for all tasks.
+    Default base class for all Celery tasks.
     """
 
     Request = BaseTaskRequest
