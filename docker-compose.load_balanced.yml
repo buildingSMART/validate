@@ -20,7 +20,7 @@ services:
         depends_on:
             - backend
 
-    # Backend - Django
+    # Backend - Django (x2)
     backend:
         image: buildingsmart/validationsvc-backend:${VERSION}
         build:
@@ -29,12 +29,11 @@ services:
             target: run
         entrypoint: /app/backend/server-entrypoint.sh
         restart: unless-stopped
-        container_name: backend
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
-        ports:
-            - 8000:8000
+        expose:
+            - 8000
         environment:
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
@@ -47,16 +46,23 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        deploy: # example only
+            mode: replicated
+            replicas: 2 
+            endpoint_mode: vip
         depends_on:
             - db
             - redis
 
-    # Worker - Celery worker + beat
+    # Worker - Celery worker (x2)
     worker:
         image: buildingsmart/validationsvc-backend:${VERSION}
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
         entrypoint: /app/backend/worker-entrypoint.sh
         restart: unless-stopped
-        container_name: worker
         volumes:
             - files_data:/files_storage
         environment:
@@ -70,6 +76,10 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        deploy: # example only
+            mode: replicated
+            replicas: 2 
+            endpoint_mode: vip
         depends_on:
             - db
             - redis

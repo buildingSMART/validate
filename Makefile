@@ -1,17 +1,17 @@
 VERSION=v0.6.0-alpha
 
 none:
-	@echo ERROR: Enter at least one target (start, start-minimal, start-full, start-infra-only, stop, build, rebuild, clean, fetch-modules)
+	@echo ERROR: Enter at least one target (start, start-load-balanced, start-full, start-infra-only, stop, build, rebuild, clean, fetch-modules)
 
-# typical setup
+# minimal setup (w/o observability/scaling etc...)
 start:
 	docker compose -f docker-compose.yml up -d
 
-# minimal setup (w/o observability/scaling etc...)
-start-minimal:
-	docker compose -f docker-compose.minimal.yml up -d
+# typical load balanced setup (multiple workers/backend)
+start-load-balanced:
+	docker compose -f docker-compose.load_balanced.yml up -d
 
-# full setup
+# full setup (load balanced, OTel, Prometheus/Grafana, etc...)
 start-full:
 	docker compose -f docker-compose.full.yml up -d
 

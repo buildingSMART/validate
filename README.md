@@ -14,7 +14,11 @@ More scenario's exist - have a look at the various *make* files.
 2. Start all services.
 
 ```shell
-make start-minimal
+make start
+
+or 
+
+docker compose up
 ```
 
 3. This pulls Docker-hub images, builds and spins up **six** different services:
@@ -60,7 +64,12 @@ exit
 
 ```shell
 make start-infra
+
+or
+
+docker compose -f docker-compose.infra_only.yml up
 ```
+
 
 3. This pulls **three** different Docker-hub images and spins up  services:
 
