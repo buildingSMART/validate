@@ -120,22 +120,6 @@ services:
         ports:
             - 5432:${POSTGRES_PORT}
 
-    # Mailpit
-    mailpit:
-        image: axllent/mailpit:v1.10
-        restart: unless-stopped
-        container_name: mailpit
-        volumes:
-            - ./docker/mailpit/authfile:/data/authfile
-            - mailpit_data:/data
-        environment:
-            MP_DATA_FILE: /data/mailpit.db
-            MP_UI_AUTH_FILE: /data/authfile
-            TZ: Europe/London
-        ports:
-            - 8025:8025
-            - 1025:1025
-
     # Prometheus
     prometheus:
         image: prom/prometheus:v2.48.1
@@ -189,4 +173,3 @@ volumes:
     otel_data:
     prometheus_data:
     grafana_data:
-    mailpit_data:
