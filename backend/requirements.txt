@@ -22,17 +22,17 @@ gevent
 psutil
 python-dotenv
 markdown
+
+# bsi
+ifcopenshell
+lark-parser
+pyparsing
+behave
 pytest
 pydantic
 requests
 pydot
 numpy
-
-# ifc
-ifcopenshell
-lark-parser
-pyparsing
-behave
 
 # dev
 django-debug-toolbar
