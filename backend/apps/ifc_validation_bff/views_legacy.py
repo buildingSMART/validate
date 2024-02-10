@@ -110,6 +110,7 @@ def download(request, id: int):
         logger.debug(f"Could not download file with id='{id}' for user_id='{user_id}' as it does not exist")
         return HttpResponseNotFound()
 
+
 @csrf_exempt
 def upload(request):
 
@@ -160,6 +161,7 @@ def upload(request):
         logger.error(f'Received invalid request: {request}')
         return HttpResponseBadRequest()
 
+
 # TODO currently a POST, should be a delete...
 @csrf_exempt
 def delete(request, ids: str):
@@ -170,7 +172,7 @@ def delete(request, ids: str):
 
     with transaction.atomic():
 
-        for id in ids.split('.'):
+        for id in ids.split(','):
 
             logger.info(f'Locating file for id={id}')
             request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
@@ -186,6 +188,45 @@ def delete(request, ids: str):
             logger.info(f"Validation Request with id='{id}' and related entities were deleted.")
 
     # legacy API returns this object
+    return JsonResponse({
+
+        'status': 'success',
+        'id': ids,
+    })
+
+
+@csrf_exempt
+def revalidate(request, ids: str):
+
+    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+
+    user_id = 1 #  TODO    
+
+    with transaction.atomic():
+
+        # check permissions
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user = {request.user.id}")
+            set_user_context(request.user)
+        else:
+            set_user_context(User.objects.get(id=1))  # TODO
+            #return HttpResponseForbidden()
+
+        def on_commit(ids):
+
+            for id in ids.split(','):
+                request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+                ifc_file_validation_task.delay(request.id, request.file_name)
+                logger.info(f"Task 'ifc_file_validation_task' re-submitted for Validation Request - id: {request.id} file_name: {request.file_name}")
+
+        for id in ids.split(','):
+
+            request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+            request.mark_as_pending(reason='Resubmitted for processing via React UI')
+            if request.model: request.model.reset_status()
+
+        transaction.on_commit(lambda: on_commit(ids))      
+
     return JsonResponse({
 
         'status': 'success',

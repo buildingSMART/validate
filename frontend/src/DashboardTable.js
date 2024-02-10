@@ -16,6 +16,7 @@ import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -183,7 +184,7 @@ EnhancedTableHead.propTypes = {
   rowCount: PropTypes.number.isRequired,
 };
 
-function EnhancedTableToolbar({ numSelected, onDelete }) {
+function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
 
   return (
     <Toolbar
@@ -222,8 +223,14 @@ function EnhancedTableToolbar({ numSelected, onDelete }) {
           <IconButton onClick={onDelete}>
             <DeleteIcon />
           </IconButton>
-        </Tooltip>
-      )}
+        </Tooltip>)}
+
+      {numSelected > 0 && (
+        <Tooltip title="Revalidate">
+          <IconButton onClick={onRevalidate}>
+            <ReplayIcon />
+          </IconButton>
+        </Tooltip>)}
     </Toolbar>
   );
 }
@@ -242,6 +249,7 @@ export default function DashboardTable({ models }) {
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [count, setCount] = React.useState(0);
   const [deleted, setDeleted] = useState('');
+  const [revalidated, setRevalidated] = useState('');
   const [progress, setProgress] = useState(0);
 
   const context = useContext(PageContext);
@@ -309,18 +317,31 @@ export default function DashboardTable({ models }) {
           setSelected([])
           setDeleted([])
         });
+    } else if (revalidated) {
+      fetch(`${FETCH_PATH}/api/revalidate/${revalidated}`, {
+        method: 'POST'
+      })
+        .then((response) => response.json())
+        .then((json) => {
+          setSelected([])
+          setRevalidated([])
+        });   
     }
 
-  }, [deleted]);
+  }, [deleted, revalidated]);
 
   function onDelete() {
-    setDeleted(selected.join('.'))
+    setDeleted(selected.join(','))
+  }
+
+  function onRevalidate() {
+    setRevalidated(selected.join(','))
   }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
+      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} />
       <TableContainer>
         <Table
           sx={{ 
