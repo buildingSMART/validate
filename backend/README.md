@@ -27,7 +27,7 @@ except ifcopenshell.Error as err:
 3. Prerequisites
 
 ```shell
-python3 apps/ifc_validation/checks/check_gherkin.py filename task-id --critical (--with-console-output)
+python3 apps/ifc_validation/checks/check_gherkin.py --file-name file_name --task-id id --rule-type CRITICAL (--verbose)
 ```
 
 ## Parallel steps
@@ -41,23 +41,23 @@ python3 -m ifcopenshell.validate --json --rules --fields filename
 5. bSDD Validation
 
 ```shell
-python3 apps/ifc_validation/checks/check_bsdd.py --input filename --task id 
+python3 apps/ifc_validation/checks/check_bsdd.py --file-name file_name --task-id id (--verbose)
 ```
 
 6. Normative Rules - Implementer Agreements (IA)
 
 ```shell
-python3 apps/ifc_validation/checks/check_gherkin.py filename task-id --implementer-agreement (--with-console-output)
+python3 apps/ifc_validation/checks/check_gherkin.py --file-name file_name --task-id id --rule-type IMPLEMENTER_AGREEMENT (--verbose)
 ```
 
 7. Normative Rules - Informal Proposition (IP)
 
 ```shell
-python3 apps/ifc_validation/checks/check_gherkin.py filename task-id --informal-proposition (--with-console-output)
+python3 apps/ifc_validation/checks/check_gherkin.py --file-name file_name --task-id id --rule-type INFORMAL_PROPOSITION (--verbose)
 ```
 
 8. Industry Practices
 
 ```shell
-python3 apps/ifc_validation/checks/check_gherkin.py filename task-id --industry-practices (--with-console-output)
+python3 apps/ifc_validation/checks/check_gherkin.py --file-name file_name --task-id id --rule-type INDUSTRY_PRACTICE (--verbose)
 ```
