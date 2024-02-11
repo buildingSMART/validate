@@ -65,7 +65,8 @@ def models_paginated(request, start: int, end: int):
             "code": request.id,  # TODO - not sure why another longer surrogate key was created?
             "filename": request.file_name,
             "user_id": request.created_by.id,
-            "progress": request.progress,
+            "status": request.status,
+            "progress": -2 if request.progress == ValidationRequest.Status.FAILED else request.progress,
             "date": (request.created if request.updated is None else request.updated).strftime("%Y-%m-%d %H:%M:%S"), # TODO - fix this, without formatting it crashes some browsers/users
             "number_of_elements": None if request.model is None else request.model.number_of_elements,
             "number_of_geometries": None if request.model is None else request.model.number_of_geometries,
