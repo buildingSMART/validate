@@ -60,6 +60,7 @@ services:
         volumes:
             - files_data:/files_storage
         environment:
+            PUBLIC_URL: ${PUBLIC_URL}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -70,6 +71,10 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            MAILGUN_API_URL: ${MAILGUN_API_URL}
+            MAILGUN_API_KEY: ${MAILGUN_API_KEY}
+            MAILGUN_FROM_NAME: ${MAILGUN_FROM_NAME}
+            MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL}
         depends_on:
             - db
             - redis

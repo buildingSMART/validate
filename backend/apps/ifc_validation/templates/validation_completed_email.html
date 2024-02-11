@@ -1,0 +1,25 @@
+<html>
+    <head>
+        <title>Validation Service - Completed</title>
+    </head>
+    <body>
+        <div>
+            Dear user of the Validation Service,<br>
+            <br>
+            Your file <b>{{FILE_NAME}}</b> has been uploaded and checked by the Validation Service.<br>
+            <br>
+            The validation reports can be found here:    
+            <ul>
+                <li><a href="{{PUBLIC_URL}}/report_syntax_schema/{{ID}}">File Metrics</a></li>
+                <li><a href="{{PUBLIC_URL}}/report_syntax_schema/{{ID}}">Syntax and Schema</a></li>
+                <li><a href="{{PUBLIC_URL}}/report_rules/{{ID}}">Normative IFC Rules</a></li>
+                <li><a href="{{PUBLIC_URL}}/report_industry/{{ID}}">IFC Best Practice</a></li>
+                <li><a href="{{PUBLIC_URL}}/report_bsdd/{{ID}}">bSDD Compliance</a></li>
+            </ul>
+            Please report any bugs/inconsistencies/comments to <a href="mailto:validate@buildingsmart.org">validate@buildingsmart.org</a>.<br>
+            <br>
+            Best regards,<br>
+            The Validation Service team<br>
+        </div>
+    </body>
+</html>

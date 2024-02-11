@@ -1,4 +1,6 @@
+import os
 import math
+import requests
 import functools
 import logging
 
@@ -75,3 +77,46 @@ def log_execution(func):
             raise
 
     return wrapper
+
+
+def send_email(to, subject, body_text, body_html=None):
+
+    """
+    Queues an email for sending via the configured email provider (Mailgun only for now).
+    Configured via OS environment variables or .env file.
+    """
+
+    # load configuration
+    MAILGUN_API_URL = os.getenv('MAILGUN_API_URL', None)
+    MAILGUN_API_KEY = os.getenv('MAILGUN_API_KEY', None)
+    MAILGUN_FROM_NAME = os.getenv('MAILGUN_FROM_NAME', None)
+    MAILGUN_FROM_EMAIL = os.getenv('MAILGUN_FROM_EMAIL', None)
+
+    # check configuration
+    for param in ['MAILGUN_API_URL', 'MAILGUN_API_KEY', 'MAILGUN_FROM_NAME', 'MAILGUN_FROM_EMAIL']:
+        if eval(param) is None:
+            message = f"Incomplete email configuration; '{param}' is missing."
+            logger.error(message)
+            raise RuntimeError(message)
+
+    # only send if 'to' email address has a valid public TLD
+    to_domain = to.split('@')[1]
+    if to_domain in ['localhost', '127.0.0.1']:
+        message = f"Email address '{to}' does not have a valid public TLD - skipped actual sending of message '{subject}'."
+        logger.warning(message)
+        raise RuntimeWarning(message)
+    
+    # invoke Mailgun API    
+    response = requests.post(
+        MAILGUN_API_URL,
+        auth= ("api", MAILGUN_API_KEY),
+        data= { 
+            "from": f"{MAILGUN_FROM_NAME} <{MAILGUN_FROM_EMAIL}>",
+            "to": to,
+            "subject": subject,
+            "text": body_text,
+            "html": body_html
+        })
+    response.raise_for_status()
+    logger.debug(f"Sent email to '{to}' with subject '{subject}'")
+

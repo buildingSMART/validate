@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import shlex
 import subprocess
 import functools
@@ -9,8 +10,10 @@ import ifcopenshell
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
 from django.db import transaction
+from django.template.loader import render_to_string
 
 from core.utils import log_execution
+from core.utils import send_email
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
@@ -76,6 +79,9 @@ def on_workflow_started(self, *args, **kwargs):
     request = ValidationRequest.objects.get(pk=id)
     request.mark_as_initiated(reason)
 
+    # queue sending email
+    send_acknowledgement_email_task.delay(id=id, file_name=request.file_name)
+
 
 @shared_task(bind=True)
 @log_execution
@@ -83,9 +89,13 @@ def on_workflow_started(self, *args, **kwargs):
 def on_workflow_completed(self, *args, **kwargs):
 
     # update status
+    id = args[1]
     reason = "Processing completed"
-    request = ValidationRequest.objects.get(pk=self.request.args[1])
+    request = ValidationRequest.objects.get(pk=id)
     request.mark_as_completed(reason)
+
+    # queue sending email
+    send_completion_email_task.delay(id=id, file_name=request.file_name)
 
 
 @shared_task(bind=True)
@@ -100,6 +110,9 @@ def on_workflow_failed(self, *args, **kwargs):
     reason = f"Processing failed: args={args} kwargs={kwargs}"
     request = ValidationRequest.objects.get(pk=id)
     request.mark_as_failed(reason)
+   
+    # queue sending email
+    send_failure_email_task.delay(id=id, file_name=request.file_name)
 
 
 @log_execution
@@ -146,7 +159,6 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow_failed = on_workflow_failed.s(id, file_name)
 
     serial_tasks = chain(
-        send_acknowledgement_email_task.s(id, file_name),
         syntax_validation_subtask.s(id, file_name),
         parse_info_subtask.s(id, file_name),
         prerequisites_subtask.s(id, file_name)
@@ -160,46 +172,99 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         industry_practices_subtask.s(id, file_name)
     ])
 
-    final_tasks = chain(
-        send_completion_email_task.s(id, file_name),
-    )
-
     workflow = (
         workflow_started |
         serial_tasks |
         chord(
             parallel_tasks,
-            chord(final_tasks, workflow_completed).on_error(chord_error_task)
+            workflow_completed
         ).on_error(chord_error_task))
     workflow.set(link_error=[error_task])
     workflow.apply_async()
 
 
-@shared_task(bind=True)
+@shared_task
 @log_execution
 @requires_django_user_context
-def send_acknowledgement_email_task(self, prev_result, id, file_name, *args, **kwargs):
+def send_acknowledgement_email_task(id, file_name):
 
     # fetch request and user info
     request = ValidationRequest.objects.get(pk=id)
     user = request.created_by
 
-    # TODO
-    return {'is_valid': True, 'reason': f'TODO - send ack email to {user.email}'}
+   # load and merge email template
+    merge_data = { 
+        'FILE_NAME': file_name
+    }
+    body_html = render_to_string("validation_ack_email.html", merge_data)
+    body_text = f'Received request to validate file: {file_name}'
+    subject = re.findall(r'<title>(.*?)<\/title>', body_html)[0]
+
+    # queue for sending
+    try:
+        send_email(user.email, subject, body_text, body_html)
+        return f'Sent acknowledgement email to {user.email}'
+    except Warning as warn:
+        return f'Warning - unable to send acknowledgement email to {user.email}: {warn}'
+    except Exception as err:
+        return f'Error - unable to send acknowledgement email to {user.email}: {err}'
 
 
-@shared_task(bind=True)
+@shared_task
 @log_execution
 @requires_django_user_context
-def send_completion_email_task(self, prev_result, id, file_name, *args, **kwargs):
+def send_completion_email_task(id, file_name):
 
     # fetch request and user info
     request = ValidationRequest.objects.get(pk=id)
     user = request.created_by
 
-    # TODO
-    return {'is_valid': True, 'reason': f'TODO - send completion email to {user.email}'}
+    # load and merge email template
+    merge_data = { 
+        'FILE_NAME': file_name,
+        'ID': id,
+        'PUBLIC_URL': os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
+    }
+    body_html = render_to_string("validation_completed_email.html", merge_data)
+    body_text = f'Validation of file: {file_name} was completed.'
+    subject = re.findall(r'<title>(.*?)<\/title>', body_html)[0]
 
+    # queue for sending
+    try:
+        send_email(user.email, subject, body_text, body_html)
+        return f'Sent completion email to {user.email}'
+    except Warning as warn:
+        return f'Warning - unable to send completion email to {user.email}: {warn}'
+    except Exception as err:
+        return f'Error - unable to send completion email to {user.email}: {err}'
+
+
+@shared_task
+@log_execution
+@requires_django_user_context
+def send_failure_email_task(id, file_name):
+
+    # fetch request and user info
+    request = ValidationRequest.objects.get(pk=id)
+    user = request.created_by
+
+   # load and merge email template
+    merge_data = { 
+        'FILE_NAME': file_name
+    }
+    body_html = render_to_string("validation_failed_email.html", merge_data)
+    body_text = f'Unable to complete validation of file: {file_name}.'
+    subject = re.findall(r'<title>(.*?)<\/title>', body_html)[0]
+
+    # queue for sending
+    try:
+        send_email(user.email, subject, body_text, body_html)
+        return f'Sent failure email to {user.email}'
+    except Warning as warn:
+        return f'Warning - unable to send failure email to {user.email}: {warn}'
+    except Exception as err:
+        return f'Error - unable to send failure email to {user.email}: {err}'
+    
 
 @shared_task(bind=True)
 @log_execution
