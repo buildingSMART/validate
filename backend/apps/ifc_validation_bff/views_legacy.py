@@ -56,7 +56,7 @@ def models_paginated(request, start: int, end: int):
     # return model(s) as projection of Validation Request + Model attributes
     models = []
     user_id = 1 #  TODO
-    requests = ValidationRequest.objects.filter(created_by__id=user_id).order_by('progress', '-updated')[start:end]
+    requests = ValidationRequest.objects.filter(created_by__id=user_id).order_by('-created')[start:end]
     total_count = ValidationRequest.objects.filter(created_by__id=user_id).count()
 
     for request in requests:
