@@ -131,11 +131,11 @@ class ValidationTaskAdmin(BaseAdmin):
 
 class ValidationOutcomeAdmin(BaseAdmin):
 
-    list_display = ["id", "file_name_text", "type_text", "instance_id", "feature", "outcome_code", "severity", "expected", "observed", "created", "updated"]
+    list_display = ["id", "file_name_text", "type_text", "instance_id", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
 
     list_filter = ['validation_task__type', 'severity', 'outcome_code']
-    search_fields = ('validation_task__request__file_name', 'severity', 'outcome_code')
+    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
 
     @admin.display(description="File Name")
     def file_name_text(self, obj):
