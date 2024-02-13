@@ -2,9 +2,6 @@ import os
 import sys
 import argparse
 
-if os.environ.get('GHERKIN_REPO_DIR', 'ifc_gherkin_rules'):
-    sys.path.insert(0, os.environ.get('GHERKIN_REPO_DIR'))
-
 try:
     import ifc_gherkin_rules as gherkin_rules  # run-time
 except:
@@ -24,10 +21,10 @@ def perform(ifc_fn, task_id, rule_type, verbose):
         results = list(rules_run)
         return results
     
-    except Exception as err:
-
-        print(err, file=sys.stderr)
-        sys.exit(os.EX_SOFTWARE)        
+    except:
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
