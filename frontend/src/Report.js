@@ -120,7 +120,8 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded
                     ? <>
-                        {(kind === "syntax_and_schema") && <h2>Syntax and Schema Report</h2>}
+                        {(kind === "syntax") && <h2>Syntax Report</h2>}
+                        {(kind === "schema") && <h2>Schema Report</h2>}
                         {(kind === "bsdd") && <h2>bSDD Report</h2>}
                         {(kind === "rules") && <h2>Rules Report</h2>}
                         {(kind === "file") && <h2>File metrics</h2>}
@@ -130,8 +131,8 @@ function Report({ kind }) {
 
                         <b><font color='red'>-- NOTE: Work In Progress --</font></b>
 
-                        {(kind === "syntax_and_schema") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
-                        {(kind === "syntax_and_schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
+                        {(kind === "syntax") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
+                        {(kind === "schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
                         {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
                         {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
                         {/* TODO - should the above not check aggregate of all normative checks? (IA, IP, Pre-req, Industry)? */}
