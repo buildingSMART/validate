@@ -391,10 +391,10 @@ export default function DashboardTable({ models }) {
                   </TableCell>
                   <TableCell align="left">{row.filename} {wrap_status("info", context.sandboxId ? `/sandbox/report_file/${context.sandboxId}/${row.code}` : `/report_file/${row.code}`)}</TableCell>
                   <TableCell align="center">
-                    {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                    {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
-                    {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                    {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_schema/${context.sandboxId}/${row.code}` : `/report_schema/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
                     {wrap_status(status_combine(row.status_prereq, row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
