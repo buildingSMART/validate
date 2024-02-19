@@ -9,14 +9,15 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.ifc_validation_models.models import set_user_context
 from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome, Model, ModelInstance
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
-from core.settings import MEDIA_ROOT
-from core.utils import get_client_ip_address
+
+from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL
 
 logger = logging.getLogger(__name__)
 
@@ -24,41 +25,103 @@ logger = logging.getLogger(__name__)
 #
 # This view aims to be backwards compatible with the backend for the <0.6 UI
 # It will be replaced with regular DRF-based views - hence some coding shortcuts
-#
-# TODO - integrate OAuth
 
 
+def get_current_user(request):
+
+    # TODO - deeper integration with Django Auth/User model
+    sso_user = request.session.get('user')
+    if sso_user:
+        
+        username = sso_user['email'].lower()
+        user = User.objects.all().filter(username=username).first()
+
+        logger.info(f"Authenticated user with username = '{username}' via OAuth, user.id = {user.id}")
+        return user
+    
+    elif DEVELOPMENT:
+
+        username = 'development'
+        user = User.objects.all().filter(username=username).first()
+        if not user:
+            user = User.objects.create(
+                username = username,
+                password = username,
+                email = 'noreply@localhost',
+                is_active = True, 
+                is_superuser = True,
+                is_staff = True,
+                first_name = 'Dev',
+                last_name = 'User'
+            )
+            logger.info(f"Created local DEV user, user = {user.id}")
+
+        logger.info(f"Authenticated as local DEV, user = {user.id}")
+        return user
+    
+    else:
+        logger.info("Not authenticated")
+        return None
+    
+
+def create_redirect_response(login=True, dashboard=False):
+
+    if dashboard:
+
+        return JsonResponse({
+                "redirect": '/dashboard',
+                "reason": "403 - Forbidden"
+            })
+
+    else:
+        
+        return JsonResponse({
+                "redirect": LOGIN_URL,
+                "reason": "401 - Unauthorized"
+            })
+
+
+#@login_required - doesn't work as OAuth is not integrated with Django
 def me(request):
-
-    return JsonResponse(
-        {
+    
+    # return user or redirect response
+    user = get_current_user(request)
+    if user:
+        json = {
             "user_data":
             {
-                'sub': 'development-id',
-                'email': 'test@example.org',
-                'family_name': 'User',
-                'given_name': 'Test',
-                'name': 'Test User'
+                'sub': user.username,
+                'email': user.email,
+                'family_name': user.last_name,
+                'given_name': user.first_name,
+                'name': ' '.join([user.first_name, user.last_name]).strip(),
+                'is_active': user.is_active
             },
             "sandbox_info":
             {
                 "pr_title": None,
                 "commit_id": None
-            }
+            },
+            "redirect": None if user.is_active else '/waiting_zone'
         }
-    )
+        return JsonResponse(json)
+    
+    else:
+    
+        return create_redirect_response(login=True)
 
 
 def models_paginated(request, start: int, end: int):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+    
     # return model(s) as projection of Validation Request + Model attributes
     models = []
-    user_id = 1 #  TODO
-    requests = ValidationRequest.objects.filter(created_by__id=user_id).order_by('-created')[start:end]
-    total_count = ValidationRequest.objects.filter(created_by__id=user_id).count()
-
+    requests = ValidationRequest.objects.filter(created_by__id=user.id).order_by('progress', '-updated')[start:end]
+    total_count = ValidationRequest.objects.filter(created_by__id=user.id).count()
     for request in requests:
         models += [{
             "id": request.id,
@@ -92,12 +155,13 @@ def models_paginated(request, start: int, end: int):
 
 def download(request, id: int):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
-    user_id = 1 #  TODO
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
 
     logger.debug(f"Locating file for id='{id}'")
-    request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+    request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
     if request:
         file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
         logger.debug(f"File to be downloaded is located at '{file_path}'")
@@ -108,24 +172,23 @@ def download(request, id: int):
 
         return response
     else:
-        logger.debug(f"Could not download file with id='{id}' for user_id='{user_id}' as it does not exist")
+        logger.debug(f"Could not download file with id='{id}' for user.id='{user.id}' as it does not exist")
         return HttpResponseNotFound()
 
 
 @csrf_exempt
 def upload(request):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
     if request.method == "POST" and request.FILES:
-
-        # check permissions
-        if request.user.is_authenticated:
-            logger.info(f"Authenticated, user = {request.user.id}")
-            set_user_context(request.user)
-        else:
-            set_user_context(User.objects.get(id=1))  # TODO
-            #return HttpResponseForbidden()
+        
+        # fetch current user
+        user = get_current_user(request)
+        if not user:
+            return create_redirect_response(login=True)
+        if not user.is_active:
+            return create_redirect_response(waiting_zone=True)
+        
+        set_user_context(user)
 
         # parse files
         # can be POST-ed back as file or file[0] or files ...
@@ -167,16 +230,17 @@ def upload(request):
 @csrf_exempt
 def delete(request, ids: str):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
-    user_id = 1 #  TODO
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
 
     with transaction.atomic():
 
         for id in ids.split(','):
 
-            logger.info(f'Locating file for id={id}')
-            request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+            logger.info(f"Locating file for id='{id}' and user.id='{user.id}'")
+            request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
 
             file_name = request.file_name
             file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
@@ -199,30 +263,25 @@ def delete(request, ids: str):
 @csrf_exempt
 def revalidate(request, ids: str):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
-    user_id = 1 #  TODO    
+     # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+    
+    set_user_context(user)
 
     with transaction.atomic():
-
-        # check permissions
-        if request.user.is_authenticated:
-            logger.info(f"Authenticated, user = {request.user.id}")
-            set_user_context(request.user)
-        else:
-            set_user_context(User.objects.get(id=1))  # TODO
-            #return HttpResponseForbidden()
 
         def on_commit(ids):
 
             for id in ids.split(','):
-                request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+                request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
                 ifc_file_validation_task.delay(request.id, request.file_name)
                 logger.info(f"Task 'ifc_file_validation_task' re-submitted for Validation Request - id: {request.id} file_name: {request.file_name}")
 
         for id in ids.split(','):
 
-            request = ValidationRequest.objects.filter(created_by__id=user_id, id=id).first()
+            request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
             request.mark_as_pending(reason='Resubmitted for processing via React UI')
             if request.model: request.model.reset_status()
 
@@ -237,11 +296,15 @@ def revalidate(request, ids: str):
 
 def report2(request, id: str):
 
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+        
     # return file metrics as projection of Validation Request + Model attributes
-    user_id = 1 #  TODO
-    request = ValidationRequest.objects.filter(created_by__id=user_id).filter(id=id).first()
+    request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+    if not request:
+        return create_redirect_response(dashboard=True)
 
     # keep list of instances
     instances = {}
@@ -356,22 +419,8 @@ def report2(request, id: str):
 
     # TODO - why is this included?
     tasks = {
-        "syntax_validation_task": {
-            # "id": 54321,
-            # "results": [],
-            # "task_type": "syntax_validation_task",
-            # "validated_file": 13,
-            # "validated_end_time": "2024-01-01 00:00:00",
-            # "validated_start_time": "2024-01-01 00:00:00"
-        },
-        "schema_validation_task": {
-            # "id": 6789,
-            # "results": [],
-            # "task_type": "schema_validation_task",
-            # "validated_file": 13,
-            # "validated_end_time": "2024-01-01 00:00:00",
-            # "validated_start_time": "2024-01-01 00:00:00"
-        },
+        "syntax_validation_task": { },
+        "schema_validation_task": { },
         "bsdd_validation_task": [],
         "gherkin_rules_validation_task": {
             "results": gherkin_results
@@ -395,8 +444,6 @@ def report2(request, id: str):
 
 
 def report_error(request, path):
-
-    logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
     # TODO
     return HttpResponse(content='OK')

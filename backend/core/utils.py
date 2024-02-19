@@ -1,4 +1,5 @@
 import os
+import re
 import math
 import requests
 import functools
@@ -125,3 +126,15 @@ def send_email(to, subject, body_text, body_html=None):
             })
         response.raise_for_status()
         logger.debug(f"Sent email to '{email}' with subject '{subject}'")
+
+
+def get_title_from_html(body_html):
+
+    """
+    Parses a HTML document and returns the contents of the first <title> tag.
+    """
+    found = re.findall(r'<title>(.*?)<\/title>', body_html)
+    if found and len(found)>0:
+        return found[0]
+    else:
+        return None

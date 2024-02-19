@@ -11,15 +11,17 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 import os
+import logging
+
 from dotenv import load_dotenv
 from pathlib import Path
-#from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+CURRENT_DIR = Path(__file__).resolve().parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
@@ -29,6 +31,7 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", False)
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOPMENT')
+PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
 ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost", "backend"]
 
@@ -56,12 +59,19 @@ INSTALLED_APPS = [
     "apps.ifc_validation",         # IfcValidation Service
     "apps.ifc_validation_models",  # IfcValidation Data Model
     "apps.ifc_validation_bff",     # IfcValidation ReactUI BFF
-
-    "debug_toolbar",
 ]
 
+if DEVELOPMENT:
+    INSTALLED_APPS += [
+        "debug_toolbar",
+    ]
+
+AUTHENTICATION_BACKENDS = (
+    'django.contrib.auth.backends.ModelBackend',
+)
+
 MIDDLEWARE = [
-    #"django.middleware.gzip.GZipMiddleware",  # DO THIS IN NGINX
+    #"django.middleware.gzip.GZipMiddleware",  # WE DO THIS IN NGINX
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -128,11 +138,12 @@ SPECTACULAR_SETTINGS = {
 ROOT_URLCONF = "core.urls"
 
 UI_TEMPLATES = os.path.join(BASE_DIR, 'templates') 
+CORE_TEMPLATES = os.path.join(CURRENT_DIR, 'templates')
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [ UI_TEMPLATES ],
+        "DIRS": [ UI_TEMPLATES, CORE_TEMPLATES ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -261,29 +272,7 @@ except Exception as err:
     msg = "Configuration for CELERY_BEAT_SCHEDULE_FILENAME is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(os.path.dirname(CELERY_BEAT_SCHEDULE_FILENAME), err))
 
-CELERY_BEAT_SCHEDULE = {
-    # "sample_timed_job": {
-    #     "task": "apps.calculations.tasks.sample_timed_job",
-    #     "schedule": crontab(minute="*/1"),
-    #     "args": (1, 2)
-    # },
-    # "sample_tasks_with_subtasks": {
-    #     "task": "apps.calculations.tasks.sample_tasks_with_subtasks",
-    #     "schedule": crontab(minute="*/1"),
-    # },    
-    # "sample_timing_out_task": {
-    #     "task": "apps.calculations.tasks.sample_timing_out_task",
-    #     "schedule": crontab(minute="*/5"),
-    # },  
-    # "sample_failing_task_with_retry": {
-    #     "task": "apps.calculations.tasks.sample_failing_task_with_retry",
-    #     "schedule": crontab(minute="*/5"),
-    # }, 
-    # "sample_loop_with_progress": {
-    #     "task": "apps.calculations.tasks.sample_loop_with_progress",
-    #     "schedule": crontab(minute="*/5")
-    # }
-}
+# LOGGING
 
 log_folder = os.getenv("DJANGO_LOG_FOLDER", "logs")
 os.makedirs(log_folder, exist_ok=True)
@@ -293,6 +282,7 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "handlers": {
+
         "console": {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
@@ -344,3 +334,29 @@ LOGGING = {
         },
     }
 }
+
+# Email
+CONTACT_EMAIL = os.getenv('CONTACT_EMAIL', 'noreply@localhost')  # who to contact with questions/comments
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'noreply@localhost')      # who receives admin-style notifications
+
+# IAM - Azure AD B2C
+B2C_CLIENT_ID = os.environ.get("B2C_CLIENT_ID", None)
+B2C_CLIENT_SECRET = os.environ.get("B2C_CLIENT_SECRET", None)
+B2C_AUTHORITY = os.environ.get("B2C_AUTHORITY", None)
+B2C_USER_FLOW = os.environ.get("B2C_USER_FLOW", None)
+
+LOGIN_URL = os.environ.get("LOGIN_URL", f"{PUBLIC_URL}/login")
+LOGOUT_URL = os.environ.get("LOGOUT_URL", f"{PUBLIC_URL}/logout")
+LOGIN_CALLBACK_URL = os.environ.get("CALLBACK_URL", f"{PUBLIC_URL}/callback")
+POST_LOGIN_REDIRECT_URL = os.environ.get("POST_LOGIN_REDIRECT_URL", f"{PUBLIC_URL}/dashboard")
+
+AUTHLIB_OAUTH_CLIENTS = {
+    'b2c': {
+        'client_id': B2C_CLIENT_ID,
+        'client_secret': B2C_CLIENT_SECRET,
+        'server_metadata_url':f'{B2C_AUTHORITY}/{B2C_USER_FLOW}/v2.0/.well-known/openid-configuration',
+        'client_kwargs': {'scope': 'openid profile email'}
+    }
+}
+# SECURE_SSL_REDIRECT = True
+# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

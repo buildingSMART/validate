@@ -1,33 +1,19 @@
-import os
-import re
-
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.template.loader import render_to_string
 
 from core.utils import log_execution
 from core.utils import send_email
+from core.utils import get_title_from_html
+from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL
 
-from apps.ifc_validation_models.decorators import requires_django_user_context
 from apps.ifc_validation_models.models import ValidationRequest
 
 logger = get_task_logger(__name__)
 
-PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
-CONTACT_EMAIL = os.getenv('CONTACT_EMAIL', 'noreply@localhost')  # who to contact with questions/comments
-ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'noreply@localhost')      # who receives admin-style notifications
-
-
-def get_title_from_html(body_html):
-    """
-    Parses a HTML document and returns the contents of the first <title> tag.
-    """
-    return re.findall(r'<title>(.*?)<\/title>', body_html)[0]
-
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_acknowledgement_user_email_task(id, file_name):
 
     # fetch request and user info
@@ -55,7 +41,6 @@ def send_acknowledgement_user_email_task(id, file_name):
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_acknowledgement_admin_email_task(id, file_name):
 
     # fetch request info
@@ -87,7 +72,6 @@ def send_acknowledgement_admin_email_task(id, file_name):
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_revalidating_user_email_task(id, file_name):
 
     # fetch request and user info
@@ -116,7 +100,6 @@ def send_revalidating_user_email_task(id, file_name):
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_revalidating_admin_email_task(id, file_name):
 
     # fetch request info
@@ -148,7 +131,6 @@ def send_revalidating_admin_email_task(id, file_name):
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_completion_email_task(id, file_name):
 
     # fetch request and user info
@@ -178,7 +160,6 @@ def send_completion_email_task(id, file_name):
 
 @shared_task
 @log_execution
-@requires_django_user_context
 def send_failure_email_task(id, file_name):
 
     # fetch request and user info
@@ -203,29 +184,3 @@ def send_failure_email_task(id, file_name):
         return f'Warning - unable to send failure email to {user.email}: {warn}'
     except Exception as err:
         return f'Error - unable to send failure email to {user.email}: {err}'
-
-
-@shared_task
-@log_execution
-@requires_django_user_context
-def send_user_registered_admin_email_task(user_id, user_email):
-
-    # load and merge email template
-    merge_data = { 
-        'USER_ID': user_id,
-        'USER_EMAIL': user_email,
-        'PUBLIC_URL': PUBLIC_URL
-    }
-    to = ADMIN_EMAIL
-    body_html = render_to_string("user_registered_admin_email.html", merge_data)
-    body_text = f"User {{user_email}} registered for the Validation Service."
-    subject = get_title_from_html(body_html)
-
-    # queue for sending
-    try:
-        send_email(to, subject, body_text, body_html)
-        return f'Sent user registration admin email to {to}'
-    except Warning as warn:
-        return f'Warning - unable to send user registration admin email to {to}: {warn}'
-    except Exception as err:
-        return f'Error - unable to send user registration admin email to {to}: {err}'

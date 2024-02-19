@@ -35,8 +35,10 @@ function Report({ kind }) {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
       .then(response => response.json())
       .then((data) => {
-        if (data["redirect"] !== undefined) {
-          window.location.href = data.redirect;
+        if (data["redirect"] !== undefined && data["redirect"] !== null) {
+          if (!window.location.href.endsWith(data.redirect)) {
+            window.location.href = data.redirect;
+          }
         }
         else {
           setLogin(true);
