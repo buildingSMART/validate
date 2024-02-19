@@ -52,11 +52,11 @@ test-models:
 
 test-tasks:
 	. $(VIRTUAL_ENV)/bin/activate && \
-	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.ValidationTasksTestCase --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_tasks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-checks:
 	. $(VIRTUAL_ENV)/bin/activate && \
-	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.ChecksTestCase --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_checks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 clean:
 	rm -rf .dev
