@@ -1,7 +1,6 @@
 import os
 import sys
 import re
-import shlex
 import subprocess
 import functools
 import json
@@ -282,8 +281,8 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
     # determine program/script to run
     check_script = os.path.join(os.path.dirname(__file__), "checks", "step_file_parser", "main.py")
-    check_program = f"{sys.executable} {check_script} --json {file_path}"
-    logger.debug(f'Command for {self.__qualname__}: {check_program}')
+    check_program = [sys.executable, check_script, '--json', file_path]
+    logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SYNTAX)
@@ -295,7 +294,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
         # note: use run instead of Popen b/c PIPE output can be very big...
         task.set_process_details(None, check_program)  # run() has no pid...
         proc = subprocess.run(
-            shlex.split(check_program),
+            check_program,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
@@ -478,14 +477,14 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = f'{sys.executable} {check_script} --file-name {file_path} --task-id {task.id} --rule-type CRITICAL'  # --verbose'
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL']
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check Gherkin IP
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -554,14 +553,14 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
         task.mark_as_initiated()
 
         # determine program/script to run
-        check_program = f"{sys.executable} -m ifcopenshell.validate --json --rules --fields {file_path}"
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, '-m', 'ifcopenshell.validate', '--json', '--rules', '--fields', file_path]
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check schema
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -660,14 +659,14 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_bsdd.py")
-        check_program = f'{sys.executable} {check_script} --file-name {file_path} --task-id {id}'
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(id)]
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check bSDD
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -764,14 +763,14 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = f'{sys.executable} {check_script} --file-name {file_path} --task-id {task.id} --rule-type IMPLEMENTER_AGREEMENT'  # --verbose'
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'IMPLEMENTER_AGREEMENT']
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check Gherkin IA
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -841,14 +840,14 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = f'{sys.executable} {check_script} --file-name {file_path} --task-id {task.id} --rule-type INFORMAL_PROPOSITION'  # --verbose'
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'INFORMAL_PROPOSITION']
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check Gherkin IP
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
@@ -917,14 +916,14 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = f'{sys.executable} {check_script} --file-name {file_path} --task-id {task.id} --rule-type INDUSTRY_PRACTICE'  # --verbose'
-        logger.debug(f'Command for {self.__qualname__}: {check_program}')
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'INDUSTRY_PRACTICE']
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check Gherkin IP
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
-                shlex.split(check_program),
+                check_program,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 universal_newlines=True,
