@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.contrib import admin
 from django.contrib.auth import get_permission_codename
+from django.contrib.auth.models import User
 from core import utils
 
 from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome
@@ -197,6 +198,30 @@ class AuthoringToolAdmin(BaseAdmin):
     readonly_fields = ["id", "created", "updated"]
     list_filter = ["company", "created", "updated"]
 
+
+class UserAdmin(BaseAdmin):
+
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "is_superuser", "last_login", "date_joined"]
+    list_filter = ['is_staff', 'is_superuser', 'is_active']
+
+    search_fields = ('username', 'email', 'first_name', 'last_name', "last_login", "date_joined")
+
+    actions = ["activate", "deactivate"]
+    actions_on_top = True
+
+    @admin.action(
+        description="Activate selected user(s)"
+    )
+    def activate(self, request, queryset):
+        queryset.update(is_active=True)
+
+    @admin.action(
+        description="Deactivate selected user(s)"
+    )
+    def deactivate(self, request, queryset):
+        queryset.update(is_active=False)
+
+
 # register all admin classes
 admin.site.register(ValidationRequest, ValidationRequestAdmin)
 admin.site.register(ValidationTask, ValidationTaskAdmin)
@@ -205,3 +230,6 @@ admin.site.register(Model, ModelAdmin)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
