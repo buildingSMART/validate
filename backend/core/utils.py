@@ -99,24 +99,29 @@ def send_email(to, subject, body_text, body_html=None):
             logger.error(message)
             raise RuntimeError(message)
 
-    # only send if 'to' email address has a valid public TLD
-    to_domain = to.split('@')[1]
-    if to_domain in ['localhost', '127.0.0.1']:
-        message = f"Email address '{to}' does not have a valid public TLD - skipped actual sending of message '{subject}'."
-        logger.warning(message)
-        raise RuntimeWarning(message)
+    # split potential multiple 'to' addresses
+    email_addresses = to.split(';')
+    email_addresses = [s.strip() for s in email_addresses]
     
-    # invoke Mailgun API    
-    response = requests.post(
-        MAILGUN_API_URL,
-        auth= ("api", MAILGUN_API_KEY),
-        data= { 
-            "from": f"{MAILGUN_FROM_NAME} <{MAILGUN_FROM_EMAIL}>",
-            "to": to,
-            "subject": subject,
-            "text": body_text,
-            "html": body_html
-        })
-    response.raise_for_status()
-    logger.debug(f"Sent email to '{to}' with subject '{subject}'")
+    for email in email_addresses:
 
+        # only send if email address has a valid public TLD
+        email_domain = email.split('@')[1]
+        if email_domain in ['localhost', '127.0.0.1']:
+            message = f"Email address '{email}' does not have a valid public TLD - skipped actual sending of message '{subject}'."
+            logger.warning(message)
+            raise RuntimeWarning(message)
+        
+        # invoke Mailgun API    
+        response = requests.post(
+            MAILGUN_API_URL,
+            auth= ("api", MAILGUN_API_KEY),
+            data= { 
+                "from": f"{MAILGUN_FROM_NAME} <{MAILGUN_FROM_EMAIL}>",
+                "to": email,
+                "subject": subject,
+                "text": body_text,
+                "html": body_html
+            })
+        response.raise_for_status()
+        logger.debug(f"Sent email to '{email}' with subject '{subject}'")
