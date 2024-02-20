@@ -28,8 +28,10 @@ function App() {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
       .then(response => response.json())
       .then((data) => {
-        if (data["redirect"] !== undefined) {
-          window.location.href = data.redirect;
+        if (data["redirect"] !== undefined && data["redirect"] !== null) {
+          if (!window.location.href.endsWith(data.redirect)) {
+            window.location.href = data.redirect;
+          }
         }
         else {
           setLogin(true);
@@ -162,6 +164,14 @@ function App() {
         </Grid>
       </div>
 
+    );
+  } else {
+    return (
+      <div>
+        Thank you! We will review your request to activate your account soon.<br />
+        <br />
+        <a href="/logout">Logout</a>
+      </div>
     );
   }
 }

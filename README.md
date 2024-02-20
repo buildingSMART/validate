@@ -1,5 +1,6 @@
 *(Work In Progress - dev-v0.6-alpha)*
 
+
 # Application Structure
 
 The application consists of three main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
@@ -18,7 +19,7 @@ https://github.com/buildingSMART/ifc-gherkin-rules
 
    Debugging individual rules is supported with commands like:
 
-    ``````
+   ``````
    python test/test_main.py alb001 # For a single rule
    python test/test_main.py alb001 alb002 # For multiple rules
    python test/test_main.py path_to_separate_file.py # For a separate file
@@ -35,7 +36,6 @@ The application supports multiple validation checks on one or multiple IFC files
 - Syntax Check
 - Schema Check
 - Gherkin-Rules Check
-
 
 # How to start?
 

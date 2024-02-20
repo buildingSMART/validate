@@ -1,0 +1,41 @@
+# django
+django
+djangorestframework
+django-filter
+django-cors-headers
+drf-spectacular
+drf-spectacular[sidecar]
+
+# celery
+django-celery-results
+django-celery-beat
+celery
+celery[redis]
+
+# servers + utils
+redis
+psycopg2-binary
+sqlalchemy
+sqlalchemy-utils
+gunicorn
+gevent
+psutil
+python-dotenv
+markdown
+authlib
+
+# bsi
+ifcopenshell
+lark-parser
+pyparsing
+behave
+pytest
+pydantic
+requests
+pydot
+numpy
+
+# dev
+django-debug-toolbar
+flake8
+deprecated

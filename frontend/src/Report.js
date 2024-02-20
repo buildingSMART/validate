@@ -35,8 +35,10 @@ function Report({ kind }) {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
       .then(response => response.json())
       .then((data) => {
-        if (data["redirect"] !== undefined) {
-          window.location.href = data.redirect;
+        if (data["redirect"] !== undefined && data["redirect"] !== null) {
+          if (!window.location.href.endsWith(data.redirect)) {
+            window.location.href = data.redirect;
+          }
         }
         else {
           setLogin(true);
@@ -120,7 +122,8 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded
                     ? <>
-                        {(kind === "syntax_and_schema") && <h2>Syntax and Schema Report</h2>}
+                        {(kind === "syntax") && <h2>Syntax Report</h2>}
+                        {(kind === "schema") && <h2>Schema Report</h2>}
                         {(kind === "bsdd") && <h2>bSDD Report</h2>}
                         {(kind === "rules") && <h2>Rules Report</h2>}
                         {(kind === "file") && <h2>File metrics</h2>}
@@ -128,12 +131,14 @@ function Report({ kind }) {
 
                         <GeneralTable data={reportData} type={"general"} />
 
-                        {(kind === "syntax_and_schema") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
-                        {(kind === "syntax_and_schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
+                        <b><font color='red'>-- NOTE: Work In Progress --</font></b>
+
+                        {(kind === "syntax") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
+                        {(kind === "schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
                         {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
-                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules} />}
-                        {/* TODO - should the above not check aggregate of all three normative checks? (IA, IP, Pre-req)? */}
-                        {(kind === "industry") && <GherkinResults status={reportData["model"]["status_ind"]} gherkin_task={reportData.tasks.gherkin_rules} />}
+                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {/* TODO - should the above not check aggregate of all normative checks? (IA, IP, Pre-req, Industry)? */}
+                        {(kind === "industry") && <GherkinResults status={reportData["model"]["status_ind"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
                       </>
                     : <div>Loading...</div>}
                   <Footer />

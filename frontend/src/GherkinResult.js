@@ -9,9 +9,9 @@ function GherkinResults({ status, gherkin_task }) {
     let label = "Rules"
     
     const messageToStatus = (msg) => {
-        if (msg === "Rule passed") {
+        if (msg === "Rule passed" || msg === "Rule executed") {
             return "v";
-        } else if (msg === "Rule disabled") {
+        } else if (msg === "Rule disabled" || msg === "Rule not applicable") {
             return "n";
         } else {
             return "i";
@@ -46,7 +46,9 @@ function GherkinResults({ status, gherkin_task }) {
                     }}>
                         <a href={result.feature_url}>{result.feature}</a> <br></br>
                         <b>{result.step}</b>
-                        <div>{result.message}</div>
+                        <div>outcome id: {result.id}</div>
+                        <div>instance id: {result.instance_id ?? '-'}</div>
+                        <div>message: {result.message}</div>
                         <br></br>
                         <br></br>
                     </div>

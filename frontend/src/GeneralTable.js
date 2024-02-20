@@ -31,6 +31,15 @@ function prettyPrintFileSize(fileSizeInBytes) {
   return Math.max(fileSizeInBytes, 0.01).toFixed(2) + ' ' + units[i];
 }
 
+function prettyPrintNumber(number) {
+  if (number) {
+    return number?.toLocaleString();
+  }
+  else {
+    return '-';
+  }
+}
+
 function preprocessData(data, type) {
 
   if (type === "general") {
@@ -39,8 +48,8 @@ function preprocessData(data, type) {
       ["File name", data["model"]["filename"]],
       ["License", data["model"]["license"]],
       ["File size", prettyPrintFileSize(data["model"]["size"])],
-      ["Number of geometries", data["model"]["number_of_geometries"]],
-      ["Number of properties", data["model"]["number_of_properties"]],
+      ["Number of geometries", prettyPrintNumber(data["model"]["number_of_geometries"])],
+      ["Number of properties", prettyPrintNumber(data["model"]["number_of_properties"])],
       ["IFC Schema", data["model"]["schema"]],
       ["Authoring Application", data["model"]["authoring_application"]],
       ["MVD(s)", data["model"]["mvd"]]

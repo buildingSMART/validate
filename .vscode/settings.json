@@ -1,0 +1,12 @@
+{
+    "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true
+    },
+    "hide-files.files": [],
+    "flake8.args": [
+        "ignore=E221,E722",
+        "--max-line-length=180"
+    ]
+}

@@ -34,6 +34,7 @@ services:
         expose:
             - 8000
         environment:
+            PUBLIC_URL: ${PUBLIC_URL}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -45,6 +46,10 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            B2C_CLIENT_ID: ${B2C_CLIENT_ID}
+            B2C_CLIENT_SECRET: ${B2C_CLIENT_SECRET}
+            B2C_AUTHORITY: ${B2C_AUTHORITY}
+            B2C_USER_FLOW: ${B2C_USER_FLOW}            
         deploy: # example only
             mode: replicated
             replicas: 2 
@@ -61,6 +66,7 @@ services:
         volumes:
             - files_data:/files_storage
         environment:
+            PUBLIC_URL: ${PUBLIC_URL}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -71,6 +77,12 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            MAILGUN_API_URL: ${MAILGUN_API_URL}
+            MAILGUN_API_KEY: ${MAILGUN_API_KEY}
+            MAILGUN_FROM_NAME: ${MAILGUN_FROM_NAME}
+            MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL}
+            ADMIN_EMAIL: ${ADMIN_EMAIL}
+            CONTACT_EMAIL: ${CONTACT_EMAIL}       
         deploy: # example only
             mode: replicated
             replicas: 2 
@@ -119,22 +131,6 @@ services:
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         expose:
             - ${POSTGRES_PORT}
-
-    # Mailpit
-    mailpit:
-        image: axllent/mailpit:v1.10
-        restart: unless-stopped
-        container_name: mailpit
-        volumes:
-            - ./docker/mailpit/authfile:/data/authfile
-            - mailpit_data:/data
-        environment:
-            MP_DATA_FILE: /data/mailpit.db
-            MP_UI_AUTH_FILE: /data/authfile
-            TZ: Europe/London
-        ports:
-            - 8025:8025
-            - 1025:1025
 
     # Prometheus
     prometheus:
@@ -189,4 +185,3 @@ volumes:
     otel_data:
     prometheus_data:
     grafana_data:
-    mailpit_data:

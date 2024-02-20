@@ -46,18 +46,22 @@ ADD ./backend /app/backend
 
 # remove and download git submodules
 RUN set -ex && \
+    # *** START TEMP - keep local development version on the side - TODO: remove
+    cp -r /app/backend/apps/ifc_validation/checks/ /tmp && \
+    cp -r /app/backend/apps/ifc_validation_models /tmp && \
+    # *** END TEMP - keep local development version on the side - TODO: remove
     rm -rf /app/backend/apps/ifc_validation/checks/ifc_gherkin_rules && \
     rm -rf /app/backend/apps/ifc_validation/checks/step_file_parser && \
-    # KEEP LOCAL DEVELOPMENT VERSION
-    #rm -rf /app/backend/apps/ifc_validation_models && \
-    echo *** SKIPPED REMOVING MODEL SUBMODULE *** && \
+    rm -rf /app/backend/apps/ifc_validation_models && \
     cd /app/backend/apps && \
     git init . && \
-    git submodule add https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
+    git submodule add -b development https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
     git submodule add https://github.com/IfcOpenShell/step-file-parser ./ifc_validation/checks/step_file_parser && \
-    # KEEP LOCAL DEVELOPMENT VERSION
-    #git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models
-    echo *** SKIPPED FETCHING MODEL SUBMODULE ***
+    git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models && \
+    # *** START TEMP - keep local development version on the side - TODO: remove
+    cp -r /tmp/checks /app/backend/apps/ifc_validation/ && \
+    cp -r /tmp/ifc_validation_models /app/backend/apps/
+    # *** END TEMP - keep local development version on the side - TODO: remove
 
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend

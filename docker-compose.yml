@@ -20,7 +20,7 @@ services:
         depends_on:
             - backend
 
-    # Backend - Django (x2)
+    # Backend - Django
     backend:
         image: buildingsmart/validationsvc-backend:${VERSION}
         build:
@@ -29,12 +29,14 @@ services:
             target: run
         entrypoint: /app/backend/server-entrypoint.sh
         restart: unless-stopped
+        container_name: backend
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
-        expose:
-            - 8000
+        ports:
+            - 8000:8000
         environment:
+            PUBLIC_URL: ${PUBLIC_URL}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -46,26 +48,24 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        deploy: # example only
-            mode: replicated
-            replicas: 2 
-            endpoint_mode: vip
+            B2C_CLIENT_ID: ${B2C_CLIENT_ID}
+            B2C_CLIENT_SECRET: ${B2C_CLIENT_SECRET}
+            B2C_AUTHORITY: ${B2C_AUTHORITY}
+            B2C_USER_FLOW: ${B2C_USER_FLOW}
         depends_on:
             - db
             - redis
 
-    # Worker - Celery worker (x2)
+    # Worker - Celery worker + beat
     worker:
         image: buildingsmart/validationsvc-backend:${VERSION}
-        build:
-            context: .
-            dockerfile: ./docker/backend/Dockerfile
-            target: run
         entrypoint: /app/backend/worker-entrypoint.sh
         restart: unless-stopped
+        container_name: worker
         volumes:
             - files_data:/files_storage
         environment:
+            PUBLIC_URL: ${PUBLIC_URL}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -76,10 +76,12 @@ services:
             POSTGRES_NAME: ${POSTGRES_NAME}
             POSTGRES_USER: ${POSTGRES_USER}
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        deploy: # example only
-            mode: replicated
-            replicas: 2 
-            endpoint_mode: vip
+            MAILGUN_API_URL: ${MAILGUN_API_URL}
+            MAILGUN_API_KEY: ${MAILGUN_API_KEY}
+            MAILGUN_FROM_NAME: ${MAILGUN_FROM_NAME}
+            MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL}
+            ADMIN_EMAIL: ${ADMIN_EMAIL}
+            CONTACT_EMAIL: ${CONTACT_EMAIL}
         depends_on:
             - db
             - redis
@@ -124,27 +126,9 @@ services:
             POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         expose:
             - ${POSTGRES_PORT}
-    
-    # OpenTelemetry Collector
-    otel_col:
-        image: otel/opentelemetry-collector-contrib:0.91.0 # contrib includes eg. Redis/PostgreSQL already
-        restart: unless-stopped
-        container_name: otel_col
-        ports:
-            - 4317:4317 # OTLP over gRPC receiver
-            - 4318:4318 # OTLP over HTTP receiver
-            - 8888:8888 # Prometheus metrics exposed by the collector
-            - 8889:8889 # Prometheus exporter metrics
-            - 1888:1888 # pprof extension
-            - 55679:55679 # zpages extension
-            - 13133:13133 # health_check extension
-        volumes:
-            - ./docker/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml
-            # no persistence by design
 
 volumes:
     static_data:
     files_data:
     postgres_data:
     redis_data:
-    otel_data:

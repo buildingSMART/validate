@@ -16,12 +16,14 @@ import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
+import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
 import WarningIcon from '@mui/icons-material/Warning';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import BlockIcon from '@mui/icons-material/Block';
 import Link from '@mui/material/Link';
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
@@ -34,16 +36,17 @@ const statusToIcon = {
   "i": <ErrorIcon color="error" />,
   "w": <WarningIcon color="warning" />,
   "p": <HourglassBottomIcon color="disabled" />,
+  "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
   "info":<InfoIcon color="primary"/>
 }
 
 function status_combine(...args) {
-  const statuses = ["p", "v", "n", "w", "i"];
+  const statuses = ["-", "p", "v", "n", "w", "i"];
   return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
 }
 
 function wrap_status(status, href) {
-  if (status === 'n' || status === 'p') {
+  if (status === 'n' || status === 'p' || status === '-') {
     return statusToIcon[status];
   } else {
     return <IconButton component={Link} href={href} target="_blank" onClick={evt => evt.stopPropagation()}>
@@ -181,7 +184,7 @@ EnhancedTableHead.propTypes = {
   rowCount: PropTypes.number.isRequired,
 };
 
-function EnhancedTableToolbar({ numSelected, onDelete }) {
+function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
 
   return (
     <Toolbar
@@ -220,8 +223,14 @@ function EnhancedTableToolbar({ numSelected, onDelete }) {
           <IconButton onClick={onDelete}>
             <DeleteIcon />
           </IconButton>
-        </Tooltip>
-      )}
+        </Tooltip>)}
+
+      {numSelected > 0 && (
+        <Tooltip title="Revalidate">
+          <IconButton onClick={onRevalidate}>
+            <ReplayIcon />
+          </IconButton>
+        </Tooltip>)}
     </Toolbar>
   );
 }
@@ -240,6 +249,7 @@ export default function DashboardTable({ models }) {
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [count, setCount] = React.useState(0);
   const [deleted, setDeleted] = useState('');
+  const [revalidated, setRevalidated] = useState('');
   const [progress, setProgress] = useState(0);
 
   const context = useContext(PageContext);
@@ -307,18 +317,31 @@ export default function DashboardTable({ models }) {
           setSelected([])
           setDeleted([])
         });
+    } else if (revalidated) {
+      fetch(`${FETCH_PATH}/api/revalidate/${revalidated}`, {
+        method: 'POST'
+      })
+        .then((response) => response.json())
+        .then((json) => {
+          setSelected([])
+          setRevalidated([])
+        });   
     }
 
-  }, [deleted]);
+  }, [deleted, revalidated]);
 
   function onDelete() {
-    setDeleted(selected.join('.'))
+    setDeleted(selected.join(','))
+  }
+
+  function onRevalidate() {
+    setRevalidated(selected.join(','))
   }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
+      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} />
       <TableContainer>
         <Table
           sx={{ 
@@ -368,10 +391,10 @@ export default function DashboardTable({ models }) {
                   </TableCell>
                   <TableCell align="left">{row.filename} {wrap_status("info", context.sandboxId ? `/sandbox/report_file/${context.sandboxId}/${row.code}` : `/report_file/${row.code}`)}</TableCell>
                   <TableCell align="center">
-                    {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                    {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
-                    {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_syntax_schema/${context.sandboxId}/${row.code}` : `/report_syntax_schema/${row.code}`)}
+                    {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_schema/${context.sandboxId}/${row.code}` : `/report_schema/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
                     {wrap_status(status_combine(row.status_prereq, row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
