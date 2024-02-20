@@ -1,22 +1,6 @@
-(TBC - dev-v0.6-alpha)
+*(Work In Progress - dev-v0.6-alpha)*
 
-# IFC Validation Service
-
-A comprehensive solution integrating a React frontend with a Python backend using the Django framework. This software is designed to facilitate various validation checks including bsdd-check, syntax check, schema check, and gherkin-rules check.
-## Getting Started
-
-### Installation
-
-1. Clone the repository to your local machine.
-2. Navigate to the root directory of the project.
-3. Run the following command to build and start the application:
-   ``````
-   docker-compose up --build
-   ``````
-
-This command assembles the application, installs all required packages and submodules, and starts the local server.
-
-## Application Structure
+# Application Structure
 
 The application consists of three main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
 
@@ -53,14 +37,124 @@ The application supports multiple validation checks on one or multiple IFC files
 - Gherkin-Rules Check
 
 
-## Contributing
+# How to start?
 
-Contributions are welcome! For major changes, please open an issue first to discuss what you would like to change. Ensure to update tests as appropriate.
+Depending on your workflow, you can run all or some services via Docker Compose.
 
-### Creating Pull Requests
+Below are a few common options to run and debug these services locally.
+More scenario's exist - have a look at the various *make* files.
 
-1. Fork the repository.
-2. Create your feature branch (git checkout -b feature/AmazingFeature).
-3. Commit your changes (git commit -am 'Add some AmazingFeature').
-4. Push to the branch (git push origin feature/AmazingFeature).
-5. Open a pull request.
+## Option 1 - Run minimal set of services via Docker Compose (easiest to run)
+
+1. Make sure Docker is running.
+
+2. Start all services.
+
+```shell
+make start
+
+or 
+
+docker compose up
+```
+
+3. This pulls Docker-hub images, builds and spins up **six** different services:
+
+```
+db       - PostgreSQL database
+redis    - Redis instance
+backend  - Django Admin + API's
+worker   - Celery worker
+flower   - Celery flower dashboard
+frontend - React UI
+```
+
+4. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
+
+```shell
+docker exec -it backend sh
+
+cd backend
+
+DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost python3 manage.py createsuperuser --noinput
+
+DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost python3 manage.py createsuperuser --noinput
+
+exit
+```
+
+5. Navigate to different services:
+
+- Validation Service - React UI: http://localhost
+- Django Admin UI: http://localhost/admin (or http://localhost:8000/admin) - default user/password: root/root
+- Django API - Swagger: http://localhost/api/swagger-ui
+- Django API - Redoc: http://localhost/api/redoc
+- Celery Flower UI: http://localhost:5555
+
+6. Optionally, use a tool like curl or Postman to invoke API requests directly
+
+## Option 2 - Local debugging + infrastructure via Docker Compose (easiest to debug)
+
+1. Make sure Docker is running.
+
+2. Start infrastructure services only (Redis, Postgres, Celery Flower)
+
+```shell
+make start-infra
+
+or
+
+docker compose -f docker-compose.infra_only.yml up
+```
+
+
+3. This pulls **three** different Docker-hub images and spins up  services:
+
+```
+db       - PostgreSQL database
+redis    - Redis instance
+flower   - Celery flower dashboard
+```
+
+4. Start Django backend (Admin + API)
+
+```shell
+cd backend
+make install
+make start-django
+```
+
+5. Start Celery worker(s)
+
+```shell
+cd backend
+make start-worker
+```
+
+6. Start Node Development server to serve the React UI
+
+```shell
+cd frontend
+npm install
+npm run start
+```
+
+7. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
+
+```shell
+cd backend
+
+DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost python3 manage.py createsuperuser --noinput
+
+DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost python3 manage.py createsuperuser --noinput
+```
+
+8. Navigate to different services:
+
+- Validation Service - React UI: http://localhost:3000
+- Django Admin UI: http://localhost:8000/admin - default user/password: root/root
+- Django API - Swagger: http://localhost:8000/api/swagger-ui
+- Django API - Redoc: http://localhost:8000/api/redoc
+- Celery Flower UI: http://localhost:5555
+
+9. Optionally, use a tool like curl or Postman to invoke API requests directly
