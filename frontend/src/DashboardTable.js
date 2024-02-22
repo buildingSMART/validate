@@ -16,7 +16,7 @@ import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ReplayIcon from '@mui/icons-material/Replay';
+//import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -225,12 +225,12 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
           </IconButton>
         </Tooltip>)}
 
-      {numSelected > 0 && (
+      {/* {numSelected > 0 && (
         <Tooltip title="Revalidate">
           <IconButton onClick={onRevalidate}>
             <ReplayIcon />
           </IconButton>
-        </Tooltip>)}
+        </Tooltip>)} */}
     </Toolbar>
   );
 }
@@ -334,14 +334,15 @@ export default function DashboardTable({ models }) {
     setDeleted(selected.join(','))
   }
 
-  function onRevalidate() {
-    setRevalidated(selected.join(','))
-  }
+  // function onRevalidate() {
+  //   setRevalidated(selected.join(','))
+  // }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} />
+      {/* <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} /> */}
+      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
       <TableContainer>
         <Table
           sx={{ 
