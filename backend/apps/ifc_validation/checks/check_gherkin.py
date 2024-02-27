@@ -11,7 +11,7 @@ def perform(ifc_fn, task_id, rule_type, verbose):
 
     try:
         
-        gherkin_rule_type = gherkin_rules.RuleType.from_argv(rule_type)
+        gherkin_rule_type = gherkin_rules.RuleType[rule_type]
         rules_run = gherkin_rules.run(
             filename=ifc_fn,
             rule_type=gherkin_rule_type,
