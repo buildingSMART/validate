@@ -5,33 +5,37 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Paper from '@mui/material/Paper';
 import { statusToColor } from './mappings'
 
-function GherkinResults({ status, gherkin_task }) {
+function GherkinResults({ status, content }) {
     let label = "Rules"
-    
-    const messageToStatus = (msg) => {
-        if (msg === "Rule passed" || msg === "Rule executed") {
-            return "v";
-        } else if (msg === "Rule disabled" || msg === "Rule not applicable") {
-            return "n";
-        } else {
-            return "i";
+
+    const severityToStatus = (severity) => {
+        if (severity === 0) {
+            return "n";  // n/a or disabled
+        } else if (severity === 1 || severity === 2) {
+            return "v"; // passed/executed
+        } else if (severity === 3) {
+            return "w"; // warning
+        } else if (severity === 4) {
+            return "i"; // failed/error
         }
     };
     
     let previousStatus = null;
     
-    return <Paper sx={{overflow: 'hidden'}}><TreeView
-        aria-label="file system navigator"
-        defaultCollapseIcon={<ExpandMoreIcon />}
-        defaultExpandIcon={<ChevronRightIcon />}
-        defaultExpanded={["0"]}
-        sx={{ "width": "850px", "backgroundColor": statusToColor[status], ".MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
-    >
-        { (gherkin_task && gherkin_task.results.length > 0) ?
+    return (
+      <Paper sx={{overflow: 'hidden'}}>
+        <TreeView
+            aria-label="report navigator"
+            defaultCollapseIcon={<ExpandMoreIcon />}
+            defaultExpandIcon={<ChevronRightIcon />}
+            defaultExpanded={["0"]}
+            sx={{ "width": "850px", "backgroundColor": statusToColor[status], ".MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
+        >
+        { (content && content.length > 0) ?
         (<TreeItem nodeId="0" label={label}>
         {
-            gherkin_task.results.map((result) => {
-                const status = messageToStatus(result.message);
+            content.map((result) => {
+                const status = severityToStatus(result.severity);
                 const border = previousStatus !== null && previousStatus !== status
                     ? 'solid 1px gray'
                     : 'none';
@@ -42,6 +46,7 @@ function GherkinResults({ status, gherkin_task }) {
                         backgroundColor: statusToColor[status],
                         marginLeft: '-17px',
                         paddingLeft: '17px',
+                        paddingTop: '10px',
                         borderTop: border
                     }}>
                         <a href={result.feature_url}>{result.feature}</a> <br></br>
@@ -58,10 +63,13 @@ function GherkinResults({ status, gherkin_task }) {
         }
         </TreeItem>)
         : (<TreeItem nodeId="0" label={label}>
-            <pre>{gherkin_task ? "Valid" : "Not checked"}</pre>
+            <div style={{padding: '10px'}}>            
+                {status === 'v' ? "Valid" : (status === 'i' ? "Invalid" : "Not checked")}
+            </div>
         </TreeItem>) }
-    </TreeView></Paper>
+      </TreeView>
+    </Paper>
+   );
 }
-
 
 export default GherkinResults

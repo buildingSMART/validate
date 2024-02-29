@@ -44,15 +44,16 @@ function preprocessData(data, type) {
 
   if (type === "general") {
     return [
-      ["Date", data["model"]["date"]],
-      ["File name", data["model"]["filename"]],
-      ["License", data["model"]["license"]],
-      ["File size", prettyPrintFileSize(data["model"]["size"])],
-      ["Number of geometries", prettyPrintNumber(data["model"]["number_of_geometries"])],
-      ["Number of properties", prettyPrintNumber(data["model"]["number_of_properties"])],
-      ["IFC Schema", data["model"]["schema"]],
-      ["Authoring Application", data["model"]["authoring_application"]],
-      ["MVD(s)", data["model"]["mvd"]]
+      ["Report Date", data["model"]["date"]],
+      ["File Name", data["model"]["filename"]],
+      ["File Date", data["model"]["file_date"] !== null ? data["model"]["file_date"] : '-'],
+      ["License", data["model"]["license"] !== null ? data["model"]["license"] : '-'],
+      ["File Size", prettyPrintFileSize(data["model"]["size"])],
+      ["Number of Geometries", prettyPrintNumber(data["model"]["number_of_geometries"])],
+      ["Number of Properties", prettyPrintNumber(data["model"]["number_of_properties"])],
+      ["IFC Schema", data["model"]["schema"] !== null ? data["model"]["schema"] : '-'],
+      ["Authoring Application", data["model"]["authoring_application"] !== null ? data["model"]["authoring_application"] : '-'],
+      ["MVD(s)", data["model"]["mvd"] !== null ? data["model"]["mvd"] : '-']
     ]
 
   } else {

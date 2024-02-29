@@ -25,28 +25,24 @@ function BsddReportRow({ key, valid, instance, requirement, required, observed }
       <TableCell align="center"> {`${required}`}</TableCell>
       <TableCell align="center">  {`${observed}`}</TableCell>
     </TableRow>
-
   )
-
 }
 
-export default function BsddTreeView({ bsddResults, status }) {
-
-  const bsdd = bsddResults.bsdd;
+export default function BsddTreeView({ summary, bsddResults, status }) {
 
   return (
     <Paper sx={{ overflow: 'hidden' }}><TreeView
-      aria-label="file system navigator"
+      aria-label="report navigator"
       defaultCollapseIcon={<ExpandMoreIcon />}
       defaultExpandIcon={<ChevronRightIcon />}
       defaultExpanded={["0"]}
       sx={{ "width": "850px", "backgroundColor": statusToColor[status], "> li > .MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
     >
-      <TreeItem nodeId="0" label={"bSDD"}>
+      <TreeItem nodeId="0" label={summary}>
         <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
           defaultExpandIcon={<ChevronRightIcon />}>
           {
-            Object.entries(bsdd || {}).map(([domain, classifications]) => {
+            Object.entries(bsddResults || {}).map(([domain, classifications]) => {
 
               return <TreeItem nodeId={11} label={`Domain: ${domain}`} disabled={domain == "no IfcClassification" ? true : false}>
                 <TreeView defaultCollapseIcon={<ExpandMoreIcon />}

@@ -8,7 +8,8 @@ import GeneralTable from './GeneralTable';
 import SyntaxResult from './SyntaxResult';
 import SchemaResult from './SchemaResult';
 import BsddTreeView from './BsddTreeView'
-import GherkinResults from './GherkinResult';
+//import GherkinResults from './GherkinResult';
+import GherkinResults2 from './GherkinResult2';
 import SideMenu from './SideMenu';
 
 import { useEffect, useState, useContext } from 'react';
@@ -50,8 +51,8 @@ function Report({ kind }) {
   }, [context, handleAsyncError]);
 
 
-  function getReport(code) {
-    fetch(`${FETCH_PATH}/api/report2/${code}`)
+  function getReport(code, kind) {
+    fetch(`${FETCH_PATH}/api/report2/${code}?type=${kind}`)
       .then(response => response.json())
       .then((data) => {
         setReportData(data);
@@ -59,9 +60,14 @@ function Report({ kind }) {
       })
   }
 
+  function status_combine(...args) {
+    const statuses = ["-", "p", "v", "n", "w", "i"];
+    return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
+  }
+
   useEffect(() => {
-    getReport(modelCode);
-  }, [modelCode]);
+    getReport(modelCode, kind);
+  }, [modelCode, kind]);
 
   if (isLoggedIn) {
     console.log("Report data ", reportData)
@@ -122,23 +128,42 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded
                     ? <>
-                        {(kind === "syntax") && <h2>Syntax Report</h2>}
-                        {(kind === "schema") && <h2>Schema Report</h2>}
-                        {(kind === "bsdd") && <h2>bSDD Report</h2>}
-                        {(kind === "rules") && <h2>Rules Report</h2>}
-                        {(kind === "file") && <h2>File metrics</h2>}
+                        {(kind === "file") && <h2>File Metrics</h2>}
+                        {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
+                        {(kind === "schema") && <h2>IFC Schema Report</h2>}
+                        {(kind === "bsdd") && <h2>bSDD Compliance Report</h2>}
+                        {(kind === "normative") && <h2>Normative IFC Rules Report</h2>}
                         {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
                         <GeneralTable data={reportData} type={"general"} />
 
-                        <b><font color='red'>-- NOTE: Work In Progress --</font></b>
+                        {(kind === "syntax") && <SyntaxResult 
+                          status={reportData["model"]["status_syntax"]} 
+                          summary={"STEP Syntax"} 
+                          content={reportData["results"]["syntax_results"]} />}
 
-                        {(kind === "syntax") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
-                        {(kind === "schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
-                        {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
-                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
-                        {/* TODO - should the above not check aggregate of all normative checks? (IA, IP, Pre-req, Industry)? */}
-                        {(kind === "industry") && <GherkinResults status={reportData["model"]["status_ind"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {(kind === "schema") && <SchemaResult 
+                          status={reportData["model"]["status_schema"]} 
+                          summary={"IFC Schema"} 
+                          content={reportData["results"]["schema_results"]} 
+                          instances={reportData.instances} />}
+
+                        {(kind === "bsdd") && <BsddTreeView 
+                          status={reportData["model"]["status_bsdd"]} 
+                          summary={"bSDD Compliance"} 
+                          bsddResults={reportData["results"]["bsdd_results"]} />}
+
+                        {(kind === "normative") && <GherkinResults2 
+                          status={status_combine(reportData["model"]["status_prereq"], reportData["model"]["status_ia"], reportData["model"]["status_ip"])} 
+                          summary={"Normative IFC Rules"}
+                          content={reportData["results"]["norm_rules_results"]} 
+                          instances={reportData.instances} />}
+                          
+                        {(kind === "industry") && <GherkinResults2 
+                          status={reportData["model"]["status_ind"]}
+                          summary={"Industry Practices"}
+                          content={reportData["results"]["ind_rules_results"]} 
+                          instances={reportData.instances} />}
                       </>
                     : <div>Loading...</div>}
                   <Footer />

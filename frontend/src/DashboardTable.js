@@ -115,10 +115,10 @@ const headCells = [
   },
   {
     id: 'industry',
-    label: 'IFC Best Practice',
+    label: 'Industry Practices',
     width: 100,
     align: 'center',
-    tooltip: 'Industry Practices'
+    tooltip: 'Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid'
   },
   {
     id: 'bsdd',
@@ -225,12 +225,12 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
           </IconButton>
         </Tooltip>)}
 
-      {numSelected > 0 && (
+      {/* {numSelected > 0 && (
         <Tooltip title="Revalidate">
           <IconButton onClick={onRevalidate}>
             <ReplayIcon />
           </IconButton>
-        </Tooltip>)}
+        </Tooltip>)} */}
     </Toolbar>
   );
 }
