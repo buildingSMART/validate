@@ -17,7 +17,7 @@ from apps.ifc_validation_models.models import ValidationRequest, ValidationTask,
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
 
-from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL
+from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL, MAX_FILES_PER_UPLOAD
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +193,7 @@ def upload(request):
         # parse files
         # can be POST-ed back as file or file[0] or files ...
         files = request.FILES.getlist('file')
-        for i in range(0, 15):
+        for i in range(0, MAX_FILES_PER_UPLOAD):
             file_i = request.FILES.getlist(f'file[{i}]', None)
             if file_i is not None: files += file_i
         logger.info(f"Received {len(files)} file(s) - files: {files}")
