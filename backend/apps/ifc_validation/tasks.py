@@ -531,6 +531,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                         instance, _ = model.instances.get_or_create(
                             stepfile_id=message['instance']['id'],
                             ifc_type=message['instance']['type'],
+                            model=model
                         )
                         outcome.instance = instance
                         outcome.save()
