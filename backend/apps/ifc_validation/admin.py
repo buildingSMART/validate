@@ -149,8 +149,10 @@ class ValidationOutcomeAdmin(BaseAdmin):
 
 class ModelAdmin(BaseAdmin):
 
-    list_display = ["id", "file_name", "size_text", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
-    readonly_fields = ["id", "file", "file_name", "size", "size_text", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+    list_display = ["id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
+    readonly_fields = ["id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+
+    search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     
     @admin.display(description="# of Elements")
     def nbr_of_elements(self, obj):
@@ -176,6 +178,8 @@ class ModelAdmin(BaseAdmin):
 class ModelInstanceAdmin(BaseAdmin):
 
     list_display = ["id", "stepfile_id", "model", "ifc_type", "created", "updated"]
+
+    search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
 
 
 class CompanyAdmin(BaseAdmin):
