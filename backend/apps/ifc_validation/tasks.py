@@ -178,9 +178,24 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         chord(
             parallel_tasks,
             workflow_completed
-        ).on_error(chord_error_task))
+        ).on_error(chord_error_task) |
+        instance_completion_substask.s(id, file_name))
     workflow.set(link_error=[error_task])
     workflow.apply_async()
+
+@shared_task(bind=True)
+@log_execution
+@requires_django_user_context
+def instance_completion_substask(self, prev_result, id, file_name, *args, **kwargs):
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
+
+    ifc_file = ifcopenshell.open(file_path)
+
+    with transaction.atomic():
+        for inst in request.model.instances.iterator():
+            inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+            inst.save()
 
 
 @shared_task(bind=True)
