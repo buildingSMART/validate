@@ -143,6 +143,7 @@ function App() {
                         <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
                     </ul>
 
+                    </Typography>
                     <Typography align='left' paragraph>Additionally, the Validation Service performs non-normative checks including:
 
                     <ul>
