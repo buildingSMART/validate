@@ -112,7 +112,7 @@ class ValidationRequestListAPIView(APIView):
                         set_user_context(request.user)
 
                     files = request.FILES.getlist('file')
-                    for i in range(0, 15):
+                    for i in range(0, MAX_FILES_PER_UPLOAD):
                         file_i = request.FILES.getlist(f'file[{i}]', None)
                         if file_i is not None: files += file_i
                     logger.info(f"Received {len(files)} file(s) - files: {files}")

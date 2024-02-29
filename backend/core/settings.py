@@ -228,6 +228,7 @@ STATIC_ROOT = BASE_DIR / "django_static"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Uploaded files
+MAX_FILES_PER_UPLOAD = 100
 MEDIA_URL = '/files/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/files_storage')
 try:
