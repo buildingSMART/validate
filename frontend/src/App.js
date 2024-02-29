@@ -139,7 +139,7 @@ function App() {
 
                     <ul>
                         <li><b>STEP Syntax</b> The STEP Physical File syntax</li>
-                        <li><b>IFC Schema</b> The IFC schema referenced in the file including formal propositions encoded in the EXPRESS where rule and function language</li>
+                        <li><b>IFC Schema</b> An up-to-date (not withdrawn and latest revision) IFC schema referenced in the file, including formal propositions and functions encoded in the EXPRESS schema language</li>
                         <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
                     </ul>
 
