@@ -54,7 +54,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
           }
         }}
       >
-        <TreeItem nodeId="0" label="Schema">
+        <TreeItem nodeId="0" label={summary}>
           { data.length
             ? data.map(([hd, rows]) => {
                 return <TreeView defaultCollapseIcon={<ExpandMoreIcon />}

@@ -115,7 +115,7 @@ const headCells = [
   },
   {
     id: 'industry',
-    label: 'IFC Best Practice',
+    label: 'Industry Practices',
     width: 100,
     align: 'center',
     tooltip: 'Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid'

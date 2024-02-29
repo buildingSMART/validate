@@ -7,7 +7,7 @@ import Paper from '@mui/material/Paper';
 import TablePagination from '@mui/material/TablePagination';
 import { useEffect, useState } from 'react';
 
-export default function SyntaxResult({ content, status }) {
+export default function SyntaxResult({ content, summary, status }) {
   const [rows, setRows] = React.useState([])
   const [page, setPage] = useState(0);
 
@@ -44,7 +44,7 @@ export default function SyntaxResult({ content, status }) {
           ".mono": { fontFamily: 'monospace, monospace', marginTop: '0.3em' }
         }}
       >
-        <TreeItem nodeId="0" label="Syntax">
+        <TreeItem nodeId="0" label={summary}>
         { rows.length
             ? rows.map(item => {
                 return <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
