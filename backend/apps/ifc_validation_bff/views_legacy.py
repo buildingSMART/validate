@@ -201,18 +201,15 @@ def upload(request):
         # store and queue file for processing
         for f in files:
             with transaction.atomic():
-                abs_file_name = os.path.join(os.path.abspath(MEDIA_ROOT), f.name)
-                path = default_storage.save(abs_file_name, ContentFile(f.read()))
-                logger.info(f"{f.name} stored as '{path}' in {MEDIA_ROOT}")
-
+                
                 instance = ValidationRequest.objects.create(
                     file=f,
                     file_name=f.name,
-                    size=os.path.getsize(abs_file_name)
+                    size=f.size
                 )
 
                 transaction.on_commit(lambda: ifc_file_validation_task.delay(instance.id, instance.file_name))    
-                logger.info(f"Task 'ifc_file_validation_task' submitted for id: {instance.id} file_name: {instance.file_name}")
+                logger.info(f"Task 'ifc_file_validation_task' submitted for id: {instance.id} file_name: {instance.file_name} size: {f.size:,} bytes")
 
         # return to dashboard
         response = { 
