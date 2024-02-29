@@ -1,6 +1,6 @@
 import os
 import sys
-import re
+import datetime
 import subprocess
 import functools
 import json
@@ -308,11 +308,20 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 model.schema = ifc_file.schema
                 logger.debug(f'Detected schema = {model.schema}')
 
+                # date - format eg. 2024-02-25T10:05:22
+                model.date = None
+                try:
+                    ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
+                    logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
+                    model.date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                logger.debug(f'Detected date = {model.date}')
+
                 # MVD
                 try:
                     model.mvd = ifc_file.header.file_description.description[0].split(" ", 1)[1][1:-1]
                 except:
-                    # set as None -> mapping a nicer label is a UI/Admin concern
                     model.mvd = None
                 logger.debug(f'Detected MVD = {model.mvd}')
 

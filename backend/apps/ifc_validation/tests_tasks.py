@@ -1,3 +1,5 @@
+import datetime
+
 from django.test import TestCase
 from django.contrib.auth.models import User
 
@@ -131,6 +133,26 @@ class ValidationTasksTestCase(TestCase):
         self.assertEqual(model.number_of_elements, 2)
         self.assertEqual(model.number_of_geometries, 4)
         self.assertEqual(model.number_of_properties, 19)
+
+    @requires_django_user_context
+    def test_parse_info_task_parses_date_with_timezone(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='valid_file_with_tz.ifc',
+            file='valid_file_with_tz.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        parse_info_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        model = Model.objects.all().first()
+        self.assertIsNotNone(model)
+        self.assertEqual(model.date, datetime.datetime(2023, 12, 16, 16, 20, 00, tzinfo=datetime.timezone.utc))
 
     @requires_django_user_context
     def test_schema_validation_task_creates_passed_validation_outcome(self):
