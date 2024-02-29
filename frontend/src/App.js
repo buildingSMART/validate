@@ -138,10 +138,16 @@ function App() {
                     <Typography align='left' paragraph>The IFC file is valid when it conforms to:
 
                     <ul>
-                        <li><b>Syntax</b> The STEP Physical File syntax</li>
-                        <li><b>Schema</b> The IFC schema referenced in the file including formal propositions encoded in the EXPRESS where rule and function language</li>
-                        <li><b>Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions, and industry best practices)</li>
-                        <li><b>bSDD</b> The Validation Service validates the content of an IFC file against the requirements encoded in the bSDD domain referenced from a classification encoded in the file</li>
+                        <li><b>STEP Syntax</b> The STEP Physical File syntax</li>
+                        <li><b>IFC Schema</b> The IFC schema referenced in the file including formal propositions encoded in the EXPRESS where rule and function language</li>
+                        <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
+                    </ul>
+
+                    <Typography align='left' paragraph>Additionally, the Validation Service performs non-normative checks including:
+
+                    <ul>
+                        <li><b>Industry Practices</b> Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid. Therefore, any issues identified result in warnings rather than errors</li>
+                        <li><b>bSDD Compliance</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD</li>
                     </ul>
 
                     </Typography>
