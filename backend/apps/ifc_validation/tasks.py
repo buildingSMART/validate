@@ -172,21 +172,24 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         industry_practices_subtask.s(id, file_name)
     ])
 
+    final_tasks = chain(
+        instance_completion_subtask.s(id, file_name)
+    )
+
     workflow = (
         workflow_started |
         serial_tasks |
         chord(
-            parallel_tasks,
+            chord(parallel_tasks, final_tasks).on_error(chord_error_task),
             workflow_completed
-        ).on_error(chord_error_task) |
-        instance_completion_substask.s(id, file_name))
+        ).on_error(chord_error_task))
     workflow.set(link_error=[error_task])
     workflow.apply_async()
 
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
-def instance_completion_substask(self, prev_result, id, file_name, *args, **kwargs):
+def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
 
