@@ -64,7 +64,7 @@ function Report({ kind }) {
   }, [modelCode]);
 
   if (isLoggedIn) {
-    console.log("Report data ", reportData)
+    console.log("Report data ", reportData);
     return (
       <div>
         <Grid direction="column"
@@ -133,12 +133,11 @@ function Report({ kind }) {
 
                         <b><font color='red'>-- NOTE: Work In Progress --</font></b>
 
-                        {(kind === "syntax") && <SyntaxResult status={reportData["model"]["status_syntax"]} summary={"Syntax"} content={reportData["results"]["syntax_result"]} />}
-                        {(kind === "schema") && <SchemaResult status={reportData["model"]["status_schema"]} summary={"Schema"} content={reportData["results"]["schema_result"]} instances={reportData.instances} />}
-                        {(kind === "bsdd") && <BsddTreeView status={reportData["model"]["status_bsdd"]} summary={"bSDD"} bsddResults={reportData["results"]["bsdd_results"]} />}
-                        {(kind === "rules") && <GherkinResults status={reportData["model"]["status_ia"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
-                        {/* TODO - should the above not check aggregate of all normative checks? (IA, IP, Pre-req, Industry)? */}
-                        {(kind === "industry") && <GherkinResults status={reportData["model"]["status_ind"]} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {(kind === "syntax") && <SyntaxResult status={reportData.model.status_syntax} summary={"Syntax"} content={reportData.results.syntax_result} />}
+                        {(kind === "schema") && <SchemaResult status={reportData.model.status_schema} summary={"Schema"} content={[...reportData.results.schema_result, ...reportData.tasks.prerequisites_validation_task.results]} instances={reportData.instances} />}
+                        {(kind === "bsdd") && <BsddTreeView status={reportData.model.status_bsdd} summary={"bSDD"} bsddResults={reportData.results.bsdd_results} />}
+                        {(kind === "rules") && <GherkinResults status={reportData.model.status_ia} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {(kind === "industry") && <GherkinResults status={reportData.model.status_ind} gherkin_task={reportData.tasks.industry_practices_validation_task} />}
                       </>
                     : <div>Loading...</div>}
                   <Footer />

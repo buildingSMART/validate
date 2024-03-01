@@ -398,7 +398,7 @@ export default function DashboardTable({ models }) {
                     {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_schema/${context.sandboxId}/${row.code}` : `/report_schema/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
-                    {wrap_status(status_combine(row.status_prereq, row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
+                    {wrap_status(row.status_rules, context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}

@@ -111,6 +111,47 @@ def me(request):
         return create_redirect_response(login=True)
 
 
+def status_combine(*args):
+    statuses = "-pvnwi"
+    return statuses[max(map(statuses.index, args))]
+
+
+def format_request(request):
+    return {
+        # "instances": [],
+        # "tasks": [],
+        "id": request.id,
+        "code": request.id,  # TODO - not sure why another longer surrogate key was created?
+        "filename": request.file_name,
+        "user_id": request.created_by.id,
+        "progress": request.progress,
+        "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
+        "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
+        "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
+        "number_of_geometries": None if (request.model is None or request.model.number_of_geometries is None) else request.model.number_of_geometries,
+        "number_of_properties": None if (request.model is None or request.model.number_of_properties is None) else request.model.number_of_properties,
+        "authoring_application": '-' if (request.model is None or request.model.produced_by is None) else request.model.produced_by.name,
+        "schema": '-' if (request.model is None or request.model.schema is None) else request.model.schema,
+        "size": request.size,
+        "mvd": '-' if (request.model is None or request.model.mvd is None) else request.model.mvd, # TODO - formatting is actually a UI concern...
+        "status_syntax": "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
+        "status_schema": status_combine(
+            "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
+            "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
+        ),
+        "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
+        "status_mvd": "p" if (request.model is None or request.model.status_mvd is None) else request.model.status_mvd,
+        "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
+        "status_rules": status_combine(
+            "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
+            "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
+        ),
+        "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
+        "deleted": 0, # TODO
+        "commit_id": None #  TODO
+    }
+
+
 def models_paginated(request, start: int, end: int):
 
     # fetch current user
@@ -119,33 +160,10 @@ def models_paginated(request, start: int, end: int):
         return create_redirect_response(login=True)
     
     # return model(s) as projection of Validation Request + Model attributes
-    models = []
     requests = ValidationRequest.objects.filter(created_by__id=user.id).order_by('progress', '-updated')[start:end]
     total_count = ValidationRequest.objects.filter(created_by__id=user.id).count()
-    for request in requests:
-        models += [{
-            "id": request.id,
-            "code": request.id,  # TODO - not sure why another longer surrogate key was created?
-            "filename": request.file_name,
-            "user_id": request.created_by.id,
-            "status": request.status,
-            "progress": -2 if request.progress == ValidationRequest.Status.FAILED else request.progress,
-            "date": (request.created if request.updated is None else request.updated).strftime("%Y-%m-%d %H:%M:%S"), # TODO - fix this, without formatting it crashes some browsers/users
-            "number_of_elements": None if request.model is None else request.model.number_of_elements,
-            "number_of_geometries": None if request.model is None else request.model.number_of_geometries,
-            "number_of_properties": None if request.model is None else request.model.number_of_properties,
-            "authoring_application": None if (request.model is None or request.model.produced_by is None) else request.model.produced_by.name,
-            "status_syntax": "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
-            "status_schema": "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
-            "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
-            "status_mvd": "p" if (request.model is None or request.model.status_mvd is None) else request.model.status_mvd,
-            "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
-            "status_ia": "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
-            "status_ip": "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip,
-            "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
-            "status_prereq": "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
-        }]
-
+    models = list(map(format_request, requests))
+    
     response_data = {}
     response_data['models'] = models
     response_data['count'] = total_count
@@ -332,36 +350,6 @@ def report2(request, id: str):
                     instances[inst.id] = instance
     logger.info('Fetching and mapping schema done.')
 
-    model = {
-        # "instances": [],
-        # "tasks": [],
-        "id": request.id,
-        "code": request.id,  # TODO - not sure why another longer surrogate key was created?
-        "filename": request.file_name,
-        "user_id": request.created_by.id,
-        "progress": request.progress,
-        "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
-        "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
-        "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
-        "number_of_geometries": None if (request.model is None or request.model.number_of_geometries is None) else request.model.number_of_geometries,
-        "number_of_properties": None if (request.model is None or request.model.number_of_properties is None) else request.model.number_of_properties,
-        "authoring_application": '-' if (request.model is None or request.model.produced_by is None) else request.model.produced_by.name,
-        "schema": '-' if (request.model is None or request.model.schema is None) else request.model.schema,
-        "size": request.size,
-        "mvd": '-' if (request.model is None or request.model.mvd is None) else request.model.mvd, # TODO - formatting is actually a UI concern...
-        "status_syntax": "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
-        "status_schema": "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
-        "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
-        "status_mvd": "p" if (request.model is None or request.model.status_mvd is None) else request.model.status_mvd,
-        "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
-        "status_ia": "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
-        "status_ip": "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip,
-        "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
-        "status_prereq": "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq,
-        "deleted": 0, # TODO
-        "commit_id": None #  TODO
-    }
-
     results = {
         "syntax_result": [],
         "schema_result": schema_result,
@@ -384,33 +372,36 @@ def report2(request, id: str):
             else:
                 return '-'
 
-    gherkin_results = []
-    if request.model:
-        ia_task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.NORMATIVE_IA).last()
-        ip_task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.NORMATIVE_IP).last()
-        pre_task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.PREREQUISITES).last()
-        ind_task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.INDUSTRY_PRACTICES).last()
-        all_outcomes = itertools.chain(ia_task.outcomes.iterator(), ip_task.outcomes.iterator(), pre_task.outcomes.iterator(), ind_task.outcomes.iterator())
-        for outcome in all_outcomes:
-            mapped = {
-                "id": outcome.id,
-                "feature": outcome.feature,
-                "feature_url": outcome.feature_version, # TODO
-                "step": outcome.get_severity_display(), # TODO
-                "instance_id": outcome.instance_id,
-                "message": status_to_ui_message(outcome),
-                "task_id": outcome.validation_task_id,
-                "msg": outcome.observed,                    
-            }
-            gherkin_results.append(mapped)
+    grouping = (
+        (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP),
+        (ValidationTask.Type.PREREQUISITES,),
+        (ValidationTask.Type.INDUSTRY_PRACTICES,))
+    
+    grouped_gherkin_outcomes = [list() for _ in range(len(grouping))]
 
-            inst = outcome.instance
-            if inst and inst.id not in instances:
-                instance = {
-                    "guid": f'#{inst.stepfile_id}',
-                    "type": inst.ifc_type
+    if request.model:
+        for idx, types in enumerate(grouping):
+            tasks = [ValidationTask.objects.filter(request_id=request.id, type=t).last() for t in types]
+            all_outcomes = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
+            for outcome in all_outcomes:
+                mapped = {
+                    "id": outcome.id,
+                    "feature": outcome.feature,
+                    "feature_url": outcome.feature_version, # TODO
+                    "step": outcome.get_severity_display(), # TODO
+                    "instance_id": outcome.instance_id,
+                    "message": status_to_ui_message(outcome),
+                    "task_id": outcome.validation_task_id,
+                    "msg": outcome.observed,                    
                 }
-                instances[inst.id] = instance
+                grouped_gherkin_outcomes[idx].append(mapped)
+                inst = outcome.instance
+                if inst and inst.id not in instances:
+                    instance = {
+                        "guid": f'#{inst.stepfile_id}',
+                        "type": inst.ifc_type
+                    }
+                    instances[inst.id] = instance
 
     logger.info('Fetching and mapping Gherkin done.')
 
@@ -420,16 +411,19 @@ def report2(request, id: str):
         "schema_validation_task": { },
         "bsdd_validation_task": [],
         "gherkin_rules_validation_task": {
-            "results": gherkin_results
+            "results": grouped_gherkin_outcomes[0]
+        },
+        "prerequisites_validation_task": {
+            "results": grouped_gherkin_outcomes[1]
         },
         "industry_practices_validation_task": {
-            "results": gherkin_results
+            "results": grouped_gherkin_outcomes[2]
         }
     }
 
     response_data = {}
     response_data['instances'] = instances
-    response_data['model'] = model
+    response_data['model'] = format_request(request)
     response_data['results'] = results
     response_data['tasks'] = tasks
 

@@ -18,8 +18,8 @@ export default function SchemaResult({ summary, content, status, instances }) {
   useEffect(() => {
     let grouped = [];
     for (let c of (content || []).slice(page * 10, page * 10 + 10)) {
-      if (grouped.length === 0 || (c.attribute ? c.attribute : 'Uncategorized') !== grouped[grouped.length-1][0]) {
-        grouped.push([c.attribute ? c.attribute : 'Uncategorized',[]])
+      if (grouped.length === 0 || (c.attribute ? c.attribute : (c.feature ? 'Schema version' : 'Uncategorized')) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.attribute ? c.attribute : (c.feature ? 'Schema version' : 'Uncategorized'),[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
@@ -59,7 +59,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
             ? data.map(([hd, rows]) => {
                 return <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}>
-                    <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')} - {hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? rows[0].msg.split('\n')[0] : '\u00A0'}</div></div>}>
+                    <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? rows[0].msg.split('\n')[0] : '\u00A0'}</div></div>}>
                       <table>
                         <thead>
                           <tr><th>Id</th><th>Entity</th><th>Message</th></tr>
@@ -70,7 +70,13 @@ export default function SchemaResult({ summary, content, status, instances }) {
                               return <tr>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '?'}</td>
                                 <td>{instances[row.instance_id] ? instances[row.instance_id].type : '?'}</td>
-                                <td><span class='pre'>{row.constraint_type !== 'schema' ? row.msg.split('\n').slice(2).join('\n') : row.msg}</span></td>
+                                <td><span class='pre'>{
+                                  row.feature
+                                    ? `${row.feature}\n${row.message}`
+                                    : (row.constraint_type !== 'schema'
+                                        ? row.msg.split('\n').slice(2).join('\n')
+                                        : row.msg)
+                                }</span></td>
                             </tr>
                             })
                           }
