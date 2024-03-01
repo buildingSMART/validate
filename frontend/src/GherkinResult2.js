@@ -32,8 +32,41 @@ export default function GherkinResult2({ summary, content, status, instances }) 
   useEffect(() => {
     let grouped = [];
     let filteredContent = content.filter(function(el) {
-      return checked || el.severity > 2;
+      return checked || el.severity > 2; // all or warning/error only?
     });
+
+    // only keep visible columns
+    let columns = ['instance_id', 'severity', 'expected', 'observed', 'msg']
+    filteredContent = filteredContent.map(function(el) {
+      const container = {};
+
+      container['instance_id'] = el.instance_id ? el.instance_id : '-';
+      container.feature = el.feature;
+      container.feature_version = el.feature_version;
+      container.feature_url = el.feature_url;
+      container.feature_text = el.feature_text;
+      container.observed = el.expected ? el.expected : '-';
+      container.expected = el.expected ? el.expected : '-';
+      container.severity = el.severity;
+      container.msg = el.msg;
+      
+      return container
+    })
+    //console.log(filteredContent);
+    
+    // deduplicate
+    const uniqueArray = (array, key) => {
+
+      return [
+        ...new Map(
+          array.map( x => [key(x), x])
+        ).values()
+      ]
+    }
+
+    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature);
+    
+    // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
 
     for (let c of (filteredContent || [])) {
