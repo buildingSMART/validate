@@ -25,7 +25,6 @@ markdown
 authlib
 
 # bsi
-ifcopenshell
 lark-parser
 pyparsing
 behave

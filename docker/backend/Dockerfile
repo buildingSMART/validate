@@ -33,6 +33,11 @@ ADD ./backend/requirements.txt /app/backend/requirements.txt
 RUN --mount=type=cache,target=/root/.cache \
     pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r /app/backend/requirements.txt && \    
+    # use version of ifcopenshell with desired schema parsing
+    # TODO: revert to pyPI when schema parsing is published in the future
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.0-742a9ec-linux64.zip" && \
+    mkdir -p /opt/venv/lib/python3.11/site-packages  && \
+    unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
     # some cleanup
     find /         -type d -name setuptools   -prune -exec rm -rf {} \; && \
     find /         -type d -name pip          -prune -exec rm -rf {} \; && \
