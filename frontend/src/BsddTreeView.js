@@ -30,7 +30,7 @@ function BsddReportRow({ key, valid, instance, requirement, required, observed }
 
 }
 
-export default function BsddTreeView({ bsddResults, status }) {
+export default function BsddTreeView({ bsddResults, summary, status }) {
 
   const bsdd = bsddResults.bsdd;
 
@@ -42,7 +42,7 @@ export default function BsddTreeView({ bsddResults, status }) {
       defaultExpanded={["0"]}
       sx={{ "width": "850px", "backgroundColor": statusToColor[status], "> li > .MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
     >
-      <TreeItem nodeId="0" label={"bSDD"}>
+      <TreeItem nodeId="0" label={summary}>
         <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
           defaultExpandIcon={<ChevronRightIcon />}>
           {

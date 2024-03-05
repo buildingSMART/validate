@@ -5,9 +5,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Paper from '@mui/material/Paper';
 import { statusToColor } from './mappings'
 
-function GherkinResults({ status, gherkin_task }) {
-    let label = "Rules"
-    
+function GherkinResults({ status, summary, gherkin_task }) {
     const messageToStatus = (msg) => {
         if (msg === "Rule passed" || msg === "Rule executed") {
             return "v";
@@ -28,7 +26,7 @@ function GherkinResults({ status, gherkin_task }) {
         sx={{ "width": "850px", "backgroundColor": statusToColor[status], ".MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
     >
         { (gherkin_task && gherkin_task.results.length > 0) ?
-        (<TreeItem nodeId="0" label={label}>
+        (<TreeItem nodeId="0" label={summary}>
         {
             gherkin_task.results.map((result) => {
                 const status = messageToStatus(result.message);
@@ -57,7 +55,7 @@ function GherkinResults({ status, gherkin_task }) {
             )
         }
         </TreeItem>)
-        : (<TreeItem nodeId="0" label={label}>
+        : (<TreeItem nodeId="0" label={summary}>
             <pre>{gherkin_task ? "Valid" : "Not checked"}</pre>
         </TreeItem>) }
     </TreeView></Paper>

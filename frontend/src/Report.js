@@ -122,22 +122,22 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded
                     ? <>
-                        {(kind === "syntax") && <h2>Syntax Report</h2>}
-                        {(kind === "schema") && <h2>Schema Report</h2>}
-                        {(kind === "bsdd") && <h2>bSDD Report</h2>}
-                        {(kind === "rules") && <h2>Rules Report</h2>}
-                        {(kind === "file") && <h2>File metrics</h2>}
+                        {(kind === "file") && <h2>File Metrics</h2>}
+                        {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
+                        {(kind === "schema") && <h2>IFC Schema Report</h2>}
+                        {(kind === "bsdd") && <h2>bSDD Compliance Report</h2>}
+                        {(kind === "rules") && <h2>Normative IFC Rules Report</h2>}
                         {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
                         <GeneralTable data={reportData} type={"general"} />
 
                         <b><font color='red'>-- NOTE: Work In Progress --</font></b>
 
-                        {(kind === "syntax") && <SyntaxResult status={reportData.model.status_syntax} summary={"Syntax"} content={reportData.results.syntax_result} />}
-                        {(kind === "schema") && <SchemaResult status={reportData.model.status_schema} summary={"Schema"} content={[...reportData.results.schema_result, ...reportData.tasks.prerequisites_validation_task.results]} instances={reportData.instances} />}
-                        {(kind === "bsdd") && <BsddTreeView status={reportData.model.status_bsdd} summary={"bSDD"} bsddResults={reportData.results.bsdd_results} />}
-                        {(kind === "rules") && <GherkinResults status={reportData.model.status_ia} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
-                        {(kind === "industry") && <GherkinResults status={reportData.model.status_ind} gherkin_task={reportData.tasks.industry_practices_validation_task} />}
+                        {(kind === "syntax") && <SyntaxResult status={reportData.model.status_syntax} summary={"STEP Syntax"} content={reportData.results.syntax_result} />}
+                        {(kind === "schema") && <SchemaResult status={reportData.model.status_schema} summary={"IFC Schema"} content={[...reportData.results.schema_result, ...reportData.tasks.prerequisites_validation_task.results]} instances={reportData.instances} />}
+                        {(kind === "bsdd") && <BsddTreeView status={reportData.model.status_bsdd} summary={"bSDD Compliance"} bsddResults={reportData.results.bsdd_results} />}
+                        {(kind === "rules") && <GherkinResults status={reportData.model.status_ia} summary={"Normative IFC Rules"} gherkin_task={reportData.tasks.gherkin_rules_validation_task} />}
+                        {(kind === "industry") && <GherkinResults status={reportData.model.status_ind} summary={"Industry Practices"} gherkin_task={reportData.tasks.industry_practices_validation_task} />}
                       </>
                     : <div>Loading...</div>}
                   <Footer />
