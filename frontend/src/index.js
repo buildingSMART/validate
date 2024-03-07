@@ -24,26 +24,27 @@ root.render(
     <Routes>
       <Route path="/" element={<Page pageTitle="home"><App/></Page>} />
       <Route path="sandbox/:commitId/" element={<Page pageTitle="home"><App/></Page>} />
-
+      
       <Route path="/dashboard" element={<Page pageTitle="dashboard"><Dashboard/></Page>} />
       <Route path="sandbox/dashboard/:commitId" element={<Page pageTitle="dashboard"><Dashboard/></Page>} />
 
       <Route path="/report_syntax/:modelCode"element={<Page pageTitle="report"><Report kind="syntax"/></Page>} />
       <Route path="/report_schema/:modelCode"element={<Page pageTitle="report"><Report kind="schema"/></Page>} />
       <Route path="/report_bsdd/:modelCode"element={<Page pageTitle="report"><Report kind="bsdd"/></Page>} />
-      <Route path="/report_rules/:modelCode"element={<Page pageTitle="report"><Report kind="rules"/></Page>} />
+      <Route path="/report_rules/:modelCode"element={<Page pageTitle="report"><Report kind="normative"/></Page>} />
       <Route path="/report_file/:modelCode"element={<Page pageTitle="report"><Report kind="file"/></Page>} />
       <Route path="/report_industry/:modelCode"element={<Page pageTitle="report"><Report kind="industry"/></Page>} />
 
       <Route path="/sandbox/report_syntax/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="syntax"/></Page>} />
       <Route path="/sandbox/report_schema/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="schema"/></Page>} />
       <Route path="/sandbox/report_bsdd/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="bsdd"/></Page>} />
-      <Route path="/sandbox/report_rules/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="rules"/></Page>} />
+      <Route path="/sandbox/report_rules/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="normative"/></Page>} />
       <Route path="/sandbox/report_file/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="file"/></Page>} />
       <Route path="/sandbox/report_industry/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="industry"/></Page>} />
       
       <Route path="/callback" element={<Callback />} />
       <Route path="/logout" element={<Logout />} />
+      <Route path="/waiting_zone" element={<Page pageTitle="waiting_zone"><App/></Page>} />      
     </Routes>
   </BrowserRouter>
   

@@ -8,6 +8,7 @@
         "@mui/icons-material": "^5.10.9",
         "@mui/lab": "^5.0.0-alpha.113",
         "@mui/material": "^5.10.12",
+        "@mui/x-data-grid": "^6.19.5",
         "@mui/x-tree-view": "^6.17.0",
         "@testing-library/jest-dom": "^5.16.5",
         "@testing-library/react": "^13.4.0",

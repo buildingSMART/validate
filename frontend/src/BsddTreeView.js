@@ -25,18 +25,14 @@ function BsddReportRow({ key, valid, instance, requirement, required, observed }
       <TableCell align="center"> {`${required}`}</TableCell>
       <TableCell align="center">  {`${observed}`}</TableCell>
     </TableRow>
-
   )
-
 }
 
-export default function BsddTreeView({ bsddResults, summary, status }) {
-
-  const bsdd = bsddResults.bsdd;
+export default function BsddTreeView({ summary, bsddResults, status }) {
 
   return (
     <Paper sx={{ overflow: 'hidden' }}><TreeView
-      aria-label="file system navigator"
+      aria-label="report navigator"
       defaultCollapseIcon={<ExpandMoreIcon />}
       defaultExpandIcon={<ChevronRightIcon />}
       defaultExpanded={["0"]}
@@ -46,7 +42,7 @@ export default function BsddTreeView({ bsddResults, summary, status }) {
         <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
           defaultExpandIcon={<ChevronRightIcon />}>
           {
-            Object.entries(bsdd || {}).map(([domain, classifications]) => {
+            Object.entries(bsddResults || {}).map(([domain, classifications]) => {
 
               return <TreeItem nodeId={11} label={`Domain: ${domain}`} disabled={domain == "no IfcClassification" ? true : false}>
                 <TreeView defaultCollapseIcon={<ExpandMoreIcon />}

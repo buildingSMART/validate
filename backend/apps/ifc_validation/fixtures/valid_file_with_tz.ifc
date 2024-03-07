@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
+FILE_NAME('valid_file_with_tz.ifc','2023-12-16T18:20:00+02:00',(''),(''),'IfcOpenShell-0.7.0','IfcOpenShell-0.7.0','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#1=IFCPERSON($,$,'',$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;

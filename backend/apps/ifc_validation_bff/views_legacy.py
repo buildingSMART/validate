@@ -1,8 +1,11 @@
-import os
+import operator
+import os, subprocess
+import re
 import json
 from datetime import datetime
 import logging
 import itertools
+import functools
 
 from django.db import transaction
 from django.core.files.storage import default_storage    
@@ -13,9 +16,11 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
 from apps.ifc_validation_models.models import set_user_context
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome, Model, ModelInstance
-from apps.ifc_validation.tasks import ifc_file_validation_task
+from apps.ifc_validation_models.models import ValidationRequest
+from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import Model
 
+from apps.ifc_validation.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL, MAX_FILES_PER_UPLOAD
 
@@ -81,6 +86,72 @@ def create_redirect_response(login=True, dashboard=False):
             })
 
 
+@functools.lru_cache(maxsize=256)
+def file_contains_string(file_name, fragment):
+
+    with open(file_name, 'r') as file:
+        for line_no, line in enumerate(file):
+            if fragment in line:
+                return True
+    return False
+
+
+@functools.lru_cache(maxsize=16)
+def get_remote_base_url(folder):
+
+    git_remote = subprocess.check_output(['git', 'remote', 'get-url', 'origin'], cwd=folder).decode('ascii').split('\n')[0]
+    git_blob = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=folder).decode('ascii').split('\n')[0]
+    return f'{git_remote}/tree/{git_blob}'
+
+
+@functools.lru_cache(maxsize=1024)
+def get_feature_url(feature_code, feature_version):
+
+    file_folder = os.path.dirname(os.path.realpath(__file__))
+    feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
+
+    for file in os.listdir(feature_folder):
+        file_name = os.fsdecode(file)
+        fq_file_name = os.path.join(feature_folder, file_name)
+        version_tag = f'@version{feature_version}'
+        
+        if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
+                return get_remote_base_url(feature_folder) + '/features/' + file_name
+    
+    return None
+
+
+@functools.lru_cache(maxsize=1024)
+def get_feature_description(feature_code, feature_version):
+
+    # TODO - could probably use some of the ifc_gherkin_rules methods here?
+
+    file_folder = os.path.dirname(os.path.realpath(__file__))
+    feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
+    
+    for file in os.listdir(feature_folder):
+        file_name = os.fsdecode(file)
+        fq_file_name = os.path.join(feature_folder, file_name)
+        version_tag = f'@version{feature_version}'
+
+        if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
+            
+            gherkin_desc = ''
+            reading = False
+
+            with open(os.path.join(feature_folder, file_name), 'r') as input:
+                
+                for line in input:
+                    if 'Feature:' in line:
+                        reading = True
+                    if 'Scenario:' in line or 'Background:' in line:
+                        return gherkin_desc
+                    if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line: 
+                        gherkin_desc += '\n' + line.strip()
+    
+    return None
+
+
 #@login_required - doesn't work as OAuth is not integrated with Django
 def me(request):
     
@@ -123,8 +194,9 @@ def format_request(request):
         "id": request.id,
         "code": request.id,  # TODO - not sure why another longer surrogate key was created?
         "filename": request.file_name,
+        "file_date": None if request.model is None or request.model.date is None else datetime.strftime(request.model.date, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "user_id": request.created_by.id,
-        "progress": request.progress,
+        "progress": -2 if request.progress == ValidationRequest.Status.FAILED else (-1 if request.progress == ValidationRequest.Status.PENDING else request.progress),
         "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
         "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
@@ -311,23 +383,53 @@ def revalidate(request, ids: str):
 
 def report2(request, id: str):
 
+    report_type = request.GET.get('type')
+    
     # fetch current user
     user = get_current_user(request)
     if not user:
         return create_redirect_response(login=True)
-        
-    # return file metrics as projection of Validation Request + Model attributes
+
+    # redirect if report is not for current user
     request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
     if not request:
         return create_redirect_response(dashboard=True)
-
-    # keep list of instances
+    
+    # return file metrics as projection of Validation Request + Model attributes
     instances = {}
+    model = format_request(request)
+    
+    # retrieve and map syntax outcome(s)
+    syntax_results = []
+    if report_type == 'syntax' and request.model and request.model.status_syntax != Model.Status.VALID:
+        
+        logger.info('Fetching and mapping syntax results...')    
+        
+        task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SYNTAX).last()
+        if task.outcomes:
+            for outcome in task.outcomes.iterator():
+
+                # TODO - should we not do this in the model?
+                match = re.search('^On line ([0-9])+ column ([0-9])+(.)*', outcome.observed)                
+                mapped = {
+                    "id": outcome.id,
+                    "lineno": match.groups()[0] if match and len(match.groups()) > 0 else None,
+                    "column": match.groups()[1] if match and len(match.groups()) > 1 else None,
+                    "severity": outcome.severity,
+                    "msg": outcome.observed,
+                    "task_id": outcome.validation_task_id
+                }
+                syntax_results.append(mapped)
+    
+        logger.info('Fetching and mapping syntax done.')
 
     # retrieve and map schema outcome(s) + instances
-    logger.info('Fetching and mapping schema results...')
-    schema_result = []
-    if request.model and request.model.status_schema != Model.Status.VALID:        
+    schema_results = []
+    if report_type == 'schema' and request.model:
+        
+        logger.info('Fetching and mapping schema results...')    
+        
+        # only concerned about last run of each task
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SCHEMA).last()
         if task.outcomes:
             for outcome in task.outcomes.iterator():
@@ -336,10 +438,11 @@ def report2(request, id: str):
                     "attribute": json.loads(outcome.feature)['attribute'], # eg. 'IfcSpatialStructureElement.WR41',
                     "constraint_type": json.loads(outcome.feature)['type'],  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
                     "instance_id": outcome.instance_id,
+                    "severity": outcome.severity,
                     "msg": outcome.observed,
                     "task_id": outcome.validation_task_id
                 }
-                schema_result.append(mapped)
+                schema_results.append(mapped)
 
                 inst = outcome.instance
                 if inst and inst.id not in instances:
@@ -348,84 +451,76 @@ def report2(request, id: str):
                         "type": inst.ifc_type
                     }
                     instances[inst.id] = instance
-    logger.info('Fetching and mapping schema done.')
-
-    results = {
-        "syntax_result": [],
-        "schema_result": schema_result,
-        "bsdd_results": []
-    }
-
-    # retrieve and mapping gherkin results + instances
-    logger.info('Fetching and mapping Gherkin results...')
-
-    def status_to_ui_message(outcome):
-        if outcome.severity == ValidationOutcome.OutcomeSeverity.PASSED:
-            return "Rule passed"
-        elif outcome.severity == ValidationOutcome.OutcomeSeverity.EXECUTED:
-            return "Rule executed"
-        elif outcome.severity == ValidationOutcome.OutcomeSeverity.NOT_APPLICABLE:
-            return "Rule not applicable"
-        else:
-            if outcome.expected or outcome.observed:
-                return f'Expected: {outcome.expected} - Observed: {outcome.observed}'
-            else:
-                return '-'
+    
+        logger.info('Fetching and mapping schema done.')
 
     grouping = (
-        (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP),
-        (ValidationTask.Type.PREREQUISITES,),
-        (ValidationTask.Type.INDUSTRY_PRACTICES,))
+        ('normative', (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP)),
+        ('prerequisites', (ValidationTask.Type.PREREQUISITES,)),
+        ('industry', (ValidationTask.Type.INDUSTRY_PRACTICES,)))
     
-    grouped_gherkin_outcomes = [list() for _ in range(len(grouping))]
+    grouped_gherkin_outcomes = {k: list() for k in map(operator.itemgetter(0), grouping)}
 
-    if request.model:
-        for idx, types in enumerate(grouping):
-            tasks = [ValidationTask.objects.filter(request_id=request.id, type=t).last() for t in types]
-            all_outcomes = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
-            for outcome in all_outcomes:
-                mapped = {
-                    "id": outcome.id,
-                    "feature": outcome.feature,
-                    "feature_url": outcome.feature_version, # TODO
-                    "step": outcome.get_severity_display(), # TODO
-                    "instance_id": outcome.instance_id,
-                    "message": status_to_ui_message(outcome),
-                    "task_id": outcome.validation_task_id,
-                    "msg": outcome.observed,                    
+    if request.id == 31:
+        print(request.id)
+        breakpoint()
+
+    for label, types in grouping:
+
+        if not (report_type == label or (label == 'prerequisites' and report_type == 'schema')):
+            continue
+
+        logger.info('Fetching and mapping {label} Gherkin results...')
+
+        tasks = [ValidationTask.objects.filter(request_id=request.id, type=t).last() for t in types]
+        all_outcomes = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
+        for outcome in all_outcomes:
+            mapped = {                
+                "id": outcome.id,
+                "feature": outcome.feature,
+                "feature_version": outcome.feature_version,
+                "feature_url": get_feature_url(outcome.feature[0:6], outcome.feature_version),
+                "feature_text": get_feature_description(outcome.feature[0:6], outcome.feature_version),
+                "step": outcome.get_severity_display(), # TODO
+                "severity": outcome.severity,
+                "instance_id": outcome.instance_id,
+                "expected": outcome.expected,
+                "observed": outcome.observed,
+                "message": str(outcome) if outcome.expected and outcome.observed else None,
+                "task_id": outcome.validation_task_id,
+                "msg": outcome.observed,                    
+            }
+            grouped_gherkin_outcomes[label].append(mapped)
+
+            inst = outcome.instance
+            if inst and inst.id not in instances:
+                instance = {
+                    "guid": f'#{inst.stepfile_id}',
+                    "type": inst.ifc_type
                 }
-                grouped_gherkin_outcomes[idx].append(mapped)
-                inst = outcome.instance
-                if inst and inst.id not in instances:
-                    instance = {
-                        "guid": f'#{inst.stepfile_id}',
-                        "type": inst.ifc_type
-                    }
-                    instances[inst.id] = instance
+                instances[inst.id] = instance
 
-    logger.info('Fetching and mapping Gherkin done.')
+        logger.info(f'Mapped {label} Gherkin results.')
+    
+    # retrieve and map bsdd results + instances
+    bsdd_results = []
+    if report_type == 'bsdd' and request.model:
+        
+        # TODO
+        pass
 
-    # TODO - why is this included?
-    tasks = {
-        "syntax_validation_task": { },
-        "schema_validation_task": { },
-        "bsdd_validation_task": [],
-        "gherkin_rules_validation_task": {
-            "results": grouped_gherkin_outcomes[0]
-        },
-        "prerequisites_validation_task": {
-            "results": grouped_gherkin_outcomes[1]
-        },
-        "industry_practices_validation_task": {
-            "results": grouped_gherkin_outcomes[2]
+    response_data = {
+        'instances': instances,
+        'model': model,
+        'results': {
+            "syntax_results": syntax_results,
+            "schema_results": schema_results,
+            "bsdd_results": bsdd_results,
+            "norm_rules_results": grouped_gherkin_outcomes["normative"],
+            "ind_rules_results": grouped_gherkin_outcomes["industry"],
+            "prereq_rules_results": grouped_gherkin_outcomes["prerequisites"],
         }
     }
-
-    response_data = {}
-    response_data['instances'] = instances
-    response_data['model'] = format_request(request)
-    response_data['results'] = results
-    response_data['tasks'] = tasks
 
     logger.info('Serializing to JSON...')
     response = JsonResponse(response_data)
