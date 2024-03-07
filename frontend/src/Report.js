@@ -145,7 +145,7 @@ function Report({ kind }) {
                         {(kind === "schema") && <SchemaResult 
                           status={reportData.model.status_schema} 
                           summary={"IFC Schema"} 
-                          content={reportData.results.schema_results} 
+                          content={[...reportData.results.schema_results, ...reportData.results.prereq_rules_results]} 
                           instances={reportData.instances} />}
 
                         {(kind === "bsdd") && <BsddTreeView 
