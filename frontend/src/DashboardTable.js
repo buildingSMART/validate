@@ -70,7 +70,12 @@ function computeRelativeDates(modelDate) {
 
   var now = new Date();
   var difference = (now - modelDate) / 1000; // convert from ms to s
-  let [divisor, unit] = [[3600 * 24 * 8, null], [3600 * 24 * 7, "weeks"], [3600 * 24, "days"], [3600, "hours"], [60, "minutes"], [1, "seconds"]].filter(a => difference / a[0] > 1.)[0];
+  let divisor, unit;
+  try {
+    [divisor, unit] = [[3600 * 24 * 8, null], [3600 * 24 * 7, "weeks"], [3600 * 24, "days"], [3600, "hours"], [60, "minutes"], [1, "seconds"]].filter(a => difference / a[0] > 1.)[0];
+  } catch {
+    return ''
+  }
   if (unit) {
     var relativeTime = Math.floor(difference / divisor);
     if (relativeTime == 1) { unit = unit.slice(0, -1); } // Remove the 's' in units if only 1
