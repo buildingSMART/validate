@@ -172,15 +172,33 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         industry_practices_subtask.s(id, file_name)
     ])
 
+    final_tasks = chain(
+        instance_completion_subtask.s(id, file_name)
+    )
+
     workflow = (
         workflow_started |
         serial_tasks |
         chord(
-            parallel_tasks,
+            chord(parallel_tasks, final_tasks).on_error(chord_error_task),
             workflow_completed
         ).on_error(chord_error_task))
     workflow.set(link_error=[error_task])
     workflow.apply_async()
+
+@shared_task(bind=True)
+@log_execution
+@requires_django_user_context
+def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
+
+    ifc_file = ifcopenshell.open(file_path)
+
+    with transaction.atomic():
+        for inst in request.model.instances.iterator():
+            inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+            inst.save()
 
 
 @shared_task(bind=True)
@@ -540,6 +558,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                         instance, _ = model.instances.get_or_create(
                             stepfile_id=message['instance']['id'],
                             ifc_type=message['instance']['type'],
+                            model=model
                         )
                         outcome.instance = instance
                         outcome.save()

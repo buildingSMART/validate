@@ -1,5 +1,42 @@
 *(Work In Progress - dev-v0.6-alpha)*
 
+
+# Application Structure
+
+The application consists of three main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
+
+### Submodules
+
+Documentation of the seperate functionalities can be found within each submodule. d
+
+1. **File Parser**: A module within IfcOpenShell, dedicated to parsing files. https://github.com/IfcOpenShell/step-file-parser
+2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the repository and executing:
+https://github.com/buildingSMART/ifc-gherkin-rules
+
+   ```
+   pytest -sv
+   ```
+
+   Debugging individual rules is supported with commands like:
+
+   ``````
+   python test/test_main.py alb001 # For a single rule
+   python test/test_main.py alb001 alb002 # For multiple rules
+   python test/test_main.py path_to_separate_file.py # For a separate file
+   ``````
+
+3. **Shared DataModel**: This module includes Django data models shared between the main repository and the Gherkin repository, serving as a submodule for both.
+https://github.com/buildingSMART/ifc-validation-data-model
+
+## Running Validation Checks
+
+The application supports multiple validation checks on one or multiple IFC files that can be run separately:
+
+- BSDD-Check
+- Syntax Check
+- Schema Check
+- Gherkin-Rules Check
+
 # How to start?
 
 Depending on your workflow, you can run all or some services via Docker Compose.

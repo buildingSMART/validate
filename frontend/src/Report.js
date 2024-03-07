@@ -70,7 +70,7 @@ function Report({ kind }) {
   }, [modelCode, kind]);
 
   if (isLoggedIn) {
-    console.log("Report data ", reportData)
+    console.log("Report data ", reportData);
     return (
       <div>
         <Grid direction="column"
@@ -138,31 +138,31 @@ function Report({ kind }) {
                         <GeneralTable data={reportData} type={"general"} />
 
                         {(kind === "syntax") && <SyntaxResult 
-                          status={reportData["model"]["status_syntax"]} 
+                          status={reportData.model.status_syntax} 
                           summary={"STEP Syntax"} 
-                          content={reportData["results"]["syntax_results"]} />}
+                          content={reportData.results.syntax_results} />}
 
                         {(kind === "schema") && <SchemaResult 
-                          status={reportData["model"]["status_schema"]} 
+                          status={reportData.model.status_schema} 
                           summary={"IFC Schema"} 
-                          content={reportData["results"]["schema_results"]} 
+                          content={reportData.results.schema_results} 
                           instances={reportData.instances} />}
 
                         {(kind === "bsdd") && <BsddTreeView 
-                          status={reportData["model"]["status_bsdd"]} 
+                          status={reportData.model.status_bsdd} 
                           summary={"bSDD Compliance"} 
-                          bsddResults={reportData["results"]["bsdd_results"]} />}
+                          bsddResults={reportData.results.bsdd_results} />}
 
                         {(kind === "normative") && <GherkinResults2 
-                          status={status_combine(reportData["model"]["status_prereq"], reportData["model"]["status_ia"], reportData["model"]["status_ip"])} 
+                          status={reportData.model.status_rules} 
                           summary={"Normative IFC Rules"}
-                          content={reportData["results"]["norm_rules_results"]} 
+                          content={reportData.results.norm_rules_results} 
                           instances={reportData.instances} />}
                           
                         {(kind === "industry") && <GherkinResults2 
-                          status={reportData["model"]["status_ind"]}
+                          status={reportData.model.status_ind}
                           summary={"Industry Practices"}
-                          content={reportData["results"]["ind_rules_results"]} 
+                          content={reportData.results.ind_rules_results} 
                           instances={reportData.instances} />}
                       </>
                     : <div>Loading...</div>}

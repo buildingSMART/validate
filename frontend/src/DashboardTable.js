@@ -16,7 +16,7 @@ import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
-import ReplayIcon from '@mui/icons-material/Replay';
+//import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -334,14 +334,15 @@ export default function DashboardTable({ models }) {
     setDeleted(selected.join(','))
   }
 
-  function onRevalidate() {
-    setRevalidated(selected.join(','))
-  }
+  // function onRevalidate() {
+  //   setRevalidated(selected.join(','))
+  // }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} />
+      {/* <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} /> */}
+      <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
       <TableContainer>
         <Table
           sx={{ 
@@ -397,7 +398,7 @@ export default function DashboardTable({ models }) {
                     {wrap_status(row.status_schema, context.sandboxId ? `/sandbox/report_schema/${context.sandboxId}/${row.code}` : `/report_schema/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
-                    {wrap_status(status_combine(row.status_prereq, row.status_ia, row.status_ip), context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
+                    {wrap_status(row.status_rules, context.sandboxId ? `/sandbox/report_rules/${context.sandboxId}/${row.code}` : `/report_rules/${row.code}`)}
                   </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}

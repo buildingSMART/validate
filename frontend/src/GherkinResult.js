@@ -18,6 +18,16 @@ function GherkinResults({ status, content }) {
         } else if (severity === 4) {
             return "i"; // failed/error
         }
+    }
+
+    const messageToStatus = (msg) => {
+        if (msg === "Rule passed" || msg === "Rule executed") {
+            return "v";
+        } else if (msg === "Rule disabled" || msg === "Rule not applicable") {
+            return "n";
+        } else {
+            return "i";
+        }
     };
     
     let previousStatus = null;
