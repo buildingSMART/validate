@@ -12,7 +12,10 @@ venv:
 install: venv
 	. $(VIRTUAL_ENV)/bin/activate && \
 	pip install --upgrade pip && \
-	pip install -r requirements.txt
+	pip install -r requirements.txt && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.0-742a9ec-linux64.zip" && \
+    mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
+    unzip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
 fetch-modules:
 	cd ./apps && \
