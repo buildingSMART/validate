@@ -323,7 +323,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 logger.debug(f'Detected size = {model.size} bytes')
 
                 # schema
-                model.schema = ifc_file.schema
+                model.schema = ifc_file.schema_identifier
                 logger.debug(f'Detected schema = {model.schema}')
 
                 # date - format eg. 2024-02-25T10:05:22
@@ -747,6 +747,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 
             # update Model info
             agg_status = task.determine_aggregate_status()
+            logger.debug(f'Aggregate status for {self.__qualname__}: {agg_status}')
             model.status_ia = agg_status
             model.save()
 
