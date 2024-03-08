@@ -16,6 +16,8 @@ RUN set -ex && \
     apt-get -y install --no-install-recommends --no-install-suggests \ 
         python3-dev \
         git \
+        unzip \
+        wget \
         && \
     update-ca-certificates -f && \
     # cleanup

@@ -45,7 +45,7 @@ export default function GherkinResult2({ summary, content, status, instances }) 
       container.feature_version = el.feature_version;
       container.feature_url = el.feature_url;
       container.feature_text = el.feature_text;
-      container.observed = el.expected ? el.expected : '-';
+      container.observed = el.observed ? el.observed : '-';
       container.expected = el.expected ? el.expected : '-';
       container.severity = el.severity;
       container.msg = el.msg;
