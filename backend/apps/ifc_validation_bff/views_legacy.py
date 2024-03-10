@@ -196,7 +196,7 @@ def format_request(request):
         "filename": request.file_name,
         "file_date": None if request.model is None or request.model.date is None else datetime.strftime(request.model.date, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "user_id": request.created_by.id,
-        "progress": -2 if request.progress == ValidationRequest.Status.FAILED else (-1 if request.progress == ValidationRequest.Status.PENDING else request.progress),
+        "progress": -2 if request.status == ValidationRequest.Status.FAILED else (-1 if request.status == ValidationRequest.Status.PENDING else request.progress),
         "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
         "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
