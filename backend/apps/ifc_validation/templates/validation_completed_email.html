@@ -11,11 +11,21 @@
             The validation reports can be found here:    
             <ul>
                 <li><a href="{{PUBLIC_URL}}/report_file/{{ID}}">File Metrics</a></li>
+                {% if STATUS_SYNTAX %}
                 <li><a href="{{PUBLIC_URL}}/report_syntax/{{ID}}">STEP Syntax</a></li>
+                {% endif %}
+                {% if STATUS_SCHEMA %}
                 <li><a href="{{PUBLIC_URL}}/report_schema/{{ID}}">IFC Schema</a></li>
+                {% endif %}
+                {% if STATUS_RULES %}
                 <li><a href="{{PUBLIC_URL}}/report_rules/{{ID}}">Normative IFC Rules</a></li>
+                {% endif %}
+                {% if STATUS_IND %}
                 <li><a href="{{PUBLIC_URL}}/report_industry/{{ID}}">Industry Practices</a></li>
+                {% endif %}
+                {% if STATUS_BSDD %}
                 <li><a href="{{PUBLIC_URL}}/report_bsdd/{{ID}}">bSDD Compliance</a></li>
+                {% endif %}
             </ul>
             Please report any bugs/inconsistencies/comments to <a href="mailto:{{CONTACT_EMAIL}}">{{CONTACT_EMAIL}}</a>.<br>
             <br>
