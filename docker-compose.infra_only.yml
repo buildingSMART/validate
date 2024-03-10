@@ -14,7 +14,7 @@ services:
 
     # PostgreSQL DB
     db:
-        image: postgres:16.1-alpine
+        image: postgres:16.2-alpine
         restart: unless-stopped
         container_name: db
         volumes:
