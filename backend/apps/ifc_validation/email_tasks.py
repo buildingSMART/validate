@@ -12,6 +12,11 @@ from apps.ifc_validation_models.models import ValidationRequest
 logger = get_task_logger(__name__)
 
 
+def status_combine(*args):
+    statuses = "-pvnwi"
+    return statuses[max(map(statuses.index, args))]
+
+
 @shared_task
 @log_execution
 def send_acknowledgement_user_email_task(id, file_name):
@@ -141,6 +146,17 @@ def send_completion_email_task(id, file_name):
     merge_data = { 
         'FILE_NAME': file_name,
         'ID': id,
+        'STATUS_SYNTAX': ("p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax) in ['v', 'w', 'i'],
+        "STATUS_SCHEMA": status_combine(
+            "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
+            "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
+        ) in ['v', 'w', 'i'],
+        "STATUS_BSDD": ("p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd) in ['v', 'w', 'i'],
+        "STATUS_RULES": status_combine(
+            "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
+            "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
+        ) in ['v', 'w', 'i'],
+        "STATUS_IND": ("p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices) in ['v', 'w', 'i'],
         'PUBLIC_URL': PUBLIC_URL,
         'CONTACT_EMAIL': CONTACT_EMAIL
     }
