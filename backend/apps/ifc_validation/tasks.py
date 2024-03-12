@@ -190,15 +190,47 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 @log_execution
 @requires_django_user_context
 def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
+    
+    # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
 
-    ifc_file = ifcopenshell.open(file_path)
+    # set overall progress
+    PROGRESS_INCREMENT = 10
+    request.progress = PROGRESS_INCREMENT
+    request.save()
+    
+    # add task
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INSTANCE_COMPLETION)
+    task.mark_as_initiated()
 
-    with transaction.atomic():
-        for inst in request.model.instances.iterator():
-            inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
-            inst.save()
+    # update Model Instance records
+    try:
+        
+        task.set_process_details(None, f"(module) ifcopenshell.open() for file '{file_path}')")
+
+        ifc_file = ifcopenshell.open(file_path)
+
+        with transaction.atomic():
+
+            counter = 0
+            for inst in request.model.instances.iterator():
+                counter = counter + 1
+                inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+                inst.save()
+            
+            reason = f'Instance Completion updated {counter:,} Model Instance record(s).'
+            task.mark_as_completed(reason)
+            return {'is_valid': True, 'reason': reason}
+        
+    except ifcopenshell.Error as err:
+        reason = str(err)
+        task.mark_as_completed(reason)
+        return {'is_valid': False, 'reason': reason}
+
+    except Exception as err:
+        task.mark_as_failed(err)
+        raise
 
 
 @shared_task(bind=True)
@@ -695,7 +727,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
     file_path = get_absolute_file_path(request.file.name)
 
     # increment overall progress
-    PROGRESS_INCREMENT = 15
+    PROGRESS_INCREMENT = 10
     request.progress += PROGRESS_INCREMENT
     request.save()
 
@@ -773,7 +805,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
     file_path = get_absolute_file_path(request.file.name)
 
     # increment overall progress
-    PROGRESS_INCREMENT = 15
+    PROGRESS_INCREMENT = 10
     request.progress += PROGRESS_INCREMENT
     request.save()
 
