@@ -135,6 +135,26 @@ class ValidationTasksTestCase(TestCase):
         self.assertEqual(model.number_of_properties, 19)
 
     @requires_django_user_context
+    def test_parse_info_task_parses_date(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='pass_reverse_comment.ifc',
+            file='pass_reverse_comment.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        parse_info_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        model = Model.objects.all().first()
+        self.assertIsNotNone(model)
+        self.assertEqual(model.date, datetime.datetime(2022, 5, 4, 8, 8, 30, tzinfo=datetime.timezone.utc))
+
+    @requires_django_user_context
     def test_parse_info_task_parses_date_with_timezone(self):
 
         request = ValidationRequest.objects.create(

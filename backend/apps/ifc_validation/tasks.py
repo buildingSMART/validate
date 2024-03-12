@@ -326,12 +326,21 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 model.schema = ifc_file.schema_identifier
                 logger.debug(f'Detected schema = {model.schema}')
 
-                # date - format eg. 2024-02-25T10:05:22
+                # date - format eg. 2024-02-25T10:05:22 - tz defaults to UTC
                 model.date = None
                 try:
                     ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
                     logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
-                    model.date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                    date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                    date_with_tz = datetime.datetime(
+                        date.year, 
+                        date.month, 
+                        date.day, 
+                        date.hour, 
+                        date.minute, 
+                        date.second, 
+                        tzinfo=datetime.timezone.utc)
+                    model.date = date_with_tz
                 except ValueError:
                     model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
                 logger.debug(f'Detected date = {model.date}')
