@@ -2,12 +2,33 @@ import React, { useEffect, useContext } from "react";
 import './Dz.css'
 import { FETCH_PATH } from './environment'
 import Button from '@mui/material/Button';
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
 import { PageContext } from './Page';
 
 function Dz() {
 
+    const MAX_FILE_SIZE_IN_MB = 256;
+    const TOAST_DURATION = 5000; // ms
+
     const context = useContext(PageContext);
-     
+    
+    const [showErrorToast, setShowErrorToast] = React.useState({
+        open: false,
+        fileName: '',
+        fileSize: 0
+    });
+    const { open, fileName, fileSize } = showErrorToast;
+
+    const handleSnackbarClose = (event, reason) => {
+
+        if (reason === 'clickaway') {
+            return;
+        }
+
+        setShowErrorToast({ ...showErrorToast, open: false });
+    };
+
     useEffect(() => {
         window.Dropzone.autoDiscover = false;
         var dz = new window.Dropzone("#ifc_dropzone",
@@ -16,20 +37,34 @@ function Dz() {
                 acceptedFiles: ".ifc",
                 parallelUploads: 100,
                 maxFiles: 100,
-                maxFilesize: 8 * 1024,
+                maxFileSize: MAX_FILE_SIZE_IN_MB,
                 autoProcessQueue: false,
                 addRemoveLinks: true,
             });
 
-        dz.on("addedfile", file => { console.log("new file") });
-
         dz.on("success", function (file, response) {
-            if (window.location.href.split("/").at(-1) != "dashboard"){
+            if (window.location.href.split("/").at(-1) !== "dashboard"){
                 window.location = response.url;
             }
             else{
                 window.location.reload();
                 dz.removeAllFiles();  
+            }
+        });
+
+        dz.on("error", function (file, message) {
+
+            //console.log(file.name, file.size, message);
+
+            // block files that are too big
+            if (message.indexOf('too big') !== -1) {
+                dz.removeFile(file);
+                setShowErrorToast({ 
+                    ...showErrorToast, 
+                    open: true, 
+                    fileName: file.name, 
+                    fileSize: Math.ceil(file.size / (1024 * 1024))
+                });
             }
         });
 
@@ -57,7 +92,24 @@ function Dz() {
                     <div className="dz-message" data-dz-message><span><i className="material-icons">file_upload</i> Click or drop files here to upload for validation</span></div>
                 </form>
                 <Button className="submit-button" variant="contained" id="submit">Upload & Validate</Button>
+                <Snackbar
+                    open={open}
+                    autoHideDuration={TOAST_DURATION}
+                    onClose={handleSnackbarClose}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                >
+                    <Alert
+                        onClose={handleSnackbarClose}
+                        severity='error'
+                        variant='filled'
+                        sx={{ width: '100%' }}
+                    >
+                        Unable to process the file '{fileName}' ({fileSize} MB).<br />
+                        Current maximum file size limit is {MAX_FILE_SIZE_IN_MB} MB.
+                    </Alert>
+                </Snackbar>
             </div>
+            
         </div>
     );
 
