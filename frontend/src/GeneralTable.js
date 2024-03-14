@@ -47,7 +47,7 @@ function preprocessData(data, type) {
       ["Report Date", data["model"]["date"]],
       ["File Name", data["model"]["filename"]],
       ["File Date", data["model"]["file_date"] !== null ? data["model"]["file_date"] : '-'],
-      ["License", data["model"]["license"] !== null ? data["model"]["license"] : '-'],
+      //["License", data["model"]["license"] !== null ? data["model"]["license"] : '-'],
       ["File Size", prettyPrintFileSize(data["model"]["size"])],
       ["Number of Geometries", prettyPrintNumber(data["model"]["number_of_geometries"])],
       ["Number of Properties", prettyPrintNumber(data["model"]["number_of_properties"])],
