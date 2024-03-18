@@ -429,14 +429,13 @@ def report2(request, id: str):
         
         logger.info('Fetching and mapping schema results...')    
         
-        # only concerned about last run of each task
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SCHEMA).last()
         if task.outcomes:
             for outcome in task.outcomes.iterator():
                 mapped = {
                     "id": outcome.id,
-                    "attribute": json.loads(outcome.feature)['attribute'], # eg. 'IfcSpatialStructureElement.WR41',
-                    "constraint_type": json.loads(outcome.feature)['type'],  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
+                    "attribute": json.loads(outcome.feature)['attribute'] if outcome.feature else None, # eg. 'IfcSpatialStructureElement.WR41',
+                    "constraint_type": json.loads(outcome.feature)['type'] if outcome.feature else None,  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
                     "instance_id": outcome.instance_id,
                     "severity": outcome.severity,
                     "msg": outcome.observed,
@@ -454,16 +453,13 @@ def report2(request, id: str):
     
         logger.info('Fetching and mapping schema done.')
 
+    # retrieve and gherkin rules outcome(s)
     grouping = (
         ('normative', (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP)),
         ('prerequisites', (ValidationTask.Type.PREREQUISITES,)),
         ('industry', (ValidationTask.Type.INDUSTRY_PRACTICES,)))
     
     grouped_gherkin_outcomes = {k: list() for k in map(operator.itemgetter(0), grouping)}
-
-    if request.id == 31:
-        print(request.id)
-        breakpoint()
 
     for label, types in grouping:
 
