@@ -104,8 +104,10 @@ function Dz() {
                         variant='filled'
                         sx={{ width: '100%' }}
                     >
-                        Unable to process the file '{fileName}' ({fileSize} MB).<br />
-                        Current maximum file size limit is {MAX_FILE_SIZE_IN_MB} MB.
+                        Oops! File Size Limit Reached <br />
+                        <br />
+                        You've attempted to upload a file larger than {MAX_FILE_SIZE_IN_MB} MB.<br />
+                        Need assistance with larger files? Don't worry, we've got you covered! Contact our support team for tailored solutions.<br />
                     </Alert>
                 </Snackbar>
             </div>
