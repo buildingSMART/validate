@@ -1,12 +1,18 @@
 name: "Sphinx: Render docs"
 
-on: push
+on: 
+  push:
+    branches: gh-pages
+  pull_request:
+    branches: gh-pages
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      INPUT_DOCS-FOLDER: docs
     steps:
     - uses: actions/checkout@v4
     - name: Build HTML
