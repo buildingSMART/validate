@@ -1,8 +1,6 @@
-name: "Build docs with Sphinx and deploy to Github Pages"
+name: "Build docs with Sphinx"
 
 on: 
-  push:
-    branches: gh-pages
   pull_request:
     branches: gh-pages
 
@@ -28,6 +26,3 @@ jobs:
       with:
         # Upload html docs
         path: './docs/_build/html'
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v4
