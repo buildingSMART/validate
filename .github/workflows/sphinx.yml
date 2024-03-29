@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: write
       id-token: write
+      pages: write
     env:
       INPUT_DOCS-FOLDER: docs
     steps:
