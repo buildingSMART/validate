@@ -22,7 +22,7 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: html-docs
+        name: github-pages
         path: docs/_build/html
     - name: Deploy
       uses: actions/deploy-pages@v4
@@ -32,5 +32,5 @@ jobs:
         timeout: 600000
         error_count: 10
         reporting_interval: 5000
-        artifact_name: html-docs
+        artifact_name: github-pages
         preview: false
