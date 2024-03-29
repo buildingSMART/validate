@@ -1,4 +1,4 @@
-name: "Sphinx: Render docs"
+name: "Build docs with Sphinx and deploy to Github Pages"
 
 on: 
   push:
@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     env:
       INPUT_DOCS-FOLDER: docs
     steps:
