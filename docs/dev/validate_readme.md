@@ -7,33 +7,32 @@ The application consists of three main submodules, each hosted in separate GitHu
 
 Documentation of the separate functionalities can be found within each submodule. d
 
-1. **File Parser**: A module within IfcOpenShell, dedicated to parsing files. https://github.com/IfcOpenShell/step-file-parser
-2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the repository and executing:
-https://github.com/buildingSMART/ifc-gherkin-rules
+1. **File Parser**: A [module within IfcOpenShell](https://github.com/IfcOpenShell/step-file-parser), dedicated to parsing files. 
+2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the [repository](https://github.com/buildingSMART/ifc-gherkin-rules) and executing:
 
-   ```
+   ```shell
    pytest -sv
    ```
 
    Debugging individual rules is supported with commands like:
 
-   ``````
+   ``````shell
    python test/test_main.py alb001 # For a single rule
    python test/test_main.py alb001 alb002 # For multiple rules
    python test/test_main.py path_to_separate_file.py # For a separate file
    ``````
 
-3. **Shared DataModel**: This module includes Django data models shared between the main repository and the Gherkin repository, serving as a submodule for both.
-https://github.com/buildingSMART/ifc-validation-data-model
+3. **Shared DataModel**: This [module](https://github.com/buildingSMART/ifc-validation-data-model) includes Django data models shared between the main repository and the Gherkin repository,
+serving as a submodule for both.
 
 ## Running Validation Checks
 
 The application supports multiple validation checks on one or multiple IFC files that can be run separately:
 
-- BSDD-Check
 - Syntax Check
 - Schema Check
-- Gherkin-Rules Check
+- Normative Rules (gherkin) Check
+- bSDD Check
 
 # How to start?
 
