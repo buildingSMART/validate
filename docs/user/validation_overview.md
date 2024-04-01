@@ -17,15 +17,21 @@ Schema validation consists of two parts:
 This check confirms that the schema identifier is one of the following:
 
 - `IFC2X3`
-- `IFC4`,
+- `IFC4`
 - `IFC4X3_ADD2`
 
 ### Schema Compliance
 
-The schema compliance checks that all `WHERE` rules in the EXPRESS schema have passed.
-This check also flags any entity types that are not included in a given schema version.
+The schema compliance checks the following aspects that are defined in the EXPRESS schema:
 
-For example: `IfcAlignment` entity is only valid for schema version `4X3_ADD2`,
+ - Entity attributes are correctly populated, correct number of attributes and correct type and cardinalities in case of aggregates
+ - Inverse attributes are correctly populated and with the correct cardinalities
+ - Entity-scoped `WHERE` rules
+ - Global rules
+
+This check also flags any entity types that are not included in a given schema version, or the instantiation of abstract entities.
+
+For example: `IfcAlignment` entity is only valid for schema version `IFC4X3_ADD2`,
 so it is not valid as part of a file with schema version `IFC2X3`.
 
 ## Normative Checks
