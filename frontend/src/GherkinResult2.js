@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
@@ -9,24 +10,24 @@ import Table from '@mui/material/Table';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
 
-import { useEffect, useState } from 'react';
-
 export default function GherkinResult2({ summary, content, status, instances }) {
-  const [data, setRows] = React.useState([])
-  const [page, setPage] = useState(0);
-  const [checked, setChecked] = React.useState(false);
+  const [data, setRows] = useState([])
+  const [grouped, setGrouped] = useState([])
+  const [page, setPage] = useState(0);  
+  const [checked, setChecked] = useState(false);
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage);
   };  
 
-  const handleChange = (event) => {
+  const handleChangeChecked = (event) => {
     setChecked(event.target.checked);
+    if (checked) {
+      setPage(0);
+    }
   };
 
   useEffect(() => {
@@ -52,7 +53,6 @@ export default function GherkinResult2({ summary, content, status, instances }) 
       
       return container
     })
-    //console.log(filteredContent);
     
     // deduplicate
     const uniqueArray = (array, key) => {
@@ -84,7 +84,8 @@ export default function GherkinResult2({ summary, content, status, instances }) 
     // order features
     grouped.sort((f1, f2) => f1[0] > f2[0] ? 1 : -1);
 
-    setRows(grouped)
+    setRows(grouped.slice(page * 10, page * 10 + 10))
+    setGrouped(grouped)
   }, [page, content, checked]);
 
   return (
@@ -98,18 +99,18 @@ export default function GherkinResult2({ summary, content, status, instances }) 
             <TableCell sx={{ borderColor: 'black', fontSize: 'small', textAlign: 'right' }} >
               <Checkbox size='small'
                 checked={checked}
-                onChange={handleChange}
+                onChange={handleChangeChecked}
                 tabIndex={-1}
                 disableRipple
                 color="default"
                 label="test"
-                />include Passed, Disabled and N/A &nbsp;
-                <Tooltip title='This also shows Passed, Disabled and N/A rule results.'>
-                  <span style={{ display: 'inline-block'}}>
-                    <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
-                  </span>
-                </Tooltip>
-              </TableCell>
+              />include Passed, Disabled and N/A &nbsp;
+              <Tooltip title='This also shows Passed, Disabled and N/A rule results.'>
+                <span style={{ display: 'inline-block'}}>
+                  <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
+                </span>
+              </Tooltip>
+            </TableCell>
           </TableHead>
         </Table>
       </TableContainer>
@@ -131,10 +132,11 @@ export default function GherkinResult2({ summary, content, status, instances }) 
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
             // overflowWrap: 'break-word'
-          }
+          },
+          ".mono": { fontFamily: 'monospace, monospace', marginTop: '0.3em' }
         }}
       >
-        <div>
+        <div style={{ "backgroundColor": statusToColor[status], padding: '0.1em 0.0em' }}>
           { data.length
             ? data.map(([feature, rows, severity]) => {
                 return <TreeView 
@@ -178,13 +180,13 @@ export default function GherkinResult2({ summary, content, status, instances }) 
               })
             : <div style={{ margin: '0.5em 1em' }}>{statusToLabel[status]}</div> }
           {
-            content.length
+            grouped.length && grouped.length > 0
             ? <TablePagination
                 sx={{display: 'flex', justifyContent: 'center'}}
                 rowsPerPageOptions={[10]}
                 component="div"
-                count={content.length}
-                rowsPerPage={50}
+                count={grouped.length}
+                rowsPerPage={10}
                 page={page}
                 onPageChange={handleChangePage}
               />

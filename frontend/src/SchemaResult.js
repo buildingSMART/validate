@@ -3,35 +3,48 @@ import { useEffect, useState } from 'react';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Checkbox from "@mui/material/Checkbox";
+import Tooltip from '@mui/material/Tooltip';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
-import Box from '@mui/material/Box';
-import { statusToColor, severityToLabel, statusToLabel } from './mappings';
+import { statusToColor, severityToColor, severityToLabel, statusToLabel } from './mappings';
 
 export default function SchemaResult({ summary, content, status, instances }) {
   const [data, setRows] = React.useState([])
-  const [page, setPage] = useState(0);
+  const [grouped, setGrouped] = useState([])
+  const [page, setPage] = useState(0);  
+  const [checked, setChecked] = useState(false);
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage);
   };  
 
+  const handleChangeChecked = (event) => {
+    setChecked(event.target.checked);
+    if (checked) {
+      setPage(0);
+    }
+  };
+
   useEffect(() => {
     let grouped = [];
-    for (let c of (content || []).slice(page * 10, page * 10 + 10)) {
-      if (grouped.length === 0 || (c.attribute ? c.attribute : (c.feature ? 'Schema version' : 'Uncategorized')) !== grouped[grouped.length-1][0]) {
-        grouped.push([c.attribute ? c.attribute : (c.feature ? 'Schema version' : 'Uncategorized'),[]])
+    let filteredContent = content.filter(function(el) {
+      return checked || el.severity > 2; // all or warning/error only?
+    });
+
+    for (let c of (filteredContent || [])) {
+      if (grouped.length === 0 || (c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized')) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized'),[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
-    setRows(grouped)
-  }, [page, content]);
+    setRows(grouped.slice(page * 10, page * 10 + 10))
+    setGrouped(grouped)
+  }, [page, content, checked]);
 
   return (
     <div>
@@ -40,6 +53,21 @@ export default function SchemaResult({ summary, content, status, instances }) {
           <TableHead>
             <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold' }}>
               {summary}
+            </TableCell>
+            <TableCell sx={{ borderColor: 'black', fontSize: 'small', textAlign: 'right' }} >
+              <Checkbox size='small'
+                checked={checked}
+                onChange={handleChangeChecked}
+                tabIndex={-1}
+                disableRipple
+                color="default"
+                label="test"
+              />include Passed, Disabled and N/A &nbsp;
+              <Tooltip title='This also shows Passed, Disabled and N/A rule results.'>
+                <span style={{ display: 'inline-block'}}>
+                  <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
+                </span>
+              </Tooltip>
             </TableCell>
           </TableHead>
         </Table>
@@ -73,7 +101,9 @@ export default function SchemaResult({ summary, content, status, instances }) {
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (rows[0].msg || '').split('\n')[0] : '\u00A0'}</div></div>}>
+                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (rows[0].msg || '').split('\n')[0] : ''}</div></div>}
+                        sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
+                      >
 
                       <table width='100%' style={{ 'text-align': 'left'}}>
                           <thead>
@@ -83,15 +113,15 @@ export default function SchemaResult({ summary, content, status, instances }) {
                             {
                               rows.map((row) => {
                                 return <tr>
-                                  <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '?'}</td>
-                                  <td>{instances[row.instance_id] ? instances[row.instance_id].type : '?'}</td>
+                                  <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
+                                  <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
                                   <td>{severityToLabel[row.severity]}</td>
                                   <td><span class='pre'>{
                                     row.feature
-                                      ? `${row.feature}\n${row.message}`
+                                      ? `${row.feature}\n${row.msg || ''}`
                                       : (row.constraint_type !== 'schema'
-                                          ? row.msg.split('\n').slice(2).join('\n')
-                                          : row.msg)
+                                          ? (row.msg || '').split('\n').slice(2).join('\n')
+                                          : row.msg || '')
                                   }</span></td>                              </tr>
                               })
                             }
@@ -102,12 +132,12 @@ export default function SchemaResult({ summary, content, status, instances }) {
                 })
                 : <div style={{ margin: '0.5em 1em' }}>{statusToLabel[status]}</div> }
             {
-              content.length
+              grouped.length && grouped.length > 0
               ? <TablePagination
                   sx={{display: 'flex', justifyContent: 'center', backgroundColor: statusToColor[status]}}
                   rowsPerPageOptions={[10]}
                   component="div"
-                  count={content.length}
+                  count={grouped.length}
                   rowsPerPage={10}
                   page={page}
                   onPageChange={handleChangePage}
