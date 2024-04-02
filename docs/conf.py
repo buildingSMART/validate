@@ -29,3 +29,5 @@ html_favicon = '_static/favicon.ico'
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+myst_links_external_new_tab = True
