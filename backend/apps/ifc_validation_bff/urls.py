@@ -8,7 +8,7 @@ urlpatterns = [
     # 'Flask'-way of doing things; backend for legacy API (< 0.6)
     path('api/me',                                              me),
     path('api/models_paginated/<int:start>/<int:end>',          models_paginated),
-    path('api/download/<int:id>',                               download),
+    path('api/download/<str:id>',                               download),
     path('api/',                                                upload),
     path('api/delete/<str:ids>',                                delete),
     path('api/revalidate/<str:ids>',                            revalidate),

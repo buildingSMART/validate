@@ -6,6 +6,7 @@ from datetime import datetime
 import logging
 import itertools
 import functools
+import typing
 
 from django.db import transaction
 from django.core.files.storage import default_storage    
@@ -15,7 +16,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.ifc_validation_models.models import set_user_context
+from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
@@ -191,11 +192,11 @@ def format_request(request):
     return {
         # "instances": [],
         # "tasks": [],
-        "id": request.id,
-        "code": request.id,  # TODO - not sure why another longer surrogate key was created?
+        "id": request.public_id,
+        "code": request.public_id,  # TODO - not sure why another longer surrogate key was created?
         "filename": request.file_name,
         "file_date": None if request.model is None or request.model.date is None else datetime.strftime(request.model.date, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
-        "user_id": request.created_by.id,
+        "user_id": IdObfuscator.to_public_id(request.created_by.id, override_cls=User),
         "progress": -2 if request.status == ValidationRequest.Status.FAILED else (-1 if request.status == ValidationRequest.Status.PENDING else request.progress),
         "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
@@ -243,15 +244,15 @@ def models_paginated(request, start: int, end: int):
     return JsonResponse(response_data)
 
 
-def download(request, id: int):
+def download(request, id: str):
 
     # fetch current user
     user = get_current_user(request)
     if not user:
         return create_redirect_response(login=True)
 
-    logger.debug(f"Locating file for id='{id}'")
-    request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+    logger.debug(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}'")
+    request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
     if request:
         file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
         logger.debug(f"File to be downloaded is located at '{file_path}'")
@@ -326,8 +327,8 @@ def delete(request, ids: str):
 
         for id in ids.split(','):
 
-            logger.info(f"Locating file for id='{id}' and user.id='{user.id}'")
-            request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+            logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
+            request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
 
             file_name = request.file_name
             file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
@@ -362,13 +363,13 @@ def revalidate(request, ids: str):
         def on_commit(ids):
 
             for id in ids.split(','):
-                request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+                request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
                 ifc_file_validation_task.delay(request.id, request.file_name)
                 logger.info(f"Task 'ifc_file_validation_task' re-submitted for Validation Request - id: {request.id} file_name: {request.file_name}")
 
         for id in ids.split(','):
 
-            request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+            request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
             request.mark_as_pending(reason='Resubmitted for processing via React UI')
             if request.model: request.model.reset_status()
 
@@ -391,7 +392,7 @@ def report2(request, id: str):
         return create_redirect_response(login=True)
 
     # redirect if report is not for current user
-    request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
+    request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
     if not request:
         return create_redirect_response(dashboard=True)
     
@@ -412,12 +413,12 @@ def report2(request, id: str):
                 # TODO - should we not do this in the model?
                 match = re.search('^On line ([0-9])+ column ([0-9])+(.)*', outcome.observed)                
                 mapped = {
-                    "id": outcome.id,
+                    "id": outcome.public_id,
                     "lineno": match.groups()[0] if match and len(match.groups()) > 0 else None,
                     "column": match.groups()[1] if match and len(match.groups()) > 1 else None,
                     "severity": outcome.severity,
                     "msg": outcome.observed,
-                    "task_id": outcome.validation_task_id
+                    "task_id": outcome.validation_task_public_id
                 }
                 syntax_results.append(mapped)
     
@@ -433,23 +434,23 @@ def report2(request, id: str):
         if task.outcomes:
             for outcome in task.outcomes.iterator():
                 mapped = {
-                    "id": outcome.id,
+                    "id": outcome.public_id,
                     "attribute": json.loads(outcome.feature)['attribute'] if outcome.feature else None, # eg. 'IfcSpatialStructureElement.WR41',
                     "constraint_type": json.loads(outcome.feature)['type'] if outcome.feature else None,  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
-                    "instance_id": outcome.instance_id,
+                    "instance_id": outcome.instance_public_id,
                     "severity": outcome.severity,
                     "msg": outcome.observed,
-                    "task_id": outcome.validation_task_id
+                    "task_id": outcome.validation_task_public_id
                 }
                 schema_results.append(mapped)
 
                 inst = outcome.instance
-                if inst and inst.id not in instances:
+                if inst and inst.public_id not in instances:
                     instance = {
                         "guid": f'#{inst.stepfile_id}',
                         "type": inst.ifc_type
                     }
-                    instances[inst.id] = instance
+                    instances[inst.public_id] = instance
     
         logger.info('Fetching and mapping schema done.')
 
@@ -468,33 +469,35 @@ def report2(request, id: str):
 
         logger.info('Fetching and mapping {label} Gherkin results...')
 
+        print(*(request.id for t in types))
+
         tasks = [ValidationTask.objects.filter(request_id=request.id, type=t).last() for t in types]
-        all_outcomes = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
+        all_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
         for outcome in all_outcomes:
             mapped = {                
-                "id": outcome.id,
+                "id": outcome.public_id,
                 "feature": outcome.feature,
                 "feature_version": outcome.feature_version,
                 "feature_url": get_feature_url(outcome.feature[0:6], outcome.feature_version),
                 "feature_text": get_feature_description(outcome.feature[0:6], outcome.feature_version),
                 "step": outcome.get_severity_display(), # TODO
                 "severity": outcome.severity,
-                "instance_id": outcome.instance_id,
+                "instance_id": outcome.instance_public_id,
                 "expected": outcome.expected,
                 "observed": outcome.observed,
                 "message": str(outcome) if outcome.expected and outcome.observed else None,
-                "task_id": outcome.validation_task_id,
+                "task_id": outcome.validation_task_public_id,
                 "msg": outcome.observed,                    
             }
             grouped_gherkin_outcomes[label].append(mapped)
 
             inst = outcome.instance
-            if inst and inst.id not in instances:
+            if inst and inst.public_id not in instances:
                 instance = {
                     "guid": f'#{inst.stepfile_id}',
                     "type": inst.ifc_type
                 }
-                instances[inst.id] = instance
+                instances[inst.public_id] = instance
 
         logger.info(f'Mapped {label} Gherkin results.')
     
