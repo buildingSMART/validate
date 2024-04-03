@@ -58,14 +58,13 @@ or
 docker compose up
 ```
 
-3. This pulls Docker-hub images, builds and spins up **six** different services:
+3. This pulls Docker-hub images, builds and spins up **five** different services:
 
 ```
 db       - PostgreSQL database
 redis    - Redis instance
 backend  - Django Admin + API's
 worker   - Celery worker
-flower   - Celery flower dashboard
 frontend - React UI
 ```
 
@@ -89,7 +88,6 @@ exit
 - Django Admin UI: http://localhost/admin (or http://localhost:8000/admin) - default user/password: root/root
 - Django API - Swagger: http://localhost/api/swagger-ui
 - Django API - Redoc: http://localhost/api/redoc
-- Celery Flower UI: http://localhost:5555
 
 6. Optionally, use a tool like curl or Postman to invoke API requests directly
 
