@@ -4,6 +4,7 @@ import logging
 
 from django.db import transaction
 from core.utils import get_client_ip_address
+from core.settings import MAX_FILES_PER_UPLOAD
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
