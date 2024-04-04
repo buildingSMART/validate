@@ -197,7 +197,7 @@ def format_request(request):
         "file_date": None if request.model is None or request.model.date is None else datetime.strftime(request.model.date, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "user_id": request.created_by.id,
         "progress": -2 if request.status == ValidationRequest.Status.FAILED else (-1 if request.status == ValidationRequest.Status.PENDING else request.progress),
-        "date": datetime.strftime(request.created if request.updated is None else request.updated, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
+        "date": datetime.strftime(request.created, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
         "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
         "number_of_geometries": None if (request.model is None or request.model.number_of_geometries is None) else request.model.number_of_geometries,
@@ -232,7 +232,7 @@ def models_paginated(request, start: int, end: int):
         return create_redirect_response(login=True)
     
     # return model(s) as projection of Validation Request + Model attributes
-    requests = ValidationRequest.objects.filter(created_by__id=user.id).order_by('progress', '-updated')[start:end]
+    requests = ValidationRequest.objects.filter(created_by__id=user.id).order_by('-created')[start:end]
     total_count = ValidationRequest.objects.filter(created_by__id=user.id).count()
     models = list(map(format_request, requests))
     
