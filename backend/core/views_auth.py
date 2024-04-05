@@ -11,7 +11,7 @@ from requests.models import PreparedRequest
 from authlib.integrations.django_client import OAuth
 
 from .email_tasks import send_user_registered_admin_email_task
-from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL, DEVELOPMENT
+from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL, PRODUCTION
 
 oauth = OAuth()
 oauth.register(name="b2c")
