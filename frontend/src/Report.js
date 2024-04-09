@@ -7,9 +7,8 @@ import Grid from '@mui/material/Grid';
 import GeneralTable from './GeneralTable';
 import SyntaxResult from './SyntaxResult';
 import SchemaResult from './SchemaResult';
-import BsddTreeView from './BsddTreeView'
-//import GherkinResults from './GherkinResult';
-import GherkinResults2 from './GherkinResult2';
+import BsddTreeView from './BsddTreeView';
+import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
 
 import { useEffect, useState, useContext } from 'react';
@@ -33,7 +32,7 @@ function Report({ kind }) {
   const handleAsyncError = HandleAsyncError();
 
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
+    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {
@@ -52,7 +51,7 @@ function Report({ kind }) {
 
 
   function getReport(code, kind) {
-    fetch(`${FETCH_PATH}/api/report2/${code}?type=${kind}`)
+    fetch(`${FETCH_PATH}/api/report/${code}?type=${kind}`)
       .then(response => response.json())
       .then((data) => {
         setReportData(data);
@@ -153,13 +152,13 @@ function Report({ kind }) {
                           summary={"bSDD Compliance"} 
                           bsddResults={reportData.results.bsdd_results} />}
 
-                        {(kind === "normative") && <GherkinResults2 
+                        {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
                           summary={"Normative IFC Rules"}
                           content={reportData.results.norm_rules_results} 
                           instances={reportData.instances} />}
                           
-                        {(kind === "industry") && <GherkinResults2 
+                        {(kind === "industry") && <GherkinResults 
                           status={reportData.model.status_ind}
                           summary={"Industry Practices"}
                           content={reportData.results.ind_rules_results} 
