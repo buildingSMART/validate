@@ -145,7 +145,7 @@ def send_completion_email_task(id, file_name):
     # load and merge email template
     merge_data = { 
         'FILE_NAME': file_name,
-        'ID': id,
+        'ID': request.public_id,
         'STATUS_SYNTAX': ("p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax) in ['v', 'w', 'i'],
         "STATUS_SCHEMA": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,

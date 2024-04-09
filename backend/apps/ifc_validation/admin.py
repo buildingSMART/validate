@@ -30,17 +30,17 @@ class BaseAdmin(admin.ModelAdmin):
 class ValidationRequestAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "file_name", "file", "file_size_text"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text"]}),
         ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "file_name", "file_size_text", "status", "progress", "duration_text", "created", "created_by", "updated", "updated_by"]
-    readonly_fields = ["id", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
+    list_display = ["id", "public_id", "file_name", "file_size_text", "status", "progress", "duration_text", "created", "created_by", "updated", "updated_by"]
+    readonly_fields = ["id", "public_id", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
     list_filter = ["status", "created_by", "created", "updated"]
-    search_fields = ('file_name', 'status', 'created_by__username', 'updated_by__username')
+    search_fields = ('public_id', 'file_name', 'status', 'created_by__username', 'updated_by__username')
 
     actions = ["mark_as_failed_action", "restart_processing_action"]
     actions_on_top = True
@@ -103,17 +103,17 @@ class ValidationRequestAdmin(BaseAdmin):
 class ValidationTaskAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "request", "type", "process_id", "process_cmd"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "request", "type", "process_id", "process_cmd"]}),
         ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "ended", "duration"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
     ]
 
-    list_display = ["id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
-    readonly_fields = ["id", "request", "type", "process_id", "process_cmd", "started", "ended", "duration", "created", "updated"]
+    list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
+    readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "duration", "created", "updated"]
     date_hierarchy = "created"
 
     list_filter = ["status", "type", "status", "started", "ended", "created", "updated"]
-    search_fields = ('request__file_name', 'status', 'type')
+    search_fields = ('request__file_name', 'public_id', 'status', 'type')
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -132,11 +132,11 @@ class ValidationTaskAdmin(BaseAdmin):
 
 class ValidationOutcomeAdmin(BaseAdmin):
 
-    list_display = ["id", "file_name_text", "type_text", "instance_id", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
+    list_display = ["id", "public_id", "file_name_text", "type_text", "instance_id", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
+    readonly_fields = ["id", "public_id", "created", "updated"]
 
     list_filter = ['validation_task__type', 'severity', 'outcome_code']
-    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
+    search_fields = ('validation_task__request__file_name', 'public_id', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
 
     @admin.display(description="File Name")
     def file_name_text(self, obj):
@@ -149,10 +149,10 @@ class ValidationOutcomeAdmin(BaseAdmin):
 
 class ModelAdmin(BaseAdmin):
 
-    list_display = ["id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
-    readonly_fields = ["id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
+    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
 
-    search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
+    search_fields = ('file_name', 'public_id', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     
     @admin.display(description="# of Elements")
     def nbr_of_elements(self, obj):
@@ -177,9 +177,9 @@ class ModelAdmin(BaseAdmin):
 
 class ModelInstanceAdmin(BaseAdmin):
 
-    list_display = ["id", "stepfile_id", "model", "ifc_type", "created", "updated"]
+    list_display = ["id", "public_id", "stepfile_id", "model", "ifc_type", "created", "updated"]
 
-    search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
+    search_fields = ('stepfile_id', 'public_id', 'model__file_name', 'ifc_type')
 
 
 class CompanyAdmin(BaseAdmin):

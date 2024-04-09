@@ -190,10 +190,8 @@ def status_combine(*args):
 
 def format_request(request):
     return {
-        # "instances": [],
-        # "tasks": [],
         "id": request.public_id,
-        "code": request.public_id,  # TODO - not sure why another longer surrogate key was created?
+        "code": request.public_id,
         "filename": request.file_name,
         "file_date": None if request.model is None or request.model.date is None else datetime.strftime(request.model.date, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "user_id": IdObfuscator.to_public_id(request.created_by.id, override_cls=User),
