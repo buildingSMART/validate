@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [<script></script>]'),'2;1');
+FILE_NAME('<script></script>.ifc','2023-12-16T18:20:00',(''),(''),'<script></script>-0.7.0','<script></script>-0.7.0','');
+FILE_SCHEMA((IFC4'));
+ENDSEC;
+DATA;
+#1=IFCPERSON($,$,'',$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;
