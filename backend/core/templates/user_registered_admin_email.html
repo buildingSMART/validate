@@ -4,7 +4,7 @@
     </head>
     <body>
         <div>
-            User {{USER_EMAIL}} registered for the Validation Service @ {{PUBLIC_URL}} and can be activated <a href="{{ACTIVATE_URL}}">here</a>.
+            User {{USER_EMAIL}} registered for the Validation Service @ {{PUBLIC_URL}}{% if not IS_ACTIVE %} and can be activated <a href="{{ACTIVATE_URL}}">here</a>{% endif %}.
         </div>
     </body>
 </html>
