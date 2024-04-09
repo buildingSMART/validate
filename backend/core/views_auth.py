@@ -58,7 +58,7 @@ def callback(request):
                 last_name = userinfo['family_name']
             )
 
-            transaction.on_commit(lambda: send_user_registered_admin_email_task.delay(user.id, user.email))    
+            transaction.on_commit(lambda: send_user_registered_admin_email_task.delay(user.id, user.email, user.is_active))
             logger.info(f"Created user with username = '{username}' via OAuth, user.id = {user.id}")
     else:
         if user.is_active:
