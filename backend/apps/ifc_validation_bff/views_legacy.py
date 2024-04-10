@@ -328,9 +328,6 @@ def delete(request, ids: str):
                 logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
                 request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
 
-                logger.info(f"Locating file for id='{id}' and user.id='{user.id}'")
-                request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
-
                 file_name = request.file_name
                 file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
 
