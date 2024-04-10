@@ -29,6 +29,7 @@ import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
 import HandleAsyncError from './HandleAsyncError';
+import { getCookieValue } from './Cookies';
 
 const statusToIcon = {
   "n": <BrowserNotSupportedIcon color="disabled" />,
@@ -38,11 +39,6 @@ const statusToIcon = {
   "p": <HourglassBottomIcon color="disabled" />,
   "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
   "info":<InfoIcon color="primary"/>
-}
-
-function status_combine(...args) {
-  const statuses = ["-", "p", "v", "n", "w", "i"];
-  return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
 }
 
 function wrap_status(status, href) {
@@ -90,13 +86,6 @@ const headCells = [
     id: 'filename',
     label: 'File Name',
   },
-  // {
-  //   id: 'syntax_and_schema',
-  //   label: 'IFC Syntax and Schema',
-  //   width: 100,
-  //   align: 'center',
-  //   tooltip: 'STEP Physical File Syntax / IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints'
-  // },
   {
     id: 'syntax',
     label: 'STEP Syntax',
@@ -315,7 +304,9 @@ export default function DashboardTable({ models }) {
   useEffect(() => {
     if (deleted) {
       fetch(`${FETCH_PATH}/api/delete/${deleted}`, {
-        method: 'POST'
+        method: 'DELETE',
+        headers: { 'x-csrf-token': getCookieValue('csrftoken') },
+        credentials: 'include'
       })
         .then((response) => response.json())
         .then((json) => {
@@ -324,7 +315,9 @@ export default function DashboardTable({ models }) {
         });
     } else if (revalidated) {
       fetch(`${FETCH_PATH}/api/revalidate/${revalidated}`, {
-        method: 'POST'
+        method: 'POST',
+        headers: { 'x-csrf-token': getCookieValue('csrftoken') },
+        credential: 'include'
       })
         .then((response) => response.json())
         .then((json) => {

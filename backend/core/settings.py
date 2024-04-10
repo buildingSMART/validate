@@ -87,7 +87,12 @@ MIDDLEWARE = [
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = []
+if os.environ.get("DJANGO_TRUSTED_ORIGINS") is not None:
+    CORS_ALLOWED_ORIGINS += os.environ.get("DJANGO_TRUSTED_ORIGINS").split(" ")
+
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
@@ -104,17 +109,16 @@ CORS_ALLOW_HEADERS = [
     'dnt',
     'origin',
     'user-agent',
-    'x-csrftoken',
     'x-requested-with',
-
+    'x-csrf-token',
     'cache-control' # extra header
 ]
 
-CSRF_TRUSTED_ORIGINS = [ 
-    'https://dev.validate.buildingsmart.org' 
-]
-if os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS") is not None:
-    CSRF_TRUSTED_ORIGINS += os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS").split(" ")
+CSRF_COOKIE_NAME = 'csrftoken'
+CSRF_HEADER_NAME = 'HTTP_X_CSRF_TOKEN'
+CSRF_TRUSTED_ORIGINS = []
+if os.environ.get("DJANGO_TRUSTED_ORIGINS") is not None:
+    CSRF_TRUSTED_ORIGINS += os.environ.get("DJANGO_TRUSTED_ORIGINS").split(" ")
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',

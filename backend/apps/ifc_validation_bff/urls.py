@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views_legacy import me, models_paginated, download, upload, delete, revalidate
-from .views_legacy import report2, report_error
+from .views_legacy import report, report_error
 
 urlpatterns = [
 
@@ -12,7 +12,7 @@ urlpatterns = [
     path('api/',                                                upload),
     path('api/delete/<str:ids>',                                delete),
     path('api/revalidate/<str:ids>',                            revalidate),
-    path('api/report2/<str:id>',                                report2),
+    path('api/report/<str:id>',                                 report),
     path('api/report_error/<str:name>/<str:msg>/<str:stack>',   report_error),
 
     # vs

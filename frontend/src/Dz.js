@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import { PageContext } from './Page';
+import { getCookieValue } from './Cookies';
 
 function Dz() {
 
@@ -31,16 +32,17 @@ function Dz() {
 
     useEffect(() => {
         window.Dropzone.autoDiscover = false;
-        var dz = new window.Dropzone("#ifc_dropzone",
-            {
-                uploadMultiple: true,
-                acceptedFiles: ".ifc",
-                parallelUploads: 100,
-                maxFiles: 100,
-                maxFileSize: MAX_FILE_SIZE_IN_MB,
-                autoProcessQueue: false,
-                addRemoveLinks: true,
-            });
+        var dz = new window.Dropzone("#ifc_dropzone", {
+            uploadMultiple: true,
+            acceptedFiles: ".ifc",
+            parallelUploads: 100,
+            maxFiles: 100,
+            maxFileSize: MAX_FILE_SIZE_IN_MB,
+            autoProcessQueue: false,
+            addRemoveLinks: true,
+            withCredentials: true,
+            headers: { 'x-csrf-token': getCookieValue('csrftoken') }
+        });
 
         dz.on("success", function (file, response) {
             if (window.location.href.split("/").at(-1) !== "dashboard"){

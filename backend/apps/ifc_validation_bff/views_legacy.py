@@ -9,12 +9,9 @@ import functools
 import typing
 
 from django.db import transaction
-from django.core.files.storage import default_storage    
-from django.core.files.base import ContentFile
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth.models import User
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
 
 from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
@@ -153,36 +150,6 @@ def get_feature_description(feature_code, feature_version):
     return None
 
 
-#@login_required - doesn't work as OAuth is not integrated with Django
-def me(request):
-    
-    # return user or redirect response
-    user = get_current_user(request)
-    if user:
-        json = {
-            "user_data":
-            {
-                'sub': user.username,
-                'email': user.email,
-                'family_name': user.last_name,
-                'given_name': user.first_name,
-                'name': ' '.join([user.first_name, user.last_name]).strip(),
-                'is_active': user.is_active
-            },
-            "sandbox_info":
-            {
-                "pr_title": None,
-                "commit_id": None
-            },
-            "redirect": None if user.is_active else '/waiting_zone'
-        }
-        return JsonResponse(json)
-    
-    else:
-    
-        return create_redirect_response(login=True)
-
-
 def status_combine(*args):
     statuses = "-pvnwi"
     return statuses[max(map(statuses.index, args))]
@@ -223,6 +190,37 @@ def format_request(request):
     }
 
 
+#@login_required - doesn't work as OAuth is not integrated with Django
+@ensure_csrf_cookie
+def me(request):
+    
+    # return user or redirect response
+    user = get_current_user(request)
+    if user:
+        json = {
+            "user_data":
+            {
+                'sub': user.username,
+                'email': user.email,
+                'family_name': user.last_name,
+                'given_name': user.first_name,
+                'name': ' '.join([user.first_name, user.last_name]).strip(),
+                'is_active': user.is_active
+            },
+            "sandbox_info":
+            {
+                "pr_title": None,
+                "commit_id": None
+            },
+            "redirect": None if user.is_active else '/waiting_zone'
+        }
+        return JsonResponse(json)
+    
+    else:
+    
+        return create_redirect_response(login=True)
+
+
 def models_paginated(request, start: int, end: int):
 
     # fetch current user
@@ -242,7 +240,8 @@ def models_paginated(request, start: int, end: int):
     return JsonResponse(response_data)
 
 
-def download(request, id: str):
+@requires_csrf_token
+def download(request, id: int):
 
     # fetch current user
     user = get_current_user(request)
@@ -265,7 +264,7 @@ def download(request, id: str):
         return HttpResponseNotFound()
 
 
-@csrf_exempt
+@requires_csrf_token
 def upload(request):
 
     if request.method == "POST" and request.FILES:
@@ -312,8 +311,7 @@ def upload(request):
         return HttpResponseBadRequest()
 
 
-# TODO currently a POST, should be a delete...
-@csrf_exempt
+@requires_csrf_token
 def delete(request, ids: str):
 
     # fetch current user
@@ -321,32 +319,41 @@ def delete(request, ids: str):
     if not user:
         return create_redirect_response(login=True)
 
-    with transaction.atomic():
+    if request.method == "DELETE" and len(ids.split(',')) > 0:
 
-        for id in ids.split(','):
+        with transaction.atomic():
 
-            logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
-            request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
+            for id in ids.split(','):
 
-            file_name = request.file_name
-            file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
+                logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
+                request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
 
-            if os.path.exists(file_absolute):
-                os.remove(file_absolute)
-                logger.info(f"File '{file_name}' was deleted (physical file '{file_absolute}')")
+                logger.info(f"Locating file for id='{id}' and user.id='{user.id}'")
+                request = ValidationRequest.objects.filter(created_by__id=user.id, id=id).first()
 
-            request.delete()
-            logger.info(f"Validation Request with id='{id}' and related entities were deleted.")
+                file_name = request.file_name
+                file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
 
-    # legacy API returns this object
-    return JsonResponse({
+                if os.path.exists(file_absolute):
+                    os.remove(file_absolute)
+                    logger.info(f"File '{file_name}' was deleted (physical file '{file_absolute}')")
 
-        'status': 'success',
-        'id': ids,
-    })
+                request.delete()
+                logger.info(f"Validation Request with id='{id}' and related entities were deleted.")
+
+        # legacy API returns this object
+        return JsonResponse({
+
+            'status': 'success',
+            'id': ids,
+        })
+
+    else:
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseBadRequest()
 
 
-@csrf_exempt
+@requires_csrf_token
 def revalidate(request, ids: str):
 
      # fetch current user
@@ -380,7 +387,7 @@ def revalidate(request, ids: str):
     })
 
 
-def report2(request, id: str):
+def report(request, id: str):
 
     report_type = request.GET.get('type')
     
