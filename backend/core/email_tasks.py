@@ -12,12 +12,13 @@ logger = get_task_logger(__name__)
 
 @shared_task
 @log_execution
-def send_user_registered_admin_email_task(user_id, user_email):
+def send_user_registered_admin_email_task(user_id, user_email, is_active = True):
 
     # load and merge email template
     merge_data = { 
         'USER_ID': user_id,
         'USER_EMAIL': user_email,
+        'IS_ACTIVE': is_active,
         'PUBLIC_URL': PUBLIC_URL,
         'ACTIVATE_URL': PUBLIC_URL + '/admin/auth/user'
     }
