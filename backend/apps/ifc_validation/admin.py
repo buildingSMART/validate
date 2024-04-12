@@ -40,7 +40,7 @@ class ValidationRequestAdmin(BaseAdmin):
     date_hierarchy = "created"
 
     list_filter = ["status", "created_by", "created", "updated"]
-    search_fields = ('public_id', 'file_name', 'status', 'created_by__username', 'updated_by__username')
+    search_fields = ('file_name', 'status', 'created_by__username', 'updated_by__username')
 
     actions = ["mark_as_failed_action", "restart_processing_action"]
     actions_on_top = True
@@ -113,7 +113,7 @@ class ValidationTaskAdmin(BaseAdmin):
     date_hierarchy = "created"
 
     list_filter = ["status", "type", "status", "started", "ended", "created", "updated"]
-    search_fields = ('request__file_name', 'public_id', 'status', 'type')
+    search_fields = ('request__file_name', 'status', 'type')
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -136,7 +136,7 @@ class ValidationOutcomeAdmin(BaseAdmin):
     readonly_fields = ["id", "public_id", "created", "updated"]
 
     list_filter = ['validation_task__type', 'severity', 'outcome_code']
-    search_fields = ('validation_task__request__file_name', 'public_id', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
+    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
 
     @admin.display(description="File Name")
     def file_name_text(self, obj):
@@ -152,7 +152,7 @@ class ModelAdmin(BaseAdmin):
     list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
 
-    search_fields = ('file_name', 'public_id', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
+    search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     
     @admin.display(description="# of Elements")
     def nbr_of_elements(self, obj):
@@ -179,7 +179,7 @@ class ModelInstanceAdmin(BaseAdmin):
 
     list_display = ["id", "public_id", "stepfile_id", "model", "ifc_type", "created", "updated"]
 
-    search_fields = ('stepfile_id', 'public_id', 'model__file_name', 'ifc_type')
+    search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
 
 
 class CompanyAdmin(BaseAdmin):
