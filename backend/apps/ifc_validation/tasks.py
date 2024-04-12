@@ -330,19 +330,24 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 model.date = None
                 try:
                     ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
-                    logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
-                    date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
-                    date_with_tz = datetime.datetime(
-                        date.year, 
-                        date.month, 
-                        date.day, 
-                        date.hour, 
-                        date.minute, 
-                        date.second, 
-                        tzinfo=datetime.timezone.utc)
-                    model.date = date_with_tz
-                except ValueError:
-                    model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                except RuntimeError:
+                    ifc_file_time_stamp = None
+                    model.date = None
+                if ifc_file_time_stamp:
+                    try:
+                        logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
+                        date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                        date_with_tz = datetime.datetime(
+                            date.year, 
+                            date.month, 
+                            date.day, 
+                            date.hour, 
+                            date.minute, 
+                            date.second, 
+                            tzinfo=datetime.timezone.utc)
+                        model.date = date_with_tz
+                    except ValueError:
+                        model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
                 logger.debug(f'Detected date = {model.date}')
 
                 # MVD
@@ -353,8 +358,14 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 logger.debug(f'Detected MVD = {model.mvd}')
 
                 # authoring app
-                app = ifc_file.by_type("IfcApplication")[0].ApplicationFullName if len(ifc_file.by_type("IfcApplication")) > 0 else None
-                version = ifc_file.by_type("IfcApplication")[0].Version if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                try:
+                    app = ifc_file.by_type("IfcApplication")[0].ApplicationFullName if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                except RuntimeError:
+                    app = None
+                try:
+                    version = ifc_file.by_type("IfcApplication")[0].Version if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                except RuntimeError:
+                    version = None
                 name = None if (app is None and version is None) else (None if version is None else app + ' ' + version)
                 logger.debug(f'Detected Authoring Tool in file = {name}')
 
