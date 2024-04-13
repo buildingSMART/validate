@@ -13,6 +13,33 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
 
+function unsafe_format(obj) {
+  if (typeof obj == 'object' && 'value' in obj) {
+    if (typeof obj.value === 'string' || obj.value instanceof String || typeof obj.value === 'number' || typeof obj.value === 'boolean') {
+      return <span style={{background: '#00000010', padding: '3px'}}>{obj.value}</span>
+    } else {
+      return unsafe_format(obj.value);
+    }
+  } else if (typeof obj === 'string' || obj instanceof String) {
+    return <i>{obj}</i>;
+  } else if (typeof obj == 'object' && 'entity' in obj) {
+    // @todo actual URL for schema
+    return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${obj.entity}.htm`}>{obj.entity}</a>
+  } else if (typeof obj == 'object' && 'oneOf' in obj) {
+    return <li>{obj.oneOf.map(v =><ul>{v}</ul>)}</li>
+  } else {
+    return JSON.stringify(obj);
+  }
+}
+
+function format(obj) {
+  try {
+    return unsafe_format(obj);
+  } catch {
+    return JSON.stringify(obj);
+  }
+}
+
 export default function GherkinResult({ summary, content, status, instances }) {
   const [data, setRows] = useState([])
   const [grouped, setGrouped] = useState([])
@@ -139,6 +166,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
         <div style={{ "backgroundColor": statusToColor[status], padding: '0.1em 0.0em' }}>
           { data.length
             ? data.map(([feature, rows, severity]) => {
+                const hasMessage = rows.some(row => row.message && row.message.length > 0)
                 return <TreeView 
                   defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}                 
@@ -158,18 +186,18 @@ export default function GherkinResult({ summary, content, status, instances }) {
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>
-                          <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Expected</th><th>Observed</th><th>Message</th></tr>
+                          <tr><th>Severity</th><th>Id</th><th>Entity</th><th>Expected</th><th>Observed</th>{hasMessage && <th>Message</th>}</tr>
                         </thead>
                         <tbody>
                           {
                             rows.map((row) => {
                               return <tr> 
+                                <td>{severityToLabel[row.severity]}</td>
                                 <td>{row.instance_id ? (instances[row.instance_id] ? instances[row.instance_id].guid : '?') : '-'}</td>
                                 <td>{row.instance_id ? (instances[row.instance_id] ? instances[row.instance_id].type : '?') : '-'}</td>
-                                <td>{severityToLabel[row.severity]}</td>
-                                <td>{row.expected ? row.expected : '-'}</td>
-                                <td>{row.observed ? row.observed : '-'}</td>
-                                <td>{row.message && row.message.length > 0 ? row.message : '-'}</td>                                
+                                <td>{row.expected ? format(row.expected) : '-'}</td>
+                                <td>{row.observed ? format(row.observed) : '-'}</td>
+                                {hasMessage && <td>{row.message && row.message.length > 0 ? row.message : '-'}</td>}
                             </tr>
                             })
                           }
