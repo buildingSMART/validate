@@ -3,6 +3,7 @@ django
 djangorestframework
 django-filter
 django-cors-headers
+django-cleanup
 drf-spectacular
 drf-spectacular[sidecar]
 

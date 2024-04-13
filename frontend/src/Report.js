@@ -10,6 +10,7 @@ import SchemaResult from './SchemaResult';
 import BsddTreeView from './BsddTreeView';
 import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
+import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 
 import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment';
@@ -21,8 +22,10 @@ function Report({ kind }) {
 
   const [isLoggedIn, setLogin] = useState(false);
   const [reportData, setReportData] = useState({});
-  const [user, setUser] = useState(null)
-  const [isLoaded, setLoadingStatus] = useState(false)
+  const [user, setUser] = useState(null);
+  const [isLoaded, setLoadingStatus] = useState(false);
+  const [errorStatus, setErrorStatus] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   const { modelCode } = useParams()
 
@@ -52,17 +55,26 @@ function Report({ kind }) {
 
   function getReport(code, kind) {
     fetch(`${FETCH_PATH}/api/report/${code}?type=${kind}`)
-      .then(response => response.json())
+      .then(response => {
+        if (response.ok) {
+          return response.json()
+        } else if(response.status === 404) {
+          return Promise.reject('Not Found')
+        }
+      })
       .then((data) => {
         setReportData(data);
+        setErrorStatus(null);
+        setErrorMessage(null);
         setLoadingStatus(true);
       })
+      .catch((error) => {
+        setErrorStatus(404);
+        setErrorMessage(error)
+        setLoadingStatus(true);
+      });
   }
 
-  function status_combine(...args) {
-    const statuses = ["-", "p", "v", "n", "w", "i"];
-    return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
-  }
 
   useEffect(() => {
     getReport(modelCode, kind);
@@ -125,8 +137,8 @@ function Report({ kind }) {
                     }}
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
-                  {isLoaded
-                    ? <>
+                  {isLoaded && !errorStatus && 
+                    <>
                         {(kind === "file") && <h2>File Metrics</h2>}
                         {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
                         {(kind === "schema") && <h2>IFC Schema Report</h2>}
@@ -163,8 +175,15 @@ function Report({ kind }) {
                           summary={"Industry Practices"}
                           content={reportData.results.ind_rules_results} 
                           instances={reportData.instances} />}
-                      </>
-                    : <div>Loading...</div>}
+                    </> }
+                  {!isLoaded && <div>Loading...</div>}
+                  {isLoaded && errorStatus && 
+                    <div style={{ textAlign: "center" }}>
+                      <h1>{errorStatus}</h1>
+                      <h4>{errorMessage}</h4>
+                      <SearchOffOutlinedIcon color="disabled" fontSize='large' />                      
+                    </div>
+                  }
                   <Footer />
                 </Grid>
               </div>
