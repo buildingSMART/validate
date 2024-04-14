@@ -49,18 +49,20 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    "corsheaders",                 # CORS
-    "rest_framework",              # DRF
+    "corsheaders",                       # CORS
+    "rest_framework",                    # DRF
     "rest_framework.authtoken",
-    "drf_spectacular",             # OpenAPI/Swagger
-    "drf_spectacular_sidecar",     # required for Django collectstatic discovery
+    "drf_spectacular",                   # OpenAPI/Swagger
+    "drf_spectacular_sidecar",           # required for Django collectstatic discovery
+    
+    "django_celery_results",             # Celery result backend
+    "django_celery_beat",                # Celery scheduled tasks
 
-    "django_celery_results",       # Celery result backend
-    "django_celery_beat",          # Celery scheduled tasks
+    "apps.ifc_validation",               # IfcValidation Service
+    "apps.ifc_validation_models",        # IfcValidation Data Model
+    "apps.ifc_validation_bff",           # IfcValidation ReactUI BFF
 
-    "apps.ifc_validation",         # IfcValidation Service
-    "apps.ifc_validation_models",  # IfcValidation Data Model
-    "apps.ifc_validation_bff",     # IfcValidation ReactUI BFF
+    "django_cleanup.apps.CleanupConfig"  # to automatically remove unlinked files
 ]
 
 if DEVELOPMENT:

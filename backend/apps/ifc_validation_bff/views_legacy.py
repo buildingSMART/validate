@@ -229,8 +229,8 @@ def models_paginated(request, start: int, end: int):
         return create_redirect_response(login=True)
     
     # return model(s) as projection of Validation Request + Model attributes
-    requests = ValidationRequest.objects.filter(created_by__id=user.id).order_by('-created')[start:end]
-    total_count = ValidationRequest.objects.filter(created_by__id=user.id).count()
+    requests = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False).order_by('-created')[start:end]
+    total_count = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False).count()
     models = list(map(format_request, requests))
     
     response_data = {}
@@ -249,7 +249,7 @@ def download(request, id: int):
         return create_redirect_response(login=True)
 
     logger.debug(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}'")
-    request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
+    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
     if request:
         file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
         logger.debug(f"File to be downloaded is located at '{file_path}'")
@@ -318,6 +318,8 @@ def delete(request, ids: str):
     user = get_current_user(request)
     if not user:
         return create_redirect_response(login=True)
+    
+    set_user_context(user)
 
     if request.method == "DELETE" and len(ids.split(',')) > 0:
 
@@ -326,17 +328,10 @@ def delete(request, ids: str):
             for id in ids.split(','):
 
                 logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
-                request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
-
-                file_name = request.file_name
-                file_absolute = os.path.join(MEDIA_ROOT, request.file.name)
-
-                if os.path.exists(file_absolute):
-                    os.remove(file_absolute)
-                    logger.info(f"File '{file_name}' was deleted (physical file '{file_absolute}')")
+                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
 
                 request.delete()
-                logger.info(f"Validation Request with id='{id}' and related entities were deleted.")
+                logger.info(f"Validation Request with id='{id}' and related entities were marked as deleted.")
 
         # legacy API returns this object
         return JsonResponse({
@@ -365,7 +360,7 @@ def revalidate(request, ids: str):
         def on_commit(ids):
 
             for id in ids.split(','):
-                request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
+                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
                 ifc_file_validation_task.delay(request.id, request.file_name)
                 logger.info(f"Task 'ifc_file_validation_task' re-submitted for Validation Request - id: {request.id} file_name: {request.file_name}")
 
@@ -393,10 +388,10 @@ def report(request, id: str):
     if not user:
         return create_redirect_response(login=True)
 
-    # redirect if report is not for current user
-    request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
+    # return 404-NotFound if report is not for current user or if it is deleted
+    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
     if not request:
-        return create_redirect_response(dashboard=True)
+        return HttpResponseNotFound()
     
     # return file metrics as projection of Validation Request + Model attributes
     instances = {}
