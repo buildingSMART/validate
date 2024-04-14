@@ -31,7 +31,15 @@ class BaseAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-class ValidationRequestAdmin(BaseAdmin):
+class NonAdminAddable(admin.ModelAdmin):
+
+    def has_add_permission(self, request):
+
+        # disable add via Admin ('+ Add' button)
+        return False
+
+
+class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "deleted"]}),
@@ -183,11 +191,6 @@ class ValidationRequestAdmin(BaseAdmin):
     
         return actions
     
-    def has_add_permission(self, request):
-
-        # disable add via Admin ('+ Add' button)
-        return False
-    
     def has_change_status_permission(self, request):
 
         opts = self.opts
@@ -209,7 +212,7 @@ class ValidationRequestAdmin(BaseAdmin):
         return self.has_soft_delete_permission(request)
 
 
-class ValidationTaskAdmin(BaseAdmin):
+class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "request", "type", "process_id", "process_cmd"]}),
@@ -238,13 +241,8 @@ class ValidationTaskAdmin(BaseAdmin):
         else:
             return None
 
-    def has_add_permission(self, request):
 
-        # disable add via Admin ('+ Add' button)
-        return False
-    
-
-class ValidationOutcomeAdmin(BaseAdmin):
+class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "file_name_text", "type_text", "instance_id", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
@@ -260,13 +258,8 @@ class ValidationOutcomeAdmin(BaseAdmin):
     def type_text(self, obj):
         return obj.validation_task.type
 
-    def has_add_permission(self, request):
 
-        # disable add via Admin ('+ Add' button)
-        return False
-
-
-class ModelAdmin(BaseAdmin):
+class ModelAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
@@ -293,22 +286,12 @@ class ModelAdmin(BaseAdmin):
         
         return utils.format_human_readable_file_size(obj.size)
 
-    def has_add_permission(self, request):
 
-        # disable add via Admin ('+ Add' button)
-        return False
-
-
-class ModelInstanceAdmin(BaseAdmin):
+class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "stepfile_id", "model", "ifc_type", "created", "updated"]
 
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
-
-    def has_add_permission(self, request):
-
-        # disable add via Admin ('+ Add' button)
-        return False
 
 
 class CompanyAdmin(BaseAdmin):
