@@ -25,7 +25,7 @@ CURRENT_DIR = Path(__file__).resolve().parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-um7-^+&jbk_=80*xcc9uf4nh$4koida7)ja&6!vb*$8@n288jk"
+    "DJANGO_SECRET_KEY", "django-insecure-um7-^+&jbk_=80*xcc9uf4nh$4koida7)ja&6!vb*$8@n288jk"
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
