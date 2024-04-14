@@ -46,7 +46,7 @@ def get_absolute_file_path(file_name):
 
     logger.debug(f"get_absolute_file_path(): file_name={file_name} returned '{ifc_fn}'")
     return ifc_fn
-    
+
 
 @shared_task(bind=True)
 @log_execution
@@ -59,7 +59,7 @@ def error_handler(self, *args, **kwargs):
 @log_execution
 def chord_error_handler(self, request, exc, traceback, *args, **kwargs):
 
-    on_workflow_failed.apply_async(request, exc, traceback, *args, **kwargs)
+    on_workflow_failed.apply_async([request, exc, traceback])
 
 
 @shared_task(bind=True)
@@ -110,7 +110,7 @@ def on_workflow_failed(self, *args, **kwargs):
     reason = f"Processing failed: args={args} kwargs={kwargs}"
     request = ValidationRequest.objects.get(pk=id)
     request.mark_as_failed(reason)
-   
+
     # queue sending email
     send_failure_email_task.delay(id=id, file_name=request.file_name)
 
@@ -156,7 +156,6 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 
     workflow_started = on_workflow_started.s(id, file_name)
     workflow_completed = on_workflow_completed.s(id, file_name)
-    workflow_failed = on_workflow_failed.s(id, file_name)
 
     serial_tasks = chain(
         syntax_validation_subtask.s(id, file_name),
@@ -186,19 +185,29 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow.set(link_error=[error_task])
     workflow.apply_async()
 
+
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
 def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
 
-    ifc_file = ifcopenshell.open(file_path)
+    prev_result_succeeded = prev_result is not None and prev_result[0]['is_valid'] is True
+    if prev_result_succeeded:
 
-    with transaction.atomic():
-        for inst in request.model.instances.iterator():
-            inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
-            inst.save()
+        request = ValidationRequest.objects.get(pk=id)
+        file_path = get_absolute_file_path(request.file.name)
+
+        ifc_file = ifcopenshell.open(file_path)
+
+        with transaction.atomic():
+            for inst in request.model.instances.iterator():
+                inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+                inst.save()
+
+    else:
+        reason = f'Skipped as prev_result = {prev_result}.'
+        #task.mark_as_skipped(reason)
+        return {'is_valid': None, 'reason': reason}
 
 
 @shared_task(bind=True)
@@ -512,7 +521,8 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SCHEMA)
 
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
+    # TODO: revisit schema validation task, perhaps change order of flow?
+    prev_result_succeeded = prev_result is not None and (prev_result['is_valid'] is True or 'Unsupported schema' in prev_result['reason'])
     if prev_result_succeeded:
 
         task.mark_as_initiated()
