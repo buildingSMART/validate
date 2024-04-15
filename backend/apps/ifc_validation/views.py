@@ -4,6 +4,7 @@ import logging
 
 from django.db import transaction
 from core.utils import get_client_ip_address
+from core.settings import MAX_FILES_PER_UPLOAD
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -42,7 +43,7 @@ class ValidationRequestDetailAPIView(APIView):
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, id=id).first()
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=id).first()
 
         if instance:
             serializer = ValidationRequestSerializer(instance)
@@ -60,7 +61,7 @@ class ValidationRequestDetailAPIView(APIView):
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id).filter(id=id).first()
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False).filter(id=id).first()
         if instance:
             instance.delete()
             data = {'message': f"Validation Request with id='{id}' was deleted successfully."}
@@ -87,7 +88,7 @@ class ValidationRequestListAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationRequest.objects.filter(created_by__id=request.user.id)
+        all_user_instances = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
         serializer = self.serializer_class(all_user_instances, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -165,7 +166,7 @@ class ValidationTaskDetailAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, id=id).first()
+        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=id).first()
         if instance:
             serializer = ValidationTaskSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -190,7 +191,7 @@ class ValidationTaskListAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationTask.objects.filter(request__created_by__id=request.user.id)
+        all_user_instances = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
         serializer = self.serializer_class(all_user_instances, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -211,7 +212,7 @@ class ValidationOutcomeDetailAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, id=id).first()
+        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=id).first()
         if instance:
             serializer = ValidationOutcomeSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -236,7 +237,7 @@ class ValidationOutcomeListAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id)
+        all_user_instances = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
         serializer = self.serializer_class(all_user_instances, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

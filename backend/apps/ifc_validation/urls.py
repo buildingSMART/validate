@@ -6,9 +6,9 @@ from .views import ValidationOutcomeListAPIView, ValidationOutcomeDetailAPIView
 
 urlpatterns = [
     path('validationrequest/',          ValidationRequestListAPIView.as_view()),
-    path('validationrequest/<int:id>/', ValidationRequestDetailAPIView.as_view()),
+    path('validationrequest/<str:id>/', ValidationRequestDetailAPIView.as_view()),
     path('validationtask/',             ValidationTaskListAPIView.as_view()),
-    path('validationtask/<int:id>/',    ValidationTaskDetailAPIView.as_view()),
+    path('validationtask/<str:id>/',    ValidationTaskDetailAPIView.as_view()),
     path('validationoutcome/',          ValidationOutcomeListAPIView.as_view()),
-    path('validationoutcome/<int:id>/', ValidationOutcomeDetailAPIView.as_view()),
+    path('validationoutcome/<str:id>/', ValidationOutcomeDetailAPIView.as_view()),
 ]

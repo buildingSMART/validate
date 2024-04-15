@@ -25,7 +25,7 @@ function App() {
   const [prTitle, setPrTitle] = useState("")
  
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
+    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {

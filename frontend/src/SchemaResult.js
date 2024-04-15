@@ -13,6 +13,16 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToColor, severityToLabel, statusToLabel } from './mappings';
 
+function coerceToStr(v) {
+  if (!v) {
+    return '';
+  }
+  if (typeof v === 'string' || v instanceof String) {
+    return v;
+  }
+  return JSON.stringify(v);
+}
+
 export default function SchemaResult({ summary, content, status, instances }) {
   const [data, setRows] = React.useState([])
   const [grouped, setGrouped] = useState([])
@@ -101,7 +111,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (rows[0].msg || '').split('\n')[0] : ''}</div></div>}
+                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
 
@@ -113,16 +123,17 @@ export default function SchemaResult({ summary, content, status, instances }) {
                             {
                               rows.map((row) => {
                                 return <tr>
-                                  <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
-                                  <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
-                                  <td>{severityToLabel[row.severity]}</td>
-                                  <td><span class='pre'>{
-                                    row.feature
-                                      ? `${row.feature}\n${row.msg || ''}`
-                                      : (row.constraint_type !== 'schema'
-                                          ? (row.msg || '').split('\n').slice(2).join('\n')
-                                          : row.msg || '')
-                                  }</span></td>                              </tr>
+                                    <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
+                                    <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
+                                    <td>{severityToLabel[row.severity]}</td>
+                                    <td><span class='pre'>{
+                                      row.feature
+                                        ? `${row.feature}\n${coerceToStr(row.msg)}`
+                                        : (row.constraint_type !== 'schema'
+                                            ? coerceToStr(row.msg).split('\n').slice(2).join('\n')
+                                            : coerceToStr(row.msg))
+                                    }</span></td>
+                                  </tr>
                               })
                             }
                           </tbody>

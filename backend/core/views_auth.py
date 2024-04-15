@@ -11,7 +11,7 @@ from requests.models import PreparedRequest
 from authlib.integrations.django_client import OAuth
 
 from .email_tasks import send_user_registered_admin_email_task
-from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL
+from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL, PRODUCTION
 
 oauth = OAuth()
 oauth.register(name="b2c")
@@ -51,14 +51,14 @@ def callback(request):
                 username = username,
                 password = username,
                 email = userinfo['email'],
-                is_active = False, 
+                is_active = True if PRODUCTION else False, 
                 is_superuser = False,
                 is_staff = False,
                 first_name = userinfo['given_name'],
                 last_name = userinfo['family_name']
             )
 
-            transaction.on_commit(lambda: send_user_registered_admin_email_task.delay(user.id, user.email))    
+            transaction.on_commit(lambda: send_user_registered_admin_email_task.delay(user.id, user.email, user.is_active))
             logger.info(f"Created user with username = '{username}' via OAuth, user.id = {user.id}")
     else:
         if user.is_active:

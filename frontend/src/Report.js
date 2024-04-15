@@ -7,10 +7,10 @@ import Grid from '@mui/material/Grid';
 import GeneralTable from './GeneralTable';
 import SyntaxResult from './SyntaxResult';
 import SchemaResult from './SchemaResult';
-import BsddTreeView from './BsddTreeView'
-//import GherkinResults from './GherkinResult';
-import GherkinResults2 from './GherkinResult2';
+import BsddTreeView from './BsddTreeView';
+import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
+import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 
 import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment';
@@ -22,8 +22,10 @@ function Report({ kind }) {
 
   const [isLoggedIn, setLogin] = useState(false);
   const [reportData, setReportData] = useState({});
-  const [user, setUser] = useState(null)
-  const [isLoaded, setLoadingStatus] = useState(false)
+  const [user, setUser] = useState(null);
+  const [isLoaded, setLoadingStatus] = useState(false);
+  const [errorStatus, setErrorStatus] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   const { modelCode } = useParams()
 
@@ -33,7 +35,7 @@ function Report({ kind }) {
   const handleAsyncError = HandleAsyncError();
 
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`)
+    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {
@@ -52,18 +54,27 @@ function Report({ kind }) {
 
 
   function getReport(code, kind) {
-    fetch(`${FETCH_PATH}/api/report2/${code}?type=${kind}`)
-      .then(response => response.json())
+    fetch(`${FETCH_PATH}/api/report/${code}?type=${kind}`)
+      .then(response => {
+        if (response.ok) {
+          return response.json()
+        } else if(response.status === 404) {
+          return Promise.reject('Not Found')
+        }
+      })
       .then((data) => {
         setReportData(data);
+        setErrorStatus(null);
+        setErrorMessage(null);
         setLoadingStatus(true);
       })
+      .catch((error) => {
+        setErrorStatus(404);
+        setErrorMessage(error)
+        setLoadingStatus(true);
+      });
   }
 
-  function status_combine(...args) {
-    const statuses = ["-", "p", "v", "n", "w", "i"];
-    return statuses[Math.max(...args.map(s => statuses.indexOf(s)))];
-  }
 
   useEffect(() => {
     getReport(modelCode, kind);
@@ -126,8 +137,8 @@ function Report({ kind }) {
                     }}
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
-                  {isLoaded
-                    ? <>
+                  {isLoaded && !errorStatus && 
+                    <>
                         {(kind === "file") && <h2>File Metrics</h2>}
                         {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
                         {(kind === "schema") && <h2>IFC Schema Report</h2>}
@@ -153,19 +164,26 @@ function Report({ kind }) {
                           summary={"bSDD Compliance"} 
                           bsddResults={reportData.results.bsdd_results} />}
 
-                        {(kind === "normative") && <GherkinResults2 
+                        {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
                           summary={"Normative IFC Rules"}
                           content={reportData.results.norm_rules_results} 
                           instances={reportData.instances} />}
                           
-                        {(kind === "industry") && <GherkinResults2 
+                        {(kind === "industry") && <GherkinResults 
                           status={reportData.model.status_ind}
                           summary={"Industry Practices"}
                           content={reportData.results.ind_rules_results} 
                           instances={reportData.instances} />}
-                      </>
-                    : <div>Loading...</div>}
+                    </> }
+                  {!isLoaded && <div>Loading...</div>}
+                  {isLoaded && errorStatus && 
+                    <div style={{ textAlign: "center" }}>
+                      <h1>{errorStatus}</h1>
+                      <h4>{errorMessage}</h4>
+                      <SearchOffOutlinedIcon color="disabled" fontSize='large' />                      
+                    </div>
+                  }
                   <Footer />
                 </Grid>
               </div>
