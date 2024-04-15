@@ -1,11 +1,24 @@
 
 # Application Structure
 
-The application consists of three main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
+## System Architecture
+
+```{image} ../_static/dev_system_architecture_sketch.png
+:alt: System Architure
+:align: center
+```
+
+The Validation Service is built on [django](https://www.djangoproject.com),
+using [Postgres](https://www.postgresql.org) as the database,
+[Redis](https://www.redis.io) for task management,
+and [Celery](https://docs.celeryq.dev/en/stable/index.html) for distributing the work of running the validation tasks.
+The service consists of multiple containers managed with Docker compose.
 
 ## Submodules
 
-Documentation of the separate functionalities can be found within each submodule. d
+The application consists of three main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
+
+Documentation of the separate functionalities can be found within each submodule.
 
 1. **File Parser**: A [module within IfcOpenShell](https://github.com/IfcOpenShell/step-file-parser), dedicated to parsing files. 
 2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the [repository](https://github.com/buildingSMART/ifc-gherkin-rules) and executing:
