@@ -1,5 +1,9 @@
 *(Work In Progress - dev-v0.6-alpha)*
 
+# Software Infrastructure
+
+![image](https://github.com/buildingSMART/validate/assets/155643707/5286c847-cf2a-478a-8940-fcdbd6fffeea)
+
 
 # Application Structure
 
