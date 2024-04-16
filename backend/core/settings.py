@@ -25,7 +25,7 @@ CURRENT_DIR = Path(__file__).resolve().parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
-    "SECRET_KEY", "django-insecure-um7-^+&jbk_=80*xcc9uf4nh$4koida7)ja&6!vb*$8@n288jk"
+    "DJANGO_SECRET_KEY", "django-insecure-um7-^+&jbk_=80*xcc9uf4nh$4koida7)ja&6!vb*$8@n288jk"
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -49,18 +49,20 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    "corsheaders",                 # CORS
-    "rest_framework",              # DRF
+    "corsheaders",                       # CORS
+    "rest_framework",                    # DRF
     "rest_framework.authtoken",
-    "drf_spectacular",             # OpenAPI/Swagger
-    "drf_spectacular_sidecar",     # required for Django collectstatic discovery
+    "drf_spectacular",                   # OpenAPI/Swagger
+    "drf_spectacular_sidecar",           # required for Django collectstatic discovery
+    
+    "django_celery_results",             # Celery result backend
+    "django_celery_beat",                # Celery scheduled tasks
 
-    "django_celery_results",       # Celery result backend
-    "django_celery_beat",          # Celery scheduled tasks
+    "apps.ifc_validation",               # IfcValidation Service
+    "apps.ifc_validation_models",        # IfcValidation Data Model
+    "apps.ifc_validation_bff",           # IfcValidation ReactUI BFF
 
-    "apps.ifc_validation",         # IfcValidation Service
-    "apps.ifc_validation_models",  # IfcValidation Data Model
-    "apps.ifc_validation_bff",     # IfcValidation ReactUI BFF
+    "django_cleanup.apps.CleanupConfig"  # to automatically remove unlinked files
 ]
 
 if DEVELOPMENT:
