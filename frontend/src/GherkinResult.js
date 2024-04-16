@@ -24,9 +24,10 @@ function unsafe_format(obj) {
     return <i>{obj}</i>;
   } else if (typeof obj == 'object' && 'entity' in obj) {
     // @todo actual URL for schema
+    
     return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${obj.entity}.htm`}>{obj.entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    return <li>{obj.oneOf.map(v =><ul>{v}</ul>)}</li>
+    return <ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul>
   } else {
     return JSON.stringify(obj);
   }
