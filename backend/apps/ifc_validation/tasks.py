@@ -565,7 +565,12 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
             raise
 
         output = list(filter(None, proc.stdout.split("\n")))
-        success = (len(output) == 0)
+        # success = (len(output) == 0)
+        # tfk: if we mark this task as failed we don't do the instance population either.
+        # marking as failed should probably be reserved for blocking errors (prerequisites)
+        # and internal errors and differentiate between valid and task_success.
+        success = proc.returncode == 0
+        valid = (len(output) == 0)
 
         with transaction.atomic():
 
@@ -573,7 +578,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
             model = get_or_create_ifc_model(id)
 
             # update Model and Validation Outcomes
-            if success:
+            if valid:
                 model.status_schema = Model.Status.VALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.PASSED,
