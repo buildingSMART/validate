@@ -27,7 +27,8 @@ function unsafe_format(obj) {
     return <span style={{padding: '3px', borderBottom: 'dotted 3px gray'}}>{obj.instance}</span>
   } else if (typeof obj == 'object' && 'entity' in obj) {
     // @todo actual URL for schema
-    return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${obj.entity}.htm`}>{obj.entity}</a>
+    var entity = obj.entity.split('(#')[0];
+    return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${entity}.htm`}>{entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
     return <div>One of:<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
   } else {
