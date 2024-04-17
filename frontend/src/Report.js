@@ -81,7 +81,7 @@ function Report({ kind }) {
   }, [modelCode, kind]);
 
   if (isLoggedIn) {
-    console.log("Report data ", reportData);
+    //console.log("Report data ", reportData);
     return (
       <div>
         <Grid direction="column"

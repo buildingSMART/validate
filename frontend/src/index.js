@@ -12,9 +12,9 @@ import Page from './Page';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-console.log('REACT_APP_FETCH_PATH', process.env.REACT_APP_FETCH_PATH)
-console.log('PUBLIC_URL', process.env.PUBLIC_URL)
-console.log('NODE_ENV', process.env.NODE_ENV)
+// console.log('REACT_APP_FETCH_PATH', process.env.REACT_APP_FETCH_PATH)
+// console.log('PUBLIC_URL', process.env.PUBLIC_URL)
+// console.log('NODE_ENV', process.env.NODE_ENV)
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

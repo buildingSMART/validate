@@ -13,33 +13,17 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import IconButton from '@mui/material/IconButton';
-import InfoIcon from '@mui/icons-material/Info';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 //import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
-import ErrorIcon from '@mui/icons-material/Error';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
-import WarningIcon from '@mui/icons-material/Warning';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
-import BlockIcon from '@mui/icons-material/Block';
 import Link from '@mui/material/Link';
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
 import HandleAsyncError from './HandleAsyncError';
 import { getCookieValue } from './Cookies';
-
-const statusToIcon = {
-  "n": <BrowserNotSupportedIcon color="disabled" />,
-  "v": <CheckCircleIcon sx={{ color: "#2ab672" }} />,
-  "i": <ErrorIcon color="error" />,
-  "w": <WarningIcon color="warning" />,
-  "p": <HourglassBottomIcon color="disabled" />,
-  "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
-  "info":<InfoIcon color="primary"/>
-}
+import { statusToIcon } from './mappings';
 
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
@@ -74,7 +58,7 @@ function computeRelativeDates(modelDate) {
   }
   if (unit) {
     var relativeTime = Math.floor(difference / divisor);
-    if (relativeTime == 1) { unit = unit.slice(0, -1); } // Remove the 's' in units if only 1
+    if (relativeTime === 1) { unit = unit.slice(0, -1); } // Remove the 's' in units if only 1
     return (<span className="abs_time" title={modelDate.toLocaleString()}>{relativeTime} {unit} ago</span>)
   } else {
     return modelDate.toLocaleString();
@@ -131,7 +115,7 @@ const headCells = [
 ];
 
 function EnhancedTableHead(props) {
-  const { onSelectAllClick, order, orderBy, numSelected, rowCount, onRequestSort } =
+  const { onSelectAllClick, numSelected, rowCount } =
     props;
 
   return (
@@ -160,7 +144,7 @@ function EnhancedTableHead(props) {
               headCell.tooltip
                 ? <Tooltip title={headCell.tooltip}>
                     <span style={{borderBottom: 'dotted 2px gray', display: 'inline-block'}}>{headCell.label}
-                      <span style={{fontSize: '.83em', verticalAlign: 'super'}}>{headCell.tooltip ? 'ⓘ' : ''}</span>
+                      <span style={{fontSize: '.83em', verticalAlign: 'super'}}>{headCell.tooltip ? ' ⓘ' : ''}</span>
                     </span>
                   </Tooltip>
                 : headCell.label
@@ -235,11 +219,8 @@ EnhancedTableToolbar.propTypes = {
 
 export default function DashboardTable({ models }) {
   const [rows, setRows] = React.useState([])
-  const [order, setOrder] = React.useState('asc');
-  const [orderBy, setOrderBy] = React.useState('');
   const [selected, setSelected] = React.useState([]);
   const [page, setPage] = React.useState(0);
-  const [dense, setDense] = React.useState(false);
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [count, setCount] = React.useState(0);
   const [deleted, setDeleted] = useState('');
@@ -298,8 +279,8 @@ export default function DashboardTable({ models }) {
   const isSelected = (name) => selected.indexOf(name) !== -1;
 
   // Avoid a layout jump when reaching the last page with empty rows.
-  const emptyRows =
-    page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
+  // const emptyRows =
+  //   page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
 
   useEffect(() => {
     if (deleted) {
@@ -358,7 +339,7 @@ export default function DashboardTable({ models }) {
             }
           }}
           aria-labelledby="tableTitle"
-          size={dense ? 'small' : 'medium'}
+          size={'medium'}
         >
           <EnhancedTableHead
             numSelected={selected.length}
@@ -417,12 +398,12 @@ export default function DashboardTable({ models }) {
                   }
 
                   {
-                    (row.progress == 100) ?
+                    (row.progress === 100) ?
                       <TableCell align="left">{computeRelativeDates(new Date(row.date))}</TableCell> :
                       <TableCell align="left">
                         {
-                          (row.progress == -1) ? <Typography>{"in queue"}</Typography> :
-                            ((row.progress == -2) ? <Typography>{"an error occured"}</Typography> : <CircularStatic value={row.progress} />)
+                          (row.progress === -1) ? <Typography>{"in queue"}</Typography> :
+                            ((row.progress === -2) ? <Typography>{"an error occured"}</Typography> : <CircularStatic value={row.progress} />)
                         }
                       </TableCell>
                   }

@@ -5,12 +5,8 @@ import Disclaimer from './Disclaimer';
 import Footer from './Footer'
 import Grid from '@mui/material/Grid';
 import VerticalLinearStepper from './VerticalLinearStepper'
-import Button from '@mui/material/Button';
-import HomeIcon from '@mui/icons-material/Home';
-import CheckIcon from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
 import SideMenu from './SideMenu';
-import Typography from '@mui/material/Typography';
 
 import { useEffect, useState, useContext } from 'react';
 
@@ -19,12 +15,12 @@ import { PageContext } from './Page';
 
 
 function Dashboard() {
-  const [isLoggedIn, setLogin] = useState(false);
-  const [user, setUser] = useState(null);
-
-  const [prTitle, setPrTitle] = useState("")
 
   const context = useContext(PageContext);
+
+  const [isLoggedIn, setLogin] = useState(false);
+  const [user, setUser] = useState(null);
+  const [prTitle, setPrTitle] = useState("")
 
   useEffect(() => {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
@@ -46,7 +42,7 @@ function Dashboard() {
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
     return (
-      <div class="dashboard">
+      <div className="dashboard">
         <Grid direction="column"
           container
           style={{

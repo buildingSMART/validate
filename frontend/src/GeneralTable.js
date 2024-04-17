@@ -6,19 +6,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
-import ErrorIcon from '@mui/icons-material/Error';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
-import WarningIcon from '@mui/icons-material/Warning';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import statusToIcon from './mappings';
 
-const statusToIcon = {
-  "n": <BrowserNotSupportedIcon color="disabled" />,
-  "v": <CheckCircleIcon color="success" />,
-  "i": <ErrorIcon color="error" />,
-  "w": <WarningIcon color="warning" />,
-  "p": <HourglassBottomIcon color="disabled" />
-}
 
 function prettyPrintFileSize(fileSizeInBytes) {
   var i = -1;
@@ -79,9 +68,11 @@ export default function GeneralTable({ data, type }) {
     <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
       <Table aria-label="simple table">
         <TableHead>
-          <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold' }}>
-            {type.charAt(0).toUpperCase()}{type.slice(1)}
-          </TableCell>
+          <TableRow>
+            <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold', textTransform: 'capitalize' }}>
+              {type}
+            </TableCell>
+          </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((row) => (

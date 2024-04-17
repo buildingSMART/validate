@@ -13,12 +13,6 @@ import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Link from '@mui/material/Link';
 
-import { PageContext } from './Page';
-import { useContext } from 'react';
-
-
-
-
 function AppLogo() {
   const mystyle = {
     height: "60px"
@@ -26,48 +20,34 @@ function AppLogo() {
 
   return (
     <Link href="/" underline="none">
-      <img src={require("./BuildingSMART_CMYK_validation_service.png")} style={mystyle} />
+      <img alt="buildingSMART Validation Service" src={require("./BuildingSMART_CMYK_validation_service.png")} style={mystyle} />
     </Link>
   )
 }
 
-const pages_ = [{ "label": 'Home', "href": "/" },
-{
-  "label": "Validation",
-  "href": "/dashboard"
-}];
+const pages_ = [
+  { "name": "HomePage",  "label": 'Home',        "href": "/" },
+  { "name": "ValPage",   "label": "Validation",  "href": "/dashboard" }];
 
-const settings_ = [{ "label": 'Home', "href": "/" },
-{ "label": 'Validation', "href": "/dashboard" },
-{ "label": 'Logout', "href": "/logout" }]
+const settings_ = [
+  { "name": "HomePage2", "label": 'Home',        "href": "/" },
+  { "name": "ValPage2",  "label": 'Validation',  "href": "/dashboard" },
+  { "name": "Logout",    "label": 'Logout',      "href": "/logout" }];
 
 function ResponsiveAppBar({ user }) {
   const [anchorElNav, setAnchorElNav] = React.useState(null);
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
-  const context = useContext(PageContext);
-
-
   let pages;
   let settings;
 
-  if (context.sandboxId) {
-    pages = [{ "label": 'Upload', "href": `/sandbox/${context.sandboxId}` },
-    {
-      "label": "Dashboard",
-      "href": `/sandbox/dashboard/${context.sandboxId}`
-    }];
-    settings = [{ "label": 'Upload new file', "href": `/sandbox/${context.sandboxId}` },
-    { "label": 'Dashboard', "href": `/sandbox/dashboard/${context.sandboxId}` },
-    { "label": 'Logout', "href": "/logout" }]
-  } else {
-    pages = pages_;
-    settings = settings_;
-  }
-
+  pages = pages_;
+  settings = settings_;
+  
   const handleOpenNavMenu = (event) => {
     setAnchorElNav(event.currentTarget);
   };
+
   const handleOpenUserMenu = (event) => {
     setAnchorElUser(event.currentTarget);
   };
@@ -98,8 +78,7 @@ function ResponsiveAppBar({ user }) {
           <Typography
             variant="h6"
             noWrap
-            component="a"
-            href="/about"
+            component="div"
             sx={{
               mr: 2,
               display: { xs: 'none', md: 'flex' },
@@ -144,9 +123,9 @@ function ResponsiveAppBar({ user }) {
               }}
             >
               {pages.map((page) => (
-                <MenuItem key={page} onClick={handleCloseNavMenu}>
+                <MenuItem key={page["name"]} onClick={handleCloseNavMenu}>
                   <Link href={page["href"]} underline="none">
-                    <Typography style={{ color: 'grey' }} textAlign="center">{page["label"]}</Typography>
+                    <Typography style={{ color: 'grey' }} textAlign="center" key={page + '_ul'}>{page["label"]}</Typography>
                   </Link>
                 </MenuItem>
               ))}
@@ -156,8 +135,7 @@ function ResponsiveAppBar({ user }) {
           <Typography
             variant="h5"
             noWrap
-            component="a"
-            href="/about"
+            component="div"
             sx={{
               mr: 2,
               display: { xs: 'flex', md: 'none' },
@@ -172,10 +150,11 @@ function ResponsiveAppBar({ user }) {
             <AppLogo />
             <Typography sx={{ display: { xs: 'flex', md: 'none' }, mr: 1 }}>BETA</Typography>
           </Typography>
+
           <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'flex' } }}>
             {pages.map((page) => (
               <Button
-                key={page["label"]}
+                key={page["name"]}
                 onClick={handleCloseNavMenu}
                 sx={{ my: 2, color: 'grey', display: 'block', visibility: { md: 'hidden' } }}
               >

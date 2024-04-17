@@ -190,6 +190,18 @@ def format_request(request):
     }
 
 
+def get_internal_id(public_id):
+
+    # try to get intenral id, or None
+    id = None
+    try:
+        id = ValidationRequest.to_private_id(public_id)
+    except:
+        pass
+    
+    return id
+
+
 #@login_required - doesn't work as OAuth is not integrated with Django
 @ensure_csrf_cookie
 def me(request):
@@ -248,8 +260,8 @@ def download(request, id: int):
     if not user:
         return create_redirect_response(login=True)
 
-    logger.debug(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}'")
-    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+    logger.debug(f"Locating file for pub='{id}' pk='{get_internal_id(id)}'")
+    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=get_internal_id(id)).first()
     if request:
         file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
         logger.debug(f"File to be downloaded is located at '{file_path}'")
@@ -327,8 +339,8 @@ def delete(request, ids: str):
 
             for id in ids.split(','):
 
-                logger.info(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}' and user.id='{user.id}'")
-                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+                logger.info(f"Locating file for pub='{id}' pk='{get_internal_id(id)}' and user.id='{user.id}'")
+                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=get_internal_id(id)).first()
 
                 request.delete()
                 logger.info(f"Validation Request with id='{id}' and related entities were marked as deleted.")
@@ -360,13 +372,13 @@ def revalidate(request, ids: str):
         def on_commit(ids):
 
             for id in ids.split(','):
-                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+                request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=get_internal_id(id)).first()
                 ifc_file_validation_task.delay(request.id, request.file_name)
                 logger.info(f"Task 'ifc_file_validation_task' re-submitted for Validation Request - id: {request.id} file_name: {request.file_name}")
 
         for id in ids.split(','):
 
-            request = ValidationRequest.objects.filter(created_by__id=user.id, id=ValidationRequest.to_private_id(id)).first()
+            request = ValidationRequest.objects.filter(created_by__id=user.id, id=get_internal_id(id)).first()
             request.mark_as_pending(reason='Resubmitted for processing via React UI')
             if request.model: request.model.reset_status()
 
@@ -386,10 +398,10 @@ def report(request, id: str):
     # fetch current user
     user = get_current_user(request)
     if not user:
-        return create_redirect_response(login=True)
-
+        return create_redirect_response(login=True)   
+    
     # return 404-NotFound if report is not for current user or if it is deleted
-    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=get_internal_id(id)).first()
     if not request:
         return HttpResponseNotFound()
     
