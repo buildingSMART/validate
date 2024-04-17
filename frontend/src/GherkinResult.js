@@ -22,11 +22,14 @@ function unsafe_format(obj) {
     }
   } else if (typeof obj === 'string' || obj instanceof String) {
     return <i>{obj}</i>;
+  } else if (typeof obj == 'object' && 'instance' in obj) {
+    // @todo turn into actual instance in DB
+    return <span style={{padding: '3px', borderBottom: 'dotted 3px gray'}}>{obj.instance}</span>
   } else if (typeof obj == 'object' && 'entity' in obj) {
     // @todo actual URL for schema
     return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${obj.entity}.htm`}>{obj.entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    return <li>{obj.oneOf.map(v =><ul>{v}</ul>)}</li>
+    return <div>One of:<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
   } else {
     return JSON.stringify(obj);
   }
@@ -155,6 +158,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
           "td, th": { padding: '0.2em 0.5em', verticalAlign: 'top' },
+          "td ul": { paddingLeft: '2em' },
           ".pre": {
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
