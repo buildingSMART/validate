@@ -17,7 +17,7 @@ do
 done
 echo "DB is ready."
 
-# run 10 workers + scheduler
-celery --app=core worker --loglevel=info --concurrency 10 --task-events --hostname=worker1@%n --beat
-# TODO - run as a daemon
-# https://docs.celeryq.dev/en/latest/userguide/daemonizing.html#generic-init-scripts
+CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
+echo "Celery concurrency: $CELERY_CONCURRENCY"
+
+celery --app=core worker --loglevel=info --concurrency $CELERY_CONCURRENCY --task-events --hostname=worker@%n --beat

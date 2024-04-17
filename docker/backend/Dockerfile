@@ -53,10 +53,6 @@ ADD ./backend /app/backend
 
 # remove and download git submodules
 RUN set -ex && \
-    # *** START TEMP - keep local development version on the side - TODO: remove
-    cp -r /app/backend/apps/ifc_validation/checks/ /tmp && \
-    cp -r /app/backend/apps/ifc_validation_models /tmp && \
-    # *** END TEMP - keep local development version on the side - TODO: remove
     rm -rf /app/backend/apps/ifc_validation/checks/ifc_gherkin_rules && \
     rm -rf /app/backend/apps/ifc_validation/checks/step_file_parser && \
     rm -rf /app/backend/apps/ifc_validation_models && \
@@ -64,11 +60,7 @@ RUN set -ex && \
     git init . && \
     git submodule add -b development https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
     git submodule add https://github.com/IfcOpenShell/step-file-parser ./ifc_validation/checks/step_file_parser && \
-    git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models && \
-    # *** START TEMP - keep local development version on the side - TODO: remove
-    cp -r /tmp/checks /app/backend/apps/ifc_validation/ && \
-    cp -r /tmp/ifc_validation_models /app/backend/apps/
-    # *** END TEMP - keep local development version on the side - TODO: remove
+    git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models
 
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
@@ -79,6 +71,11 @@ ADD --chmod=777 ./docker/backend/server_aio-entrypoint.sh /app/backend
 FROM python:3.11-slim-bookworm as run
 
 WORKDIR /app
+
+# gunicorn/celery concurrency (defaults in *-entrypoint.sh)
+ENV DJANGO_GUNICORN_WORKERS= \
+    DJANGO_GUNICORN_THREADS_PER_WORKER= \
+    CELERY_CONCURRENCY=
 
 RUN set -ex && \
     # non-root user/group
