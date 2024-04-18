@@ -248,7 +248,8 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
         # parse output
         output = proc.stdout
-        success = len(list(filter(None, output.split("\n")))) == 0
+        error_output = proc.stderr
+        success = (len(list(filter(None, output.split("\n")))) == 0) and len(proc.stderr) == 0
 
         with transaction.atomic():
 
@@ -264,13 +265,23 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     observed=output if output != '' else None
                 )
                 model.save()
+
+            elif len(error_output) != 0:
+                model.status_syntax = Model.Status.INVALID
+                task.outcomes.create(
+                    severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                    observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
+                )
+                model.save()
+
             else:
                 messages = json.loads(output)
                 model.status_syntax = Model.Status.INVALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                    observed=messages['message']
+                    observed=messages['message'] if 'message' in messages else None
                 )
                 model.save()
 
@@ -280,7 +291,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                 task.mark_as_completed(reason)
                 return {'is_valid': True, 'reason': task.status_reason}
             else:
-                reason = f"Found IFC syntax errors: {output}"
+                reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
                 task.mark_as_completed(reason)
                 return {'is_valid': False, 'reason': reason}
 
@@ -943,4 +954,3 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
         reason = f'Skipped as prev_result = {prev_result}.'
         task.mark_as_skipped(reason)
         return {'is_valid': None, 'reason': reason}
-
