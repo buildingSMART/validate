@@ -10,6 +10,7 @@ import Table from '@mui/material/Table';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToColor, severityToLabel, statusToLabel } from './mappings';
 
@@ -61,9 +62,10 @@ export default function SchemaResult({ summary, content, status, instances }) {
       <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
         <Table>
           <TableHead>
-            <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold' }}>
-              {summary}
-            </TableCell>
+            <TableRow>
+              <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                {summary}
+              </TableCell>            
             <TableCell sx={{ borderColor: 'black', fontSize: 'small', textAlign: 'right' }} >
               <Checkbox size='small'
                 checked={checked}
@@ -79,6 +81,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                 </span>
               </Tooltip>
             </TableCell>
+            </TableRow>
           </TableHead>
         </Table>
       </TableContainer>
@@ -106,27 +109,28 @@ export default function SchemaResult({ summary, content, status, instances }) {
           }}>
           <div >
             { data.length
-              ? data.map(([hd, rows]) => {
+              ? data.map(([hd, rows], index) => {
                   return <TreeView 
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
+                    key={index}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem nodeId={hd} label={<div><div className='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div className='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
 
-                      <table width='100%' style={{ 'text-align': 'left'}}>
+                      <table width='100%' style={{ 'textAlign': 'left'}}>
                           <thead>
-                            <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th></tr>
+                            <tr><td>Id</td><td>Entity</td><td>Severity</td><td>Message</td></tr>
                           </thead>
                           <tbody>
                             {
-                              rows.map((row) => {
-                                return <tr>
+                              rows.map((row, index2) => {
+                                return <tr key={index2}>
                                     <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
                                     <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
                                     <td>{severityToLabel[row.severity]}</td>
-                                    <td><span class='pre'>{
+                                    <td><span className='pre'>{
                                       row.feature
                                         ? `${row.feature}\n${coerceToStr(row.msg)}`
                                         : (row.constraint_type !== 'schema'

@@ -21,11 +21,10 @@ function App() {
 
   const [isLoggedIn, setLogin] = useState(false);
   const [user, setUser] = useState(null)
-
   const [prTitle, setPrTitle] = useState("")
  
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
+    fetch(`${FETCH_PATH}/api/me`, { credentials: 'include' })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {
@@ -44,7 +43,7 @@ function App() {
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
     return (
-      <div class="home">
+      <div className="home">
         <Grid direction="column"
           container
           style={{
@@ -131,26 +130,26 @@ function App() {
 
                     <Typography style={{fontWeight: 'bold'}}>What it does</Typography>
 
-                    <Typography align='left' paragraph>Given an IFC file, the Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification).</Typography>
+                    <Typography align='left' paragraph>Given an IFC file, the bSI Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification).</Typography>
 
                     <Typography style={{fontWeight: 'bold'}}>What is being checked</Typography>
 
-                    <Typography align='left' paragraph>The IFC file is valid when it conforms to:
-
+                    <Typography align='left' as='span'>The IFC file is valid when it conforms to:
+                    
                     <ul>
-                        <li><b>STEP Syntax</b> The STEP Physical File syntax</li>
-                        <li><b>IFC Schema</b> An up-to-date (not withdrawn and latest revision) IFC schema referenced in the file, including formal propositions and functions encoded in the EXPRESS schema language</li>
-                        <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
+                        <li><b>STEP Syntax</b> The STEP Physical File syntax;</li>
+                        <li><b>IFC Schema</b> An up-to-date (not withdrawn and latest revision) IFC schema referenced in the file, including formal propositions and functions encoded in the EXPRESS schema language;</li>
+                        <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions).</li>
                     </ul>
-
+                    
                     </Typography>
-                    <Typography align='left' paragraph>Additionally, the Validation Service performs non-normative checks including:
+                    <Typography align='left' as='span'>Additionally, the bSI Validation Service performs non-normative checks including:
 
                     <ul>
-                        <li><b>Industry Practices</b> Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid. Therefore, any issues identified result in warnings rather than errors</li>
-                        <li><b>bSDD Compliance</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD</li>
+                        <li><b>Industry Practices</b> Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid. Therefore, any issues identified result in warnings rather than errors;</li>
+                        <li><b>bSDD Compliance</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD.</li>
                     </ul>
-
+                    
                     </Typography>
 
                     <Typography style={{fontWeight: 'bold'}}>What is NOT being checked</Typography>
@@ -159,7 +158,7 @@ function App() {
 
                     <Typography style={{fontWeight: 'bold'}}>Visualisation</Typography>
 
-                    <Typography align='left' paragraph sx={{paddingBottom: '2em'}}>For multiple reasons, geometric visualisation is not within the scope nor the mandate of the Validation Service. Many errors are invisible in a viewer or unrelated to a geometric representation or prevent visualisation altogether.</Typography>
+                    <Typography align='left' paragraph sx={{paddingBottom: '2em'}}>For multiple reasons, geometric visualisation is not within the scope nor the mandate of the bSI Validation Service. Many errors are invisible in a viewer or unrelated to a geometric representation or prevent visualisation altogether.</Typography>
 
                     <Footer/>
                   </div>
@@ -170,7 +169,6 @@ function App() {
           </Grid>
         </Grid>
       </div>
-
     );
   } else {
     return (

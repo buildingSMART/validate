@@ -4,6 +4,7 @@ import Table from '@mui/material/Table';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
 import TablePagination from '@mui/material/TablePagination';
 import { useEffect, useState } from 'react';
 import { statusToColor, severityToLabel, statusToLabel } from './mappings';
@@ -25,9 +26,11 @@ export default function SyntaxResult({ summary, content, status }) {
       <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
         <Table>
           <TableHead>
-            <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold' }}>
-              {summary}
-            </TableCell>
+            <TableRow>
+              <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold', textTransform: 'capitalize' }}>
+                {summary}
+              </TableCell>
+            </TableRow>
           </TableHead>
         </Table>
       </TableContainer>
@@ -56,10 +59,10 @@ export default function SyntaxResult({ summary, content, status }) {
 
         <div style={{ "backgroundColor": statusToColor[status], padding: '0.1em 0.0em' }}>
           { rows.length
-              ? rows.map(item => {
-                  return <table width='100%' style={{ 'text-align': 'left', margin: '0.8em 0.8em'}}>
+              ? rows.map((item, index) => {
+                  return <table width='100%' style={{ 'textAlign': 'left', margin: '0.8em 0.8em'}} key={index}>
                           <thead >
-                            <tr><th>Line</th><th>Column</th><th>Severity</th><th>Message</th></tr>
+                            <tr><td>Line</td><td>Column</td><td>Severity</td><td>Message</td></tr>
                           </thead>
                           <tbody>
                             <tr>
@@ -67,8 +70,8 @@ export default function SyntaxResult({ summary, content, status }) {
                               <td>{item.column}</td>
                               <td>{severityToLabel[item.severity]}</td>
                               <td>
-                                <span class='pre'>{item.msg.split('\n').slice(0, -2).join('\n')}</span>
-                                <span class='pre mono'>{item.msg.split('\n').slice(-2).join('\n')}</span>
+                                <span className='pre'>{item.msg.split('\n').slice(0, -2).join('\n')}</span>
+                                <span className='pre mono'>{item.msg.split('\n').slice(-2).join('\n')}</span>
                               </td>
                             </tr>
                           </tbody>
