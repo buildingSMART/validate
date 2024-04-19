@@ -197,12 +197,17 @@ def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwarg
         request = ValidationRequest.objects.get(pk=id)
         file_path = get_absolute_file_path(request.file.name)
 
-        ifc_file = ifcopenshell.open(file_path)
+        try:
+            ifc_file = ifcopenshell.open(file_path)
+        except:
+            logger.warning(f'Failed to open {file_path}. Likely previous tasks also failed.')
+            ifc_file = None
 
-        with transaction.atomic():
-            for inst in request.model.instances.iterator():
-                inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
-                inst.save()
+        if ifc_file:
+            with transaction.atomic():
+                for inst in request.model.instances.iterator():
+                    inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+                    inst.save()
 
     else:
         reason = f'Skipped as prev_result = {prev_result}.'
