@@ -1,148 +1,183 @@
 import * as React from 'react';
+import { useEffect, useState } from 'react';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import Checkbox from "@mui/material/Checkbox";
+import Tooltip from '@mui/material/Tooltip';
+import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
-import { statusToColor } from './mappings'
+import TablePagination from '@mui/material/TablePagination';
+import { statusToColor, severityToColor, severityToLabel, statusToLabel } from './mappings';
 
-
-function BsddReportRow({ key, valid, instance, requirement, required, observed }) {
-  return (
-    <TableRow
-      key={key}
-      sx={{ '&:last-child td, &:last-child th': { border: 0 }, "backgroundColor": (valid != 0) ? statusToColor['v'] : statusToColor['i'] }}
-    >
-      <TableCell align="center" component="th" scope="row">
-        {`${instance}`}
-      </TableCell>
-      <TableCell align="center"> {`${requirement}`}</TableCell>
-      <TableCell align="center"> {`${required}`}</TableCell>
-      <TableCell align="center">  {`${observed}`}</TableCell>
-    </TableRow>
-  )
+function coerceToStr(v) {
+  if (!v) {
+    return '';
+  }
+  if (typeof v === 'string' || v instanceof String) {
+    return v;
+  }
+  return JSON.stringify(v);
 }
 
-export default function BsddTreeView({ summary, bsddResults, status }) {
+export default function BsddTreeView({ summary, content, status, instances }) {
+  const [data, setRows] = React.useState([])
+  const [grouped, setGrouped] = useState([])
+  const [page, setPage] = useState(0);  
+  const [checked, setChecked] = useState(false);
+
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };  
+
+  const handleChangeChecked = (event) => {
+    setChecked(event.target.checked);
+    if (checked) {
+      setPage(0);
+    }
+  };
+
+  useEffect(() => {
+    let grouped = [];
+    let filteredContent = content.filter(function(el) {
+      return checked || el.severity > 2; // all or warning/error only?
+    });
+
+    // deduplicate
+    const uniqueArray = (array, key) => {
+
+      return [
+        ...new Map(
+          array.map( x => [key(x), x])
+        ).values()
+      ]
+    }
+
+    //filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.severity + c.message);
+    
+    // sort
+    filteredContent.sort((f1, f2) => f1.severity < f2.severity ? 1 : -1);
+
+    for (let c of (filteredContent || [])) {
+      if (grouped.length === 0 || severityToLabel[c.severity] !== grouped[grouped.length-1][0]) {
+        grouped.push([severityToLabel[c.severity],[]])
+      }
+      // if (grouped.length === 0 || c.category !== grouped[grouped.length-1][0]) {
+      //   grouped.push([c.category,[]])
+      // }
+      grouped[grouped.length-1][1].push(c);
+    }
+
+    // order groups
+    //grouped.sort((f1, f2) => f1[0] > f2[0] ? 1 : -1);
+
+    setRows(grouped.slice(page * 10, page * 10 + 10))
+    setGrouped(grouped)
+}, [page, content, checked]);
 
   return (
-    <Paper sx={{ overflow: 'hidden' }}><TreeView
-      aria-label="report navigator"
-      defaultCollapseIcon={<ExpandMoreIcon />}
-      defaultExpandIcon={<ChevronRightIcon />}
-      defaultExpanded={["0"]}
-      sx={{ "width": "850px", "backgroundColor": statusToColor[status], "> li > .MuiTreeItem-content": { padding: "16px" }, ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' } }}
-    >
-      <TreeItem nodeId="0" label={summary}>
-        <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
-          defaultExpandIcon={<ChevronRightIcon />}>
-          {
-            Object.entries(bsddResults || {}).map(([domain, classifications]) => {
+    <div>
+      <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
+        <Table>
+          <TableHead>
+            <TableCell colSpan={2} sx={{ borderColor: 'black', fontWeight: 'bold' }}>
+              {summary}
+            </TableCell>
+            <TableCell sx={{ borderColor: 'black', fontSize: 'small', textAlign: 'right' }} >
+              <Checkbox size='small'
+                checked={checked}
+                onChange={handleChangeChecked}
+                tabIndex={-1}
+                disableRipple
+                color="default"
+                label="test"
+              />include Passed, Disabled and N/A &nbsp;
+              <Tooltip title='This also shows Passed, Disabled and N/A rule results.'>
+                <span style={{ display: 'inline-block'}}>
+                  <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
+                </span>
+              </Tooltip>
+            </TableCell>
+          </TableHead>
+        </Table>
+      </TableContainer>
 
-              return <TreeItem nodeId={11} label={`Domain: ${domain}`} disabled={domain == "no IfcClassification" ? true : false}>
-                <TreeView defaultCollapseIcon={<ExpandMoreIcon />}
-                  defaultExpandIcon={<ChevronRightIcon />}>
-                  {
-                    Object.entries(classifications).map(([classification, results]) => {
-                      return <TreeItem nodeId={12} label={`Classification: ${classification}`} disabled={classification == "no IfcClassificationReference" ? true : false}>
-                        {
-                          results.map((result) => {
-                            return <div >
-                              <br></br>
-                              {
-                                (domain != "no IfcClassification" && classification != "no IfcClassificationReference") &&
-                                <TableContainer sx={{
-                                  minWidth: 650,
-                                  "width": "90%",
-                                  "padding": "10px"
-                                }} >
-                                  <Table sx={{
-                                    minWidth: 650,
-                                    "backgroundColor": "rgb(238, 238, 238)",
-                                  }}
-                                    size="small"
-                                    aria-label="a dense table">
-                                    <TableHead>
-                                      <TableRow>
-                                        <TableCell align="center">Instance</TableCell>
-                                        <TableCell align="center">Requirement</TableCell>
-                                        <TableCell align="center">Required</TableCell>
-                                        <TableCell align="center">Observed</TableCell>
+      <Paper sx={{
+          overflow: 'hidden',
+            "width": "850px",
+            "backgroundColor": statusToColor[status],
+            ".MuiTreeItem-root .MuiTreeItem-root": { backgroundColor: "#ffffff80", overflow: "hidden" },
+            ".MuiTreeItem-group .MuiTreeItem-content": { boxSizing: "border-box" },
+            ".MuiTreeItem-group": { padding: "16px", marginLeft: 0 },
+            "> li > .MuiTreeItem-content": { padding: "16px" },
+            ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
+            ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
+            ".caption" : { paddingTop: "1em", paddingBottom: "1em", textTransform: 'capitalize' },
+            ".subcaption" : { visibility: "hidden", fontSize: '80%' },
+            ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
+            "table": { borderCollapse: 'collapse', fontSize: '80%' },
+            "td, th": { padding: '0.2em 0.5em', verticalAlign: 'top' },
+            ".pre": {
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              // overflowWrap: 'break-word'
+            }
+          }}>
+          <div >
+            { data.length
+              ? data.map(([hd, rows]) => {
+                  return <TreeView 
+                    defaultCollapseIcon={<ExpandMoreIcon />}
+                    defaultExpandIcon={<ChevronRightIcon />}
+                    >
+                      <TreeItem nodeId={hd} label={<div><div className='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div className='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                        sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
+                      >
 
-                                      </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-
-                                      <>
-                                        {/* IFC TYPE */}
-                                        <BsddReportRow valid={result.val_ifc_type}
-                                          key={"0"}
-                                          instance={result.global_id}
-                                          requirement={"IFC entity type"}
-                                          required={result.bsdd_type_constraint || ''}
-                                          observed={result.ifc_type}
-                                        />
-
-                                        {/* PROPERTY SET  */}
-                                        {result.bsdd_property_constraint.propertySet && <BsddReportRow valid={result.val_property_set}
-                                          key={"1"}
-                                          instance={result.global_id}
-                                          requirement={"Property Set"}
-                                          required={result.bsdd_property_constraint.propertySet}
-                                          observed={result.ifc_property_set}
-                                        />}
-
-                                        {/* PROPERTY */}
-                                        {result.bsdd_property_constraint.name && <BsddReportRow valid={result.val_property_name}
-                                          key={"2"}
-                                          instance={result.global_id}
-                                          requirement={"Property Name"}
-                                          required={result.bsdd_property_constraint.name}
-                                          observed={result.ifc_property_value}
-                                        />}
-
-                                        {/* DATA TYPE */}
-                                        {result.bsdd_property_constraint.dataType && <BsddReportRow valid={result.val_property_type}
-                                          key={"3"}
-                                          instance={result.global_id}
-                                          requirement={"Property Value Type"}
-                                          required={result.bsdd_property_constraint.dataType}
-                                          observed={result.ifc_property_type}
-                                        />}
-
-                                        {/* PROPERTY VALUE */}
-                                        {result.bsdd_property_constraint.predefinedValue && <BsddReportRow valid={result.val_property_value}
-                                          key={"4"}
-                                          instance={result.global_id}
-                                          requirement={"Property Value"}
-                                          required={result.bsdd_property_constraint.predefinedValue}
-                                          observed={result.ifc_property_value}
-                                        />}
-                                      </>
-                                    </TableBody>
-                                  </Table>
-                                </TableContainer>
-                              }
-
-                            </div>
-                          }
-                          )
-                        }
+                      <table width='100%' style={{ 'textAlign': 'left'}}>
+                          <thead>
+                            <tr><th>Id</th><th>Entity</th><th>Name</th><th>Category</th><th>Severity</th><th>Message</th></tr>
+                          </thead>
+                          <tbody>
+                            {
+                              rows.map((row) => {
+                                return <tr>
+                                    <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
+                                    <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
+                                    <td>{row.dictionary ? row.dictionary : (row.class ? row.class : '-')}</td>
+                                    <td>{row.category}</td>
+                                    <td>{severityToLabel[row.severity]}</td>
+                                    <td><span class='pre'>{
+                                      row.observed
+                                    }</span></td>
+                                  </tr>
+                              })
+                            }
+                          </tbody>
+                        </table>
                       </TreeItem>
-                    }
-                    )
-                  }
-                </TreeView>
-              </TreeItem>
-            })
-          }
-        </TreeView>
-      </TreeItem>
-    </TreeView></Paper>
+                    </TreeView>
+                })
+                : <div style={{ margin: '0.5em 1em' }}>{statusToLabel[status]}</div> }
+            {
+              grouped.length && grouped.length > 0
+              ? <TablePagination
+                  sx={{display: 'flex', justifyContent: 'center', backgroundColor: statusToColor[status]}}
+                  rowsPerPageOptions={[10]}
+                  component="div"
+                  count={grouped.length}
+                  rowsPerPage={10}
+                  page={page}
+                  onPageChange={handleChangePage}
+                />
+              : null
+            }
+          </div>
+        
+      </Paper>
+    </div>
   );
 }

@@ -451,7 +451,7 @@ def report(request, id: str):
     
         logger.info('Fetching and mapping schema done.')
 
-    # retrieve and gherkin rules outcome(s)
+    # retrieve and map gherkin rules outcome(s) + instances
     grouping = (
         ('normative', (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP)),
         ('prerequisites', (ValidationTask.Type.PREREQUISITES,)),
@@ -502,8 +502,35 @@ def report(request, id: str):
     bsdd_results = []
     if report_type == 'bsdd' and request.model:
         
-        # TODO
-        pass
+        logger.info('Fetching and mapping bSDD results...')
+
+        # only concerned about last run of each task
+        task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.BSDD).last()
+        if task.outcomes:
+            for outcome in task.outcomes.iterator():
+                feature_json = json.loads(outcome.feature)
+                mapped = {
+                    "id": outcome.id,                    
+                    "severity": outcome.severity,
+                    "instance_id": outcome.instance_id,
+                    "expected": outcome.expected,
+                    "observed": outcome.observed,
+                    "category": feature_json['category'] if 'category' in feature_json else None,
+                    "dictionary": feature_json['dictionary'] if 'dictionary' in feature_json else None,
+                    "class": feature_json['class'] if 'class' in feature_json else None,
+                    "task_id": outcome.validation_task_public_id,
+                }
+                bsdd_results.append(mapped)
+
+                inst = outcome.instance
+                if inst and inst.id not in instances:
+                    instance = {
+                        "guid": f'#{inst.stepfile_id}',
+                        "type": inst.ifc_type
+                    }
+                    instances[inst.id] = instance
+
+        logger.info('Fetching and mapping bSDD done.')
 
     response_data = {
         'instances': instances,
