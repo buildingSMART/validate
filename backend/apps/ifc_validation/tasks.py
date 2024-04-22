@@ -269,7 +269,6 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
                     observed=output if output != '' else None
                 )
-                model.save()
 
             elif len(error_output) != 0:
                 model.status_syntax = Model.Status.INVALID
@@ -278,7 +277,6 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
                     observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
                 )
-                model.save()
 
             else:
                 messages = json.loads(output)
@@ -288,7 +286,8 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
                     observed=messages['message'] if 'message' in messages else None
                 )
-                model.save()
+
+            model.save(update_fields=['status_syntax'])
 
             # store and return
             if success:
@@ -506,7 +505,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
             # update Model info
             agg_status = task.determine_aggregate_status()
             model.status_prereq = agg_status
-            model.save()
+            model.save(update_fields=['status_prereq'])
 
             # update Task info and return
             is_valid = agg_status != Model.Status.INVALID
@@ -590,7 +589,6 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
                     observed=None
                 )
-                model.save()
             else:
                 for line in output:
                     message = json.loads(line)
@@ -614,7 +612,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                         outcome.instance = instance
                         outcome.save()
 
-                model.save()
+            model.save(update_fields=['status_schema'])
 
             # return
             if success:
@@ -703,7 +701,6 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
                     severity=ValidationOutcome.OutcomeSeverity.NOT_APPLICABLE,
                     observed='\n'.join(line.strip() for line in output)
                 )
-                model.save()
 
             elif success:
                 model.status_bsdd = Model.Status.VALID
@@ -711,7 +708,6 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
                     severity=ValidationOutcome.OutcomeSeverity.PASSED,
                     observed='\n'.join(line.strip() for line in output)
                 )
-                model.save()
 
             else:
                 model.status_bsdd = Model.Status.INVALID
@@ -719,7 +715,7 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
                     observed='\n'.join(line.strip() for line in output)
                 )
-                model.save()
+            model.save(update_fields=['status_bsdd'])
 
             if no_bsdd_classification or success:
                 reason = '\n'.join(line.strip() for line in output)
@@ -800,7 +796,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
             agg_status = task.determine_aggregate_status()
             logger.debug(f'Aggregate status for {self.__qualname__}: {agg_status}')
             model.status_ia = agg_status
-            model.save()
+            model.save(update_fields=['status_ia'])
 
             # update Task info and return
             is_valid = agg_status != Model.Status.INVALID
@@ -876,7 +872,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
             # update Model info
             agg_status = task.determine_aggregate_status()
             model.status_ip = agg_status
-            model.save()
+            model.save(update_fields=['status_ip'])
 
             # update Task info and return
             is_valid = agg_status != Model.Status.INVALID
@@ -952,7 +948,7 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
             # update Model info
             agg_status = task.determine_aggregate_status()
             model.status_industry_practices = agg_status
-            model.save()
+            model.save(update_fields=['status_industry_practices'])
 
             # update Task info and return
             is_valid = agg_status != Model.Status.INVALID
