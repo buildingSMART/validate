@@ -281,10 +281,16 @@ def perform(file_name, task_id, verbose=False):
             if hasattr(prop, 'EnumerationValues') and prop.EnumerationValues:
                 property_result["property_allowed_values"] = []
                 for enum_value in prop.EnumerationValues:
-                    property_result["property_allowed_values"] += [{
-                        'value': enum_value.wrappedValue,
-                        'type': enum_value.is_a()
-                    }]
+                    if hasattr(enum_value, 'wrappedValue') and enum_value.wrappedValue:
+                        property_result["property_allowed_values"] += [{
+                            'value': enum_value.wrappedValue,
+                            'type': enum_value.is_a()
+                        }]
+                    elif enum_value:
+                        property_result["property_allowed_values"] += [{
+                            'value': str(enum_value),
+                            'type': str(type(enum_value))
+                        }]
 
             # Unit
             if hasattr(prop, 'Unit') and prop.Unit and isinstance(prop.Unit, ifcopenshell.entity_instance):
