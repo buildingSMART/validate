@@ -401,7 +401,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                         logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
                     elif authoring_tool is None:
-                        authoring_tool = AuthoringTool.objects.create(
+                        authoring_tool, _ = AuthoringTool.objects.get_or_create(
                             name=app,
                             version=version
                         )
