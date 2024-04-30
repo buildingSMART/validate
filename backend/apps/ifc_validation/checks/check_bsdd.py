@@ -13,43 +13,64 @@ logger = logging.getLogger()
 @functools.lru_cache(maxsize=128)
 def find_dictionary_by_uri(uri):
 
+    """
+    Retrieves a Dictionary (aka Domain or Class System) matching a Uri within the bSDD online service.
+
+    In bSDD, a dictionary is a standardised collection of object definitions, properties, and materials owned and maintained by one organisation.
+    
+    Mandatory Args:
+        uri: Uri (or first part of the Uri) of the Dictionary.
+
+    Returns:
+        Json object representing the Dictionary, or None if none matches.
+
+    See:
+        https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#1.-bSDD-dictionary
+        https://app.swaggerhub.com/apis/buildingSMART/Dictionaries/v1
+    """
+
     url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1"
+
     response = requests.get(url, {'uri': uri })
+    logger.debug(f'GET {response.url} returned HTTP {response.status_code}')
+
     if response.status_code == 200:
         json = response.json()
-        return json['dictionaries'][0] if json['count'] == 1 else None
-    return None    
-
-
-@functools.lru_cache(maxsize=128)
-def get_dictionary(uri):
-
-    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1"
-    uri_ = uri.split("/class")[0]
-    try:
-        response = requests.get(url, {'Uri':uri_})
-        return response.json()['dictionaries'][0] if response.status_code == 200 else None
-    except:
-        class_ = get_class(uri)
-        if class_:
-            uri_ = class_['dictionaryUri']
-            response = requests.get(url, {'Uri':uri_})
-            return response.json()['dictionaries'][0] if response.status_code == 200 else None
-        else:
-            return None
-
-
-@functools.lru_cache(maxsize=128)
-def get_dictionaries():
+        return json['dictionaries'][0] if json['count'] == 1 else None # should actually return 404...
+    elif response.status_code == 404:
+        return None
+    else:
+        response.raise_for_status()
+        return None
     
-    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1"
+
+@functools.lru_cache(maxsize=128)
+def get_all_dictionaries():
+    
+    """
+    Retrieves all Dictionaries (aka Domains or Class Systems) within the bSDD online service.
+
+    In bSDD, a dictionary is a standardised collection of object definitions, properties, and materials owned and maintained by one organisation.
+    
+    Returns:
+        Json object collection representing all Dictionaries (including Test Dictionaries), or None if none exist.
+
+    See:
+        https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#1.-bSDD-dictionary
+        https://app.swaggerhub.com/apis/buildingSMART/Dictionaries/v1
+    """
+
+    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1?includeTestDictionaries=True"
     
     dictionaries = []
     count = 0
     total_count = 1000
     
     while count < total_count:
-        response = requests.get(url + f'?offset={count}&limit=250')
+        response = requests.get(url + f'&offset={count}&limit=250')
+        logger.debug(f'GET {response.url} returned HTTP {response.status_code}')
+        response.raise_for_status()
+
         json = response.json()
         dictionaries += json['dictionaries']
         total_count = json['totalCount']
@@ -61,62 +82,95 @@ def get_dictionaries():
 @functools.lru_cache(maxsize=128)
 def find_dictionary_by_name(name, edition = None):
 
-    all_dictionaries = get_dictionaries()
+    """
+    Retrieves a Dictionary (aka Domain or Class System) matching a specific Name (and optionally Edition) within the bSDD online service.
+
+    In bSDD, a dictionary is a standardised collection of object definitions, properties, and materials owned and maintained by one organisation.
+    
+    Mandatory Args:
+        name: name of the Dictionary.
+
+    Optional Args:
+        edition: version of the Dictionary.
+
+    Returns:
+        Json objects representing the matching Dictionary/-ies, or None if none match.
+
+    See:
+        https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#1.-bSDD-dictionary
+        https://app.swaggerhub.com/apis/buildingSMART/Dictionaries/v1
+    """
+
+    all_dictionaries = get_all_dictionaries()
     dict_filter = lambda x: x['name'] == name and (edition is None or x['version'] == edition)
-    filtered_dictionaries = list(filter(dict_filter, all_dictionaries))
-    return filtered_dictionaries if len(filtered_dictionaries) else None
+    return next((d for d in all_dictionaries if dict_filter(d)), None)
 
 
 @functools.lru_cache(maxsize=128)
-def get_class(uri):
+def find_class_by_uri(uri):
+
+    """
+    Retrieves Classes (aka Classification) matching a Uri within the bSDD online service.
+
+    In bSDD, a class can be any (abstract) object (e.g. IfcWall), abstract concept (e.g. Costing) or process (e.g. Installation).
+    
+    Mandatory Args:
+        uri: Uri (or first part of the Uri) of the Class.
+
+    Returns:
+        Json object representing the Classes, or None if none match.
+
+    See:
+        https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#2-bsdd-classes-objects
+        https://app.swaggerhub.com/apis/buildingSMART/Dictionaries/v1#/Class/get_api_Class_v1
+    """
 
     url = "https://api.bsdd.buildingsmart.org/api/Class/v1"
-    response = requests.get(url, {'Uri':uri})
-    return response.json() if response.status_code == 200 else None
 
+    response = requests.get(url, {'uri':uri})
+    logger.debug(f'GET {response.url} returned HTTP {response.status_code}')
 
-@functools.lru_cache(maxsize=128)
-def get_classes(uri):
-
-    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1/Classes"
-    uri = uri.split("/class")[0]
-    response = requests.get(url, {'Uri':uri})
-    return response.json()['classes'] if response.status_code == 200 else None
-
-
-@functools.lru_cache(maxsize=128)
-def get_material(uri):
-
-    url = "https://api.bsdd.buildingsmart.org/api/Class/v1"
-    response = requests.get(url, {'Uri':uri, 'ClassType': 'Material'})
-    return response.json() if response.status_code == 200 else None
-
-
-@functools.lru_cache(maxsize=128)
-def get_materials(uri):
-
-    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1/Classes"
-    uri = uri.split("/class")[0]
-    response = requests.get(url, {'Uri':uri, 'ClassType': 'Material'})
-    return response.json()['classes'] if response.status_code == 200 else None
-
-
-@functools.lru_cache(maxsize=128)
-def get_properties(uri):
-
-    url = "https://api.bsdd.buildingsmart.org/api/Dictionary/v1/Properties"
-    uri = uri.split("/class")[0]
-    response = requests.get(url, {'Uri':uri})
-    return response.json()['properties'] if response.status_code == 200 else None
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code in (400, 404): # should actually return 404...
+        return None
+    else:
+        response.raise_for_status()
+        return None
 
 
 @functools.lru_cache(maxsize=128)
 def find_property_by_uri(uri):
 
-    url = "https://api.bsdd.buildingsmart.org/api/Property/v4"
-    response = requests.get(url, {'uri': uri})
-    return response.json() if response.status_code == 200 else None
+    """
+    Retrieves Properties matching a Uri within the bSDD online service.
 
+    In bSDD, a class (object) can have multiple properties, and a property can be part of many classes (objects).
+    
+    Mandatory Args:
+        uri: Uri (or first part of the Uri) of the Properties.
+
+    Returns:
+        Json object representing the Properties, or None if none match.
+
+    See:
+        https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#4-bsdd-properties
+        https://app.swaggerhub.com/apis/buildingSMART/Dictionaries/v1#/Property/get_api_Property_v4
+    """
+
+    url = "https://api.bsdd.buildingsmart.org/api/Property/v4"
+
+    response = requests.get(url, {'uri': uri})
+    logger.debug(f'GET {response.url} returned HTTP {response.status_code}')
+
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code in (400, 404): # should actually return 404...
+        return None
+    else:
+        response.raise_for_status()
+        return None
+    
 
 def first_available_attr(object, properties):
 
@@ -146,15 +200,15 @@ def perform(file_name, task_id, verbose=False):
     ifc_file_classification_references = ifc_file.by_type("IfcClassificationReference")
     ifc_file_rel_associates_classifications = ifc_file.by_type("IfcRelAssociatesClassification")
     ifc_file_properties = ifc_file.by_type("IfcProperty")
-    ifc_file_property_sets = ifc_file.by_type("IfcPropertySet")
+    #ifc_file_property_sets = ifc_file.by_type("IfcPropertySet")
     ifc_file_materials = ifc_file.by_type("IfcMaterial")
-    ifc_file_rel_associates_material = ifc_file.by_type("IfcRelAssociatesMaterial")
+    #ifc_file_rel_associates_material = ifc_file.by_type("IfcRelAssociatesMaterial")
 
     # bSDD dictionary (former name: domain)
     # https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#1-bsdd-dictionary
     if len(ifc_file_classifications):
 
-        for _, ic in enumerate(ifc_file_classifications):
+        for ic in ifc_file_classifications:
 
             logger.debug(f"File '{file_name}' for task_id = {task_id} has IfcClassification {ic.Name}.")
 
@@ -194,7 +248,7 @@ def perform(file_name, task_id, verbose=False):
     # https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#2-bsdd-classes-objects
     if len(ifc_file_classification_references):
 
-        for _, icr in enumerate(ifc_file_classification_references):
+        for icr in ifc_file_classification_references:
 
             logger.debug(f"File '{file_name}' for task_id = {task_id} has IfcClassificationReference {icr.Name}.")
 
@@ -219,7 +273,7 @@ def perform(file_name, task_id, verbose=False):
             class_result['class_bsdd_uri'] = None
             class_result['class_bsdd_name'] = None
             if class_result['class_identifier']:
-                class_ = get_class(class_result['class_identifier'])
+                class_ = find_class_by_uri(class_result['class_identifier'])
                 if class_:
                     class_result['class_in_bsdd'] = True
                     class_result['class_bsdd_uri'] = class_['uri']
@@ -230,7 +284,7 @@ def perform(file_name, task_id, verbose=False):
 
     if len(ifc_file_rel_associates_classifications):
 
-        for _, rel in enumerate(ifc_file_rel_associates_classifications):
+        for rel in ifc_file_rel_associates_classifications:
 
             logger.debug(f"File '{file_name}' for task_id = {task_id} has IfcRelAssociatesClassification {rel.Name}.")
 
@@ -256,7 +310,7 @@ def perform(file_name, task_id, verbose=False):
     # https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#4-bsdd-properties
     if len(ifc_file_properties):
 
-        for _, prop in enumerate(ifc_file_properties):
+        for prop in ifc_file_properties:
 
             logger.debug(f"File '{file_name}' for task_id = {task_id} has IfcProperty {prop.Name}.")
 
@@ -281,7 +335,7 @@ def perform(file_name, task_id, verbose=False):
             if hasattr(prop, 'EnumerationValues') and prop.EnumerationValues:
                 property_result["property_allowed_values"] = []
                 for enum_value in prop.EnumerationValues:
-                    if hasattr(enum_value, 'wrappedValue') and enum_value.wrappedValue:
+                    if hasattr(enum_value, 'wrappedValue'):
                         property_result["property_allowed_values"] += [{
                             'value': enum_value.wrappedValue,
                             'type': enum_value.is_a()
@@ -319,7 +373,7 @@ def perform(file_name, task_id, verbose=False):
     # https://github.com/buildingSMART/bSDD/blob/master/Documentation/bSDD-IFC%20documentation.md#3-bsdd-materials
     if len(ifc_file_materials):
 
-        for _, mat in enumerate(ifc_file_materials):
+        for mat in ifc_file_materials:
 
             logger.debug(f"File '{file_name}' for task_id = {task_id} has IfcMaterial {mat.Name}.")
 
@@ -597,11 +651,11 @@ def perform(file_name, task_id, verbose=False):
         }]
 
     if not verbose:
-        bsdd_results['dictionaries'] = []
-        bsdd_results['classes'] = []
-        bsdd_results['assignments'] = []
-        bsdd_results['properties'] = []
-        bsdd_results['materials'] = []
+        bsdd_results['dictionaries'] = None
+        bsdd_results['classes'] = None
+        bsdd_results['assignments'] = None
+        bsdd_results['properties'] = None
+        bsdd_results['materials'] = None
 
     print(json.dumps(bsdd_results))
     sys.exit(0)
