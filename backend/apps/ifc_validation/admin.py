@@ -73,7 +73,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
         return ("Yes" if obj.deleted else "No")
 
-    @admin.display(description="File Size")
+    @admin.display(description="File Size", ordering='size')
     def file_size_text(self, obj):
 
         return utils.format_human_readable_file_size(obj.size)
