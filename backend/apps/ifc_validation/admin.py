@@ -281,7 +281,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
         
         return None if obj.number_of_properties is None else f'{obj.number_of_properties:,}'
 
-    @admin.display(description="File Size")
+    @admin.display(description=, ordering='size')
     def size_text(self, obj):
         
         return utils.format_human_readable_file_size(obj.size)
