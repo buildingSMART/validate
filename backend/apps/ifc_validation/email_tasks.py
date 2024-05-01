@@ -56,7 +56,7 @@ def send_acknowledgement_admin_email_task(id, file_name):
     merge_data = { 
         'NUMBER_OF_FILES': 1,
         'FILE_NAMES': file_name,
-        'USER_NAME': user.username,
+        'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
         'PUBLIC_URL': PUBLIC_URL
     }
@@ -115,7 +115,7 @@ def send_revalidating_admin_email_task(id, file_name):
     merge_data = { 
         'NUMBER_OF_FILES': 1,
         'FILE_NAMES': file_name,
-        'USER_NAME': user.username,
+        'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
         'PUBLIC_URL': PUBLIC_URL
     }
