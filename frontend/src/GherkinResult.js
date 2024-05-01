@@ -30,7 +30,8 @@ function unsafe_format(obj) {
     var entity = obj.entity.split('(#')[0];
     return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${entity}.htm`}>{entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    return <div>One of:<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`
+    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
   } else {
     return JSON.stringify(obj);
   }
