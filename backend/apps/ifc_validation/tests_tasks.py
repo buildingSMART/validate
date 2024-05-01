@@ -10,6 +10,7 @@ from .tasks import schema_validation_subtask
 from .tasks import syntax_validation_subtask
 from .tasks import parse_info_subtask
 from .tasks import prerequisites_subtask
+from .tasks import bsdd_validation_subtask
 
 class ValidationTasksTestCase(TestCase):
 
@@ -175,6 +176,47 @@ class ValidationTasksTestCase(TestCase):
         self.assertEqual(model.date, datetime.datetime(2023, 12, 16, 16, 20, 00, tzinfo=datetime.timezone.utc))
 
     @requires_django_user_context
+    def test_parse_info_task_parses_authoring_tool(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='pass_reverse_comment.ifc',
+            file='pass_reverse_comment.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        parse_info_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        model = Model.objects.all().first()
+        self.assertIsNotNone(model)
+        self.assertEquals('IfcOpenShell-0.7.0', model.produced_by.name)
+        self.assertEquals('0.7.0', model.produced_by.version)
+
+    @requires_django_user_context
+    def test_parse_info_task_parses_no_authoring_tool(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='valid_file.ifc',
+            file='valid_file.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        parse_info_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        model = Model.objects.all().first()
+        self.assertIsNotNone(model)
+        self.assertIsNone(model.produced_by)
+
+    @requires_django_user_context
     def test_schema_validation_task_creates_passed_validation_outcome(self):
 
         request = ValidationRequest.objects.create(
@@ -295,7 +337,7 @@ class ValidationTasksTestCase(TestCase):
         self.assertEqual(outcomes.first().instance.ifc_type, 'IfcSite')
 
     @requires_django_user_context
-    def test_schema_validation_task_creates_error_validation_outcome_3(self):
+    def test_schema_validation_task_creates_error_validation_outcomes(self):
 
         request = ValidationRequest.objects.create(
             file_name='pass_reverse_comment.ifc',
@@ -321,7 +363,7 @@ class ValidationTasksTestCase(TestCase):
         self.assertEqual(outcomes[2].outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
 
     @requires_django_user_context
-    def test_schema_validation_task_creates_error_validation_outcomes_4(self):
+    def test_schema_validation_task_creates_error_validation_outcomes_2(self):
 
         request = ValidationRequest.objects.create(
             file_name='fail-als015-scenario01-long_last_segment.ifc',
@@ -407,3 +449,46 @@ class ValidationTasksTestCase(TestCase):
 
             # assert
             self.assertEqual(final_status, test_case['output'])
+
+    @requires_django_user_context
+    def test_bsdd_validation_task_creates_na_validation_outcome(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='valid_file.ifc',
+            file='valid_file.ifc', 
+            size=280
+        )
+        request.mark_as_initiated()
+
+        bsdd_validation_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        outcomes = ValidationOutcome.objects.all()
+        self.assertIsNotNone(outcomes)
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes[0].severity, ValidationOutcome.OutcomeSeverity.NOT_APPLICABLE)
+
+    @requires_django_user_context
+    def test_bsdd_validation_task_creates_na_validation_outcome_2(self):
+
+        request = ValidationRequest.objects.create(
+            file_name='pass_reverse_comment.ifc',
+            file='pass_reverse_comment.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        bsdd_validation_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        outcomes = ValidationOutcome.objects.all()
+        self.assertIsNotNone(outcomes)
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes[0].severity, ValidationOutcome.OutcomeSeverity.NOT_APPLICABLE)
+            

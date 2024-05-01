@@ -162,7 +162,8 @@ function Report({ kind }) {
                         {(kind === "bsdd") && <BsddTreeView 
                           status={reportData.model.status_bsdd} 
                           summary={"bSDD Compliance"} 
-                          bsddResults={reportData.results.bsdd_results} />}
+                          content={[...reportData.results.bsdd_results]}
+                          instances={reportData.instances} />}
 
                         {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
