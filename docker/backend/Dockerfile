@@ -62,7 +62,7 @@ RUN set -ex && \
     rm -rf /app/backend/apps/ifc_validation_models && \
     cd /app/backend/apps && \
     git init . && \
-    git submodule add -b development https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
+    git submodule add https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
     git submodule add https://github.com/IfcOpenShell/step-file-parser ./ifc_validation/checks/step_file_parser && \
     git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models && \
     # *** START TEMP - keep local development version on the side - TODO: remove
