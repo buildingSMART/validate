@@ -48,7 +48,7 @@ export default function SideMenu() {
                 <Divider />
                     <ListItem key={"test"} disablePadding>
                         <ListItemButton>
-                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.6.0-alpha`} />
+                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.6.1`} />
                         </ListItemButton>
                     </ListItem>
                 </List>

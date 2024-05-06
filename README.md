@@ -1,5 +1,3 @@
-*(Work In Progress - dev-v0.6-alpha)*
-
 # Software Infrastructure
 
 ![image](https://github.com/buildingSMART/validate/assets/155643707/5286c847-cf2a-478a-8940-fcdbd6fffeea)
@@ -11,7 +9,7 @@ The application consists of three main submodules, each hosted in separate GitHu
 
 ### Submodules
 
-Documentation of the seperate functionalities can be found within each submodule. d
+Documentation of the seperate functionalities can be found within each submodule.
 
 1. **File Parser**: A module within IfcOpenShell, dedicated to parsing files. https://github.com/IfcOpenShell/step-file-parser
 2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the repository and executing:
@@ -36,7 +34,7 @@ https://github.com/buildingSMART/ifc-validation-data-model
 
 The application supports multiple validation checks on one or multiple IFC files that can be run separately:
 
-- BSDD-Check
+- bSDD Check
 - Syntax Check
 - Schema Check
 - Gherkin-Rules Check
@@ -110,7 +108,7 @@ docker compose -f docker-compose.infra_only.yml up
 ```
 
 
-3. This pulls **three** different Docker-hub images and spins up  services:
+3. This pulls different Docker-hub images and spins up **three** services:
 
 ```
 db       - PostgreSQL database
