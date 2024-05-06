@@ -171,14 +171,24 @@ def find_property_by_uri(uri):
         response.raise_for_status()
         return None
     
+    
+def get_attr_safe(object, attribute):
 
-def first_available_attr(object, properties):
+    try:
+        if hasattr(object, attribute): 
+            return getattr(object, attribute)
+    except RuntimeError: # ifcopenshell
+        pass
 
-    for prop in properties:
+    return None
 
-        #if prop in object.__dir__():
-        if hasattr(object, prop): 
-            return getattr(object, prop)
+
+def first_available_attr(object, attributes):
+
+    for attr in attributes:
+
+        if hasattr(object, attr): 
+            return getattr(object, attr)
         
     return None
 
@@ -326,13 +336,17 @@ def perform(file_name, task_id, verbose=False):
             }
 
             # NominalValue
-            if hasattr(prop, 'NominalValue') and prop.NominalValue:
+            if get_attr_safe(prop, 'NominalValue'):
                 value = prop.NominalValue
-                property_result["property_predefined_value"] = value.wrappedValue
-                property_result["property_predefined_type"] = value.is_a()                
+                if hasattr(value, 'wrappedValue'):
+                    property_result["property_predefined_value"] = value.wrappedValue
+                    property_result["property_predefined_type"] = value.is_a()
+                elif value:
+                    property_result["property_predefined_value"] = str(value)
+                    property_result["property_predefined_type"] = str(type(value))
 
             # EnumerationValues
-            if hasattr(prop, 'EnumerationValues') and prop.EnumerationValues:
+            if get_attr_safe(prop, 'EnumerationValues'):
                 property_result["property_allowed_values"] = []
                 for enum_value in prop.EnumerationValues:
                     if hasattr(enum_value, 'wrappedValue'):
@@ -347,7 +361,7 @@ def perform(file_name, task_id, verbose=False):
                         }]
 
             # Unit
-            if hasattr(prop, 'Unit') and prop.Unit and isinstance(prop.Unit, ifcopenshell.entity_instance):
+            if get_attr_safe(prop, 'Unit') and isinstance(prop.Unit, ifcopenshell.entity_instance):
                 property_result["property_unit"] = prop.Unit.__str__()
 
             # exists in bSDD?
