@@ -208,6 +208,21 @@ def perform(file_name, task_id, verbose=False):
     
     ifc_file_classifications = ifc_file.by_type("IfcClassification")
     ifc_file_classification_references = ifc_file.by_type("IfcClassificationReference")
+
+    # no dictionary or class references --> N/A
+    if not len(ifc_file_classifications) and not len(ifc_file_classification_references):
+        
+        bsdd_results['messages'] += [{
+            "rule": 1,
+            "category": "bSDD",
+            "severity": "N/A",
+            "outcome": "Not Applicable",
+            "message": "File doesn't reference any Dictionary/Classes.",
+        }]
+
+        print(json.dumps(bsdd_results))
+        return   
+
     ifc_file_rel_associates_classifications = ifc_file.by_type("IfcRelAssociatesClassification")
     ifc_file_properties = ifc_file.by_type("IfcProperty")
     #ifc_file_property_sets = ifc_file.by_type("IfcPropertySet")
@@ -412,20 +427,6 @@ def perform(file_name, task_id, verbose=False):
     #     Assignment
     #     Properties
     #     Materials
-
-    # no dictionary or class references --> N/A
-    if not len(ifc_file_classifications) and not len(ifc_file_classification_references):
-        
-        bsdd_results['messages'] += [{
-            "rule": 1,
-            "category": "bSDD",
-            "severity": "N/A",
-            "outcome": "Not Applicable",
-            "message": "File doesn't reference any Dictionary/Classes.",
-        }]
-
-        print(json.dumps(bsdd_results))
-        return
 
     # dictionary checks    
     for dictionary in bsdd_results['dictionaries']:
