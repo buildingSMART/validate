@@ -142,7 +142,7 @@ def get_feature_description(feature_code, feature_version):
                 for line in input:
                     if 'Feature:' in line:
                         reading = True
-                    if 'Scenario:' in line or 'Background:' in line:
+                    if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
                         return gherkin_desc
                     if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line: 
                         gherkin_desc += '\n' + line.strip()
