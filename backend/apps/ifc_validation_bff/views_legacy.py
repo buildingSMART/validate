@@ -406,7 +406,6 @@ def report(request, id: str):
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SYNTAX).last()
         if task.outcomes:
             for outcome in task.outcomes.iterator():
-
                 # TODO - should we not do this in the model?
                 match = re.search('^On line ([0-9])+ column ([0-9])+(.)*', outcome.observed)                
                 mapped = {
@@ -414,7 +413,7 @@ def report(request, id: str):
                     "lineno": match.groups()[0] if match and len(match.groups()) > 0 else None,
                     "column": match.groups()[1] if match and len(match.groups()) > 1 else None,
                     "severity": outcome.severity,
-                    "msg": outcome.observed,
+                    "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
                     "task_id": outcome.validation_task_public_id
                 }
                 syntax_results.append(mapped)
