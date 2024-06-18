@@ -120,22 +120,29 @@ export default function SchemaResult({ summary, content, status, instances }) {
                             <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th></tr>
                           </thead>
                           <tbody>
-                            {
-                              rows.map((row) => {
-                                return <tr>
-                                    <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
-                                    <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
-                                    <td>{severityToLabel[row.severity]}</td>
-                                    <td><span class='pre'>{
-                                      row.feature
-                                        ? `${row.feature}\n${coerceToStr(row.msg)}`
-                                        : (row.constraint_type !== 'schema'
-                                            ? coerceToStr(row.msg).split('\n').slice(2).join('\n')
-                                            : coerceToStr(row.msg))
-                                    }</span></td>
-                                  </tr>
-                              })
-                            }
+                          {rows.map((row, rowIndex) => {
+                              return (
+                                <tr key={rowIndex}>
+                                  <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
+                                  <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
+                                  <td>{severityToLabel[row.severity]}</td>
+                                  <td>
+                                    <span className='pre'>
+                                      {row.expected && row.observed 
+                                        ? `Expected: ${coerceToStr(row.expected)}, Observed: ${coerceToStr(row.observed)}`
+                                        : (
+                                            row.feature
+                                              ? `${row.feature}\n${coerceToStr(row.msg)}`
+                                              : (row.constraint_type !== 'schema'
+                                                  ? coerceToStr(row.msg).split('\n').slice(2).join('\n')
+                                                  : coerceToStr(row.msg))
+                                          )
+                                      }
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </TreeItem>
