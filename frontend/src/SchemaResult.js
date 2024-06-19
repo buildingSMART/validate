@@ -121,6 +121,8 @@ export default function SchemaResult({ summary, content, status, instances }) {
                           </thead>
                           <tbody>
                           {rows.map((row, rowIndex) => {
+                              const featureDescription = row.feature ? row.feature.replace(/^IFC\d{3}\s*-\s*/, '') : '';
+
                               return (
                                 <tr key={rowIndex}>
                                   <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
@@ -128,11 +130,11 @@ export default function SchemaResult({ summary, content, status, instances }) {
                                   <td>{severityToLabel[row.severity]}</td>
                                   <td>
                                     <span className='pre'>
-                                      {row.expected && row.observed 
-                                        ? `Expected: ${coerceToStr(row.expected)}, Observed: ${coerceToStr(row.observed)}`
+                                      {featureDescription && row.expected && row.observed 
+                                        ? `Description: ${featureDescription} ,  Expected: ${coerceToStr(row.expected)}, Observed: ${coerceToStr(row.observed)}`
                                         : (
                                             row.feature
-                                              ? `${row.feature}\n${coerceToStr(row.msg)}`
+                                              ? `${featureDescription}\n${coerceToStr(row.msg)}`
                                               : (row.constraint_type !== 'schema'
                                                   ? coerceToStr(row.msg).split('\n').slice(2).join('\n')
                                                   : coerceToStr(row.msg))
