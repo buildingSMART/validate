@@ -65,11 +65,6 @@ INSTALLED_APPS = [
     "django_cleanup.apps.CleanupConfig"  # to automatically remove unlinked files
 ]
 
-if DEVELOPMENT:
-    INSTALLED_APPS += [
-        "debug_toolbar",
-    ]
-
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
@@ -83,8 +78,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware"
 ]
 
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
@@ -165,11 +159,6 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "core.wsgi.application"
-
-# Used by DEBUG-Toolbar 
-INTERNAL_IPS = [
-    "127.0.0.1"
-]
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

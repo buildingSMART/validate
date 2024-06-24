@@ -36,6 +36,5 @@ pydot
 numpy
 
 # dev
-django-debug-toolbar
 flake8
 deprecated
