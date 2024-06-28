@@ -1,4 +1,4 @@
-VERSION=v0.6.2
+VERSION=v0.6.4
 
 none:
 	@echo ERROR: Enter at least one target (start, start-load-balanced, start-full, start-infra-only, stop, build, rebuild, clean, fetch-modules)
