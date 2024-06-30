@@ -3,6 +3,7 @@
 **/.pytest_cache/
 **/node_modules
 **/.dev
+**/letsencrypt
 .DS_Store
 
 ### VisualStudioCode ###
