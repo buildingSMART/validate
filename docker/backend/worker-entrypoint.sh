@@ -10,13 +10,6 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! nc -z db 5432
-do
-    echo "Waiting for DB to be ready..."
-    sleep 3
-done
-echo "DB is ready."
-
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
 

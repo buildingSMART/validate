@@ -10,13 +10,6 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! nc -z db 5432
-do
-    echo "Waiting for DB to be ready..."
-    sleep 3
-done
-echo "DB is ready."
-
 python manage.py makemigrations
 python manage.py migrate
 python manage.py collectstatic --noinput
