@@ -73,7 +73,6 @@ RUN set -ex && \
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
-ADD --chmod=777 ./docker/backend/server_aio-entrypoint.sh /app/backend
 
 # RUN image
 FROM python:3.11-slim-bookworm as run

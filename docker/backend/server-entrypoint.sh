@@ -10,6 +10,13 @@ do
     echo "Waiting for server volume..."
 done
 
+while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT}
+do
+    echo "Waiting for DB to be ready..."
+    sleep 3
+done
+echo "DB is ready."
+
 python manage.py makemigrations
 python manage.py migrate
 python manage.py collectstatic --noinput

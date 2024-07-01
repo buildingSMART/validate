@@ -10,6 +10,13 @@ do
     echo "Waiting for server volume..."
 done
 
+while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT}
+do
+    echo "Waiting for DB to be ready..."
+    sleep 3
+done
+echo "DB is ready."
+
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
 
