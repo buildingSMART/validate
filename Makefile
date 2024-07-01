@@ -7,6 +7,10 @@ none:
 start:
 	docker compose -f docker-compose.yml up -d
 
+# minimal setup using an existing external database (w/o observability/scaling etc...)
+start-nodb:
+	docker compose -f docker-compose.nodb.yml up -d
+
 # typical load balanced setup (multiple workers/backend)
 start-load-balanced:
 	docker compose -f docker-compose.load_balanced.yml up -d

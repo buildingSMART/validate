@@ -10,7 +10,7 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! nc -z db 5432
+while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT}
 do
     echo "Waiting for DB to be ready..."
     sleep 3
