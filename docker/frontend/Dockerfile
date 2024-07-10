@@ -48,5 +48,3 @@ LABEL org.opencontainers.image.title="IFC Validation Service - Frontend" \
       org.opencontainers.image.licenses="MIT"
       #org.opencontainers.image.version="{$VERSION}" TODO
       #org.opencontainers.image.created="TODO"
-
-#CMD "certbot --nginx -d dev.validate.buildingsmart.org -n && ./docker-entrypoint.sh"

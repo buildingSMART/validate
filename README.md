@@ -99,7 +99,7 @@ exit
 6. Navigate to different services:
 
 - Validation Service - React UI: http://localhost
-- Django Admin UI: http://localhost/admin (or http://localhost:8000/admin) - default user/password: root/root
+- Django Admin UI: http://localhost/admin - default user/password per step 5.
 - Django API - Swagger: http://localhost/api/swagger-ui
 - Django API - Redoc: http://localhost/api/redoc
 
@@ -168,6 +168,8 @@ npm run start
 ```shell
 cd backend
 
+. .dev/venv/bin/activate
+
 DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost python3 manage.py createsuperuser --noinput
 
 DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost python3 manage.py createsuperuser --noinput
@@ -176,7 +178,7 @@ DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUS
 9. Navigate to different services:
 
 - Validation Service - React UI: http://localhost:3000
-- Django Admin UI: http://localhost:8000/admin - default user/password: root/root
+- Django Admin UI: http://localhost:8000/admin - default user/password per step 8
 - Django API - Swagger: http://localhost:8000/api/swagger-ui
 - Django API - Redoc: http://localhost:8000/api/redoc
 - Celery Flower UI: http://localhost:5555
