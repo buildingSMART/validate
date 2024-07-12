@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth import get_permission_codename
+from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
@@ -315,7 +316,7 @@ class AuthoringToolAdmin(BaseAdmin):
     list_filter = ["company", "created", "updated"]
 
 
-class UserAdmin(BaseAdmin):
+class CustomUserAdmin(UserAdmin):
 
     list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "is_superuser", "last_login", "date_joined"]
     list_filter = ['is_staff', 'is_superuser', 'is_active']
@@ -348,4 +349,4 @@ admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
 
 admin.site.unregister(User)
-admin.site.register(User, UserAdmin)
+admin.site.register(User, CustomUserAdmin)
