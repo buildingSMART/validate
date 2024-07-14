@@ -50,6 +50,7 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # copy code
 ADD ./backend /app/backend
+RUN rm -f /app/backend/.env
 
 # remove and download git submodules
 RUN set -ex && \
