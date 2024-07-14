@@ -14,6 +14,7 @@ COPY ./frontend/src ./src
 COPY ./frontend/public ./public
 COPY ./frontend/package* ./
 COPY ./frontend/.env.* ./
+COPY ./frontend/.env ./
 
 # build React app
 RUN npm install && \
@@ -48,5 +49,3 @@ LABEL org.opencontainers.image.title="IFC Validation Service - Frontend" \
       org.opencontainers.image.licenses="MIT"
       #org.opencontainers.image.version="{$VERSION}" TODO
       #org.opencontainers.image.created="TODO"
-
-#CMD "certbot --nginx -d dev.validate.buildingsmart.org -n && ./docker-entrypoint.sh"

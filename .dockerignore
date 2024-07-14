@@ -1,5 +1,4 @@
 # .dockerignore file for docker compose
-**/.env
 **/.dev
 **/.ssh
 **/.DS_Store
