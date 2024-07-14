@@ -14,6 +14,7 @@ COPY ./frontend/src ./src
 COPY ./frontend/public ./public
 COPY ./frontend/package* ./
 COPY ./frontend/.env.* ./
+COPY ./frontend/.env ./
 
 # build React app
 RUN npm install && \
