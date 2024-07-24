@@ -1,5 +1,3 @@
-VERSION=v0.6.4
-
 none:
 	@echo ERROR: Enter at least one target (start, start-load-balanced, start-full, start-infra-only, stop, build, rebuild, clean, fetch-modules)
 
@@ -36,18 +34,22 @@ rebuild: clean
 
 rebuild-frontend:
 	docker stop frontend || true
-	docker rmi --force buildingsmart/validationsvc-frontend:${VERSION}
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
 	docker compose build
 
 rebuild-backend:
 	docker stop backend || true
 	docker stop worker || true
-	docker rmi --force buildingsmart/validationsvc-backend:${VERSION}
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend' | uniq) || true
 	docker compose build
 
 clean:
-	docker compose down
-	docker image prune --force
+	docker stop backend || true
+	docker stop worker || true
+	docker stop frontend || true
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend' | uniq) || true
+	docker image prune --all --force --filter=label=org.opencontainers.image.vendor="buildingSMART.org"	
 	docker system prune --all --force --volumes --filter=label=org.opencontainers.image.vendor="buildingSMART.org"	
 
 fetch-modules:

@@ -34,7 +34,8 @@ services:
         ports:
             - 8000:8000
         environment:
-            PUBLIC_URL: ${PUBLIC_URL}
+            PUBLIC_URL: ${PUBLIC_URL} # for IAM links
+            ENV: ${ENV}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"
@@ -54,6 +55,7 @@ services:
             B2C_CLIENT_SECRET: ${B2C_CLIENT_SECRET}
             B2C_AUTHORITY: ${B2C_AUTHORITY}
             B2C_USER_FLOW: ${B2C_USER_FLOW}
+            USE_WHITELIST: ${USE_WHITELIST}
         depends_on:
             - db
             - redis
@@ -67,7 +69,8 @@ services:
         volumes:
             - files_data:/files_storage
         environment:
-            PUBLIC_URL: ${PUBLIC_URL}
+            PUBLIC_URL: ${PUBLIC_URL} # for email links
+            ENV: ${ENV}
             DEBUG: ${DEBUG}
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             CELERY_RESULT_BACKEND: "django-db"

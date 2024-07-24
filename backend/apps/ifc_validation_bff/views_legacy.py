@@ -20,7 +20,8 @@ from apps.ifc_validation_models.models import Model
 
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
-from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL, MAX_FILES_PER_UPLOAD
+from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
+from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,9 @@ def get_current_user(request):
 
         logger.info(f"Authenticated user with username = '{username}' via OAuth, user.id = {user.id}")
         return user
-    
-    elif DEVELOPMENT:
+
+    # only used for local development
+    elif DEVELOPMENT and not USE_WHITELIST:
 
         username = 'development'
         user = User.objects.all().filter(username=username).first()

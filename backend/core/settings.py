@@ -359,6 +359,9 @@ LOGOUT_URL = os.environ.get("LOGOUT_URL", f"{PUBLIC_URL}/logout")
 LOGIN_CALLBACK_URL = os.environ.get("CALLBACK_URL", f"{PUBLIC_URL}/callback")
 POST_LOGIN_REDIRECT_URL = os.environ.get("POST_LOGIN_REDIRECT_URL", f"{PUBLIC_URL}/dashboard")
 
+# whitelisting of users
+USE_WHITELIST = os.environ.get("USE_WHITELIST", False)
+
 AUTHLIB_OAUTH_CLIENTS = {
     'b2c': {
         'client_id': B2C_CLIENT_ID,
