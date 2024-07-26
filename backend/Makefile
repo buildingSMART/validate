@@ -42,10 +42,8 @@ SUBMODULE_IFC_GHERKIN_RULES=ifc_gherkin_rules
 # e.g. 'make update-submodule submodule=ifc_gherkin_rules branch=development'
 update-submodule:
 	@if [ "$(submodule)" = "$(SUBMODULE_IFC_VALIDATION_MODELS)" ]; then \
-		echo "Matches IFC Validation Models"; \
 		eval SUBMODULE_DIR=$(IFC_VALIDATION_MODELS_DIR); \
 	elif [ "$(submodule)" = "$(SUBMODULE_IFC_GHERKIN_RULES)" ]; then \
-		echo "Matches IFC Gherkin Rules"; \
 		eval SUBMODULE_DIR=$(IFC_GHERKIN_RULES_DIR); \
 	else \
 		echo "Unknown submodule '$(submodule)'. Please specify 'ifc_validation_models' or 'ifc_gherkin_rules'."; \
@@ -55,7 +53,6 @@ update-submodule:
 	if git show-ref --verify --quiet refs/heads/$(branch); then \
 		git checkout $(branch) && git pull; \
 	else \
-		echo "else reached"; \
 		git checkout $(branch) && git pull; \
 	fi
 
