@@ -24,7 +24,7 @@ fetch-modules:
 
 start-django: fetch-modules start-backend
 
-start-django-no-fetch: start-backend
+start-django-skip-fetch: start-backend
 
 start-backend:
 	. $(VIRTUAL_ENV)/bin/activate && \
