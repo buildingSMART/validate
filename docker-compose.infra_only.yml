@@ -34,7 +34,7 @@ services:
             CELERY_BROKER_URL: ${CELERY_BROKER_URL}
             TASK_COLUMNS: "name,uuid,state,args,kwargs,result,received,started,runtime,worker,retries,revoked,exception,eta"
             FLOWER_PORT: 5555
-            FLOWER_UNAUTHENTICATED_API: true
+            FLOWER_UNAUTHENTICATED_API: "true"
         ports:
             - 5555:5555
         depends_on:

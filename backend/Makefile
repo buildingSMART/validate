@@ -15,20 +15,50 @@ install: venv
 	pip install -r requirements.txt && \
     wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.0-742a9ec-linux64.zip" && \
     mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
-    unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+    unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
 	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
 	cd ./apps && \
 	git submodule update --init --recursive
 
-start-django: start-backend
+start-django: fetch-modules start-backend
+
+start-django-no-fetch: start-backend
 
 start-backend:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	python3 manage.py makemigrations && \
 	python3 manage.py migrate && \
 	python3 manage.py runserver
+
+IFC_VALIDATION_MODELS_DIR=apps/ifc_validation_models
+IFC_GHERKIN_RULES_DIR=apps/ifc_validation/checks/ifc_gherkin_rules
+
+SUBMODULE_IFC_VALIDATION_MODELS=ifc_validation_models
+SUBMODULE_IFC_GHERKIN_RULES=ifc_gherkin_rules
+
+# Update submodule and checkout specific branch
+# e.g. 'make update-submodule submodule=ifc_gherkin_rules branch=development'
+update-submodule:
+	@if [ "$(submodule)" = "$(SUBMODULE_IFC_VALIDATION_MODELS)" ]; then \
+		echo "Matches IFC Validation Models"; \
+		eval SUBMODULE_DIR=$(IFC_VALIDATION_MODELS_DIR); \
+	elif [ "$(submodule)" = "$(SUBMODULE_IFC_GHERKIN_RULES)" ]; then \
+		echo "Matches IFC Gherkin Rules"; \
+		eval SUBMODULE_DIR=$(IFC_GHERKIN_RULES_DIR); \
+	else \
+		echo "Unknown submodule '$(submodule)'. Please specify 'ifc_validation_models' or 'ifc_gherkin_rules'."; \
+		exit 1; \
+	fi; \
+	cd $$SUBMODULE_DIR && git fetch; \
+	if git show-ref --verify --quiet refs/heads/$(branch); then \
+		git checkout $(branch) && git pull; \
+	else \
+		echo "else reached"; \
+		git checkout $(branch) && git pull; \
+	fi
+
 
 start-worker:
 	. $(VIRTUAL_ENV)/bin/activate && \
