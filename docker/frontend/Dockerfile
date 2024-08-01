@@ -23,18 +23,18 @@ RUN npm install && \
     rm -rf node_modules
 
 # RUN image
-FROM nginx:1.25-alpine3.18-slim AS run
+FROM nginx:1.27-alpine3.19 AS run
 
 # install certbot
 RUN set -ex && \
     apk add --update python3 py3-pip certbot && \
-    pip install certbot certbot-nginx
+    pip install certbot certbot-nginx --break-system-packages
 
 # copy custom boot scripts
 ADD --chmod=777 ./docker/frontend/docker-entrypoint.d/ /docker-entrypoint.d/
 
-# copy default nginx config
-COPY ./docker/frontend/nginx/default.conf /etc/nginx/conf.d/default.conf
+# copy default nginx config template
+ADD --chmod=777 ./docker/frontend/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 
 # copy previously built React bundle
 COPY --from=build /app/frontend/build /app/frontend
