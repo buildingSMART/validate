@@ -23,11 +23,11 @@ RUN npm install && \
     rm -rf node_modules
 
 # RUN image
-FROM nginx:1.27-alpine3.19 AS run
+FROM nginx:1.27-alpine3.19-slim AS run
 
 # install certbot
 RUN set -ex && \
-    apk add --update python3 py3-pip certbot && \
+    apk add --update --no-cache python3 py3-pip certbot && \
     pip install certbot certbot-nginx --break-system-packages
 
 # copy custom boot scripts
