@@ -1,7 +1,7 @@
 {
     "name": "bsi-valsvc-ui",
     "description": "WebUI of the bSI Validation Service",    
-    "version": "0.6.5",
+    "version": "0.6.6",
     "author": "buildingSMART International Ltd.",
     "license": "MIT",
     "private": true,

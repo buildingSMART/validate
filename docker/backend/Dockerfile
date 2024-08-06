@@ -1,5 +1,5 @@
 # BUILD image
-FROM python:3.11-slim-bookworm as build
+FROM python:3.11-slim-bookworm AS build
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -52,31 +52,33 @@ RUN --mount=type=cache,target=/root/.cache \
 ADD ./backend /app/backend
 RUN rm -f /app/backend/.env
 
-# remove and download git submodules
+# re-add git submodules
 RUN set -ex && \
-    # *** START TEMP - keep local development version on the side - TODO: remove
+    # keep image version of submodules
     cp -r /app/backend/apps/ifc_validation/checks/ /tmp && \
     cp -r /app/backend/apps/ifc_validation_models /tmp && \
-    # *** END TEMP - keep local development version on the side - TODO: remove
+    # remove submodules
     rm -rf /app/backend/apps/ifc_validation/checks/ifc_gherkin_rules && \
     rm -rf /app/backend/apps/ifc_validation/checks/step_file_parser && \
     rm -rf /app/backend/apps/ifc_validation_models && \
+    # re-init git
     cd /app/backend/apps && \
     git init . && \
+    # add submodules (any version will do)
     git submodule add https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
     git submodule add https://github.com/IfcOpenShell/step-file-parser ./ifc_validation/checks/step_file_parser && \
     git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models && \
-    # *** START TEMP - keep local development version on the side - TODO: remove
+    # restore image version of submodules
     cp -r /tmp/checks /app/backend/apps/ifc_validation/ && \
     cp -r /tmp/ifc_validation_models /app/backend/apps/
-    # *** END TEMP - keep local development version on the side - TODO: remove
 
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
 
 # RUN image
-FROM python:3.11-slim-bookworm as run
+# NOTE: don't use Alpine images...
+FROM python:3.11-slim-bookworm AS run
 
 WORKDIR /app
 
@@ -86,11 +88,11 @@ ENV DJANGO_GUNICORN_WORKERS= \
     CELERY_CONCURRENCY=
 
 RUN set -ex && \
-    # non-root user/group
-    addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 --gid 1001 --no-create-home appuser && \
-    chown -R appuser:appgroup /app && \
-    # install and updates
+    # TODO: non-root user/group
+    # addgroup --system --gid 1001 appgroup && \
+    # adduser --system --uid 1001 --gid 1001 --no-create-home appuser && \
+    # chown -R appuser:appgroup /app && \
+    # install packages and updates
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends --no-install-suggests \
@@ -109,7 +111,6 @@ RUN set -ex && \
 # copy output from build image
 COPY --from=build /app /app
 COPY --from=build /opt/venv /opt/venv
-#COPY --from=build /usr/bin /usr/bin
 
 # activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv
