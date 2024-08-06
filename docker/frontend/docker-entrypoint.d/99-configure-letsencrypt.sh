@@ -27,5 +27,12 @@ fi
 entrypoint_log "$0: Checking nginx config";
 nginx -t
 
+# add renewal job and start crond
+echo '#!/bin/sh' > /etc/periodic/daily/certbot-renew-nginx
+echo 'certbot renew --nginx' >> /etc/periodic/daily/certbot-renew-nginx
+chmod +x /etc/periodic/daily/certbot-renew-nginx
+crond -L /var/log/crond.log -l 5
+entrypoint_log "$0: Added daily cert renewal cron job";
+
 # show nginx processes (using cat as it always returns 0)
 ps aux | grep nginx | grep process | cat
