@@ -15,7 +15,6 @@ RUN set -ex && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends --no-install-suggests \ 
         python3-dev \
-        git \
         unzip \
         wget \
         && \
@@ -52,26 +51,6 @@ RUN --mount=type=cache,target=/root/.cache \
 ADD ./backend /app/backend
 RUN rm -f /app/backend/.env
 
-# re-add git submodules
-RUN set -ex && \
-    # keep image version of submodules
-    cp -r /app/backend/apps/ifc_validation/checks/ /tmp && \
-    cp -r /app/backend/apps/ifc_validation_models /tmp && \
-    # remove submodules
-    rm -rf /app/backend/apps/ifc_validation/checks/ifc_gherkin_rules && \
-    rm -rf /app/backend/apps/ifc_validation/checks/step_file_parser && \
-    rm -rf /app/backend/apps/ifc_validation_models && \
-    # re-init git
-    cd /app/backend/apps && \
-    git init . && \
-    # add submodules (any version will do)
-    git submodule add https://github.com/buildingSMART/ifc-gherkin-rules ./ifc_validation/checks/ifc_gherkin_rules && \
-    git submodule add https://github.com/IfcOpenShell/step-file-parser ./ifc_validation/checks/step_file_parser && \
-    git submodule add https://github.com/buildingSMART/ifc-validation-data-model ./ifc_validation_models && \
-    # restore image version of submodules
-    cp -r /tmp/checks /app/backend/apps/ifc_validation/ && \
-    cp -r /tmp/ifc_validation_models /app/backend/apps/
-
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
@@ -88,19 +67,13 @@ ENV DJANGO_GUNICORN_WORKERS= \
     CELERY_CONCURRENCY=
 
 RUN set -ex && \
-    # TODO: non-root user/group
-    # addgroup --system --gid 1001 appgroup && \
-    # adduser --system --uid 1001 --gid 1001 --no-create-home appuser && \
-    # chown -R appuser:appgroup /app && \
     # install packages and updates
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends --no-install-suggests \
-        git \
         netcat-openbsd \
         procps \
         htop && \
-    #pip install --upgrade pip && \
     update-ca-certificates -f && \
     # cleanup
     apt-get -y clean && \
@@ -115,10 +88,6 @@ COPY --from=build /opt/venv /opt/venv
 # activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-
-# user to run the app
-# TODO - fix permission issues
-# USER appuser
 
 # add OCI labels
 LABEL org.opencontainers.image.title="IFC Validation Service - Backend" \
