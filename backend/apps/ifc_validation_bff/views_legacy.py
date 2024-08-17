@@ -497,7 +497,11 @@ def report(request, id: str):
     # retrieve and map bsdd results + instances
     bsdd_results = []
     if report_type == 'bsdd' and request.model:
-        
+
+        # bSDD is disabled > 404-NotFound
+        logger.warning('Note: bSDD checks/reports are disabled.')
+        return HttpResponseNotFound()
+
         logger.info('Fetching and mapping bSDD results...')
 
         # only concerned about last run of each task
@@ -527,6 +531,8 @@ def report(request, id: str):
                     instances[inst.id] = instance
 
         logger.info('Fetching and mapping bSDD done.')
+
+    
 
     response_data = {
         'instances': instances,
