@@ -500,7 +500,7 @@ def report(request, id: str):
 
         # bSDD is disabled > 404-NotFound
         logger.warning('Note: bSDD checks/reports are disabled.')
-        return HttpResponseNotFound()
+        return HttpResponseNotFound('bSDD checks are disabled')
 
         logger.info('Fetching and mapping bSDD results...')
 
@@ -531,8 +531,6 @@ def report(request, id: str):
                     instances[inst.id] = instance
 
         logger.info('Fetching and mapping bSDD done.')
-
-    
 
     response_data = {
         'instances': instances,
