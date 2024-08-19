@@ -114,12 +114,13 @@ const headCells = [
     align: 'center',
     tooltip: 'Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid'
   },
-  {
-    id: 'bsdd',
-    label: 'bSDD Compliance',
-    width: 100,
-    align: 'center'
-  },
+  // disabled bSDD
+  // {
+  //   id: 'bsdd',
+  //   label: 'bSDD Compliance',
+  //   width: 100,
+  //   align: 'center'
+  // },
   {
     id: 'date',
     label: 'Date',
@@ -401,9 +402,9 @@ export default function DashboardTable({ models }) {
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}
                   </TableCell>
-                  <TableCell align="center">
+                  {/* <TableCell align="center">
                     {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}
-                  </TableCell>
+                  </TableCell> */}
                 
                   {
                     // (row.progress == 100) ?

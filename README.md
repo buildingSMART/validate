@@ -34,10 +34,10 @@ https://github.com/buildingSMART/ifc-validation-data-model
 
 The application supports multiple validation checks on one or multiple IFC files that can be run separately:
 
-- bSDD Check
 - Syntax Check
 - Schema Check
 - Gherkin-Rules Check
+- bSDD Check (disabled)
 
 # How to start?
 

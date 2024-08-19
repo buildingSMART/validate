@@ -165,7 +165,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 
     parallel_tasks = group([
         schema_validation_subtask.s(id, file_name),
-        bsdd_validation_subtask.s(id, file_name),
+        #bsdd_validation_subtask.s(id, file_name), # disabled
         normative_rules_ia_validation_subtask.s(id, file_name),
         normative_rules_ip_validation_subtask.s(id, file_name),
         industry_practices_subtask.s(id, file_name)

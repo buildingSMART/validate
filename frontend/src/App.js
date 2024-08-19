@@ -148,7 +148,7 @@ function App() {
 
                     <ul>
                         <li><b>Industry Practices</b> Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid. Therefore, any issues identified result in warnings rather than errors</li>
-                        <li><b>bSDD Compliance</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD</li>
+                        <li><b>bSDD Compliance (disabled)</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD</li>
                     </ul>
 
                     </Typography>
