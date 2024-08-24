@@ -9,4 +9,4 @@
 [submodule "backend/apps/ifc_validation_models"]
 	path = backend/apps/ifc_validation_models
 	url = https://github.com/buildingSMART/ifc-validation-data-model
-	branch = main
+	branch = development
