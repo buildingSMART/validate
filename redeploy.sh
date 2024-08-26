@@ -1,5 +1,7 @@
+#!/bin/sh
+
+git pull
+make fetch-modules
 sudo make stop
-sudo make fetch-modules && git pull
-sudo make fetch-modules
 sudo make rebuild
 sudo make start

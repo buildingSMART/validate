@@ -1,8 +1,11 @@
-git submodule foreach --recursive git rev-parse HEAD
-echo "Remote origin for 'ifc_gherkin_rules'"
-cd ./backend/apps/ifc_validation/checks/ifc_gherkin_rules && git remote get-url origin
-echo "HEAD of 'ifc_gherkin_rules"
-git rev-parse --short HEAD
-echo "HEAD of 'validate'" 
-cd ../../../..
-git rev-parse --short HEAD
+#!/bin/sh
+
+echo ''
+echo "*** Validate repository"
+echo "Remote URL :" $(git remote get-url origin)
+echo "Branch     :" $(git rev-parse --abbrev-ref HEAD)
+echo "HEAD       :" $(git rev-parse --short HEAD)
+
+echo ''
+echo "*** Submodules"
+git submodule foreach --recursive 'echo "Remote URL : $(git remote get-url origin)" && echo "Branch     : $(git rev-parse --abbrev-ref HEAD)" && echo "HEAD       : $(git rev-parse --short HEAD)" && echo ""'
