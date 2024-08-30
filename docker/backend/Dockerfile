@@ -49,7 +49,7 @@ RUN --mount=type=cache,target=/root/.cache \
 
 # copy code
 ADD ./backend /app/backend
-RUN rm -f /app/backend/.env
+RUN rm -f /app/backend/.env || true
 
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
@@ -86,8 +86,15 @@ COPY --from=build /app /app
 COPY --from=build /opt/venv /opt/venv
 
 # activate virtual environment
-ENV VIRTUAL_ENV=/opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+# build info
+ARG VERSION
+ARG GIT_COMMIT_HASH
+
+ENV VERSION=${VERSION} \
+    GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
 
 # add OCI labels
 LABEL org.opencontainers.image.title="IFC Validation Service - Backend" \
@@ -96,6 +103,6 @@ LABEL org.opencontainers.image.title="IFC Validation Service - Backend" \
       org.opencontainers.image.vendor="buildingSMART.org" \
       org.opencontainers.image.documentation="https://github.com/buildingSMART/validate" \
       org.opencontainers.image.url="https://github.com/buildingSMART/validate" \
-      org.opencontainers.image.licenses="MIT"
-      #org.opencontainers.image.version="{$VERSION}" TODO
-      #org.opencontainers.image.created="TODO"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT_HASH}"

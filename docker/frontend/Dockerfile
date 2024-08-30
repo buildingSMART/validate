@@ -14,7 +14,12 @@ COPY ./frontend/src ./src
 COPY ./frontend/public ./public
 COPY ./frontend/package* ./
 COPY ./frontend/.env.* ./
-COPY ./frontend/.env ./
+
+# build info
+ARG VERSION
+ARG GIT_COMMIT_HASH
+ENV VERSION=${VERSION} \
+    GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
 
 # build React app
 RUN npm install && \
@@ -39,13 +44,21 @@ ADD --chmod=777 ./docker/frontend/nginx/default.conf.template /etc/nginx/templat
 # copy previously built React bundle
 COPY --from=build /app/frontend/build /app/frontend
 
+# build date & version info
+ARG VERSION
+ARG GIT_COMMIT_HASH
+
+ENV VERSION=${VERSION}
+ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
+
 # add OCI labels
-LABEL org.opencontainers.image.title="IFC Validation Service - Frontend" \
+LABEL maintainer="buildingSMART.org" \
+      org.opencontainers.image.title="IFC Validation Service - Frontend" \
       org.opencontainers.image.description="Frontend for the buildingSMART IFC Validation Service" \
       org.opencontainers.image.authors="buildingSMART.org" \
       org.opencontainers.image.vendor="buildingSMART.org" \
       org.opencontainers.image.documentation="https://github.com/buildingSMART/validate" \
       org.opencontainers.image.url="https://github.com/buildingSMART/validate" \
-      org.opencontainers.image.licenses="MIT"
-      #org.opencontainers.image.version="{$VERSION}" TODO
-      #org.opencontainers.image.created="TODO"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT_HASH}"
