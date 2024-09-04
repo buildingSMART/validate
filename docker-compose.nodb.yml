@@ -2,7 +2,7 @@ services:
 
     # Frontend - React + nginx + Certbot
     frontend:
-        image: buildingsmart/validationsvc-frontend:${VERSION}
+        image: buildingsmart/validationsvc-frontend
         build:
             context: .
             dockerfile: ./docker/frontend/Dockerfile
@@ -23,7 +23,7 @@ services:
 
     # Backend - Django
     backend:
-        image: buildingsmart/validationsvc-backend:${VERSION}
+        image: buildingsmart/validationsvc-backend
         build:
             context: .
             dockerfile: ./docker/backend/Dockerfile
@@ -64,7 +64,7 @@ services:
 
     # Worker - Celery worker + beat
     worker:
-        image: buildingsmart/validationsvc-backend:${VERSION}
+        image: buildingsmart/validationsvc-backend
         entrypoint: /app/backend/worker-entrypoint.sh
         restart: unless-stopped
         container_name: worker
