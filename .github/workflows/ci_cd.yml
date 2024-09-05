@@ -11,9 +11,6 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github/**'
-  pull_request:
-    branches:
-      - development
   workflow_dispatch:
 
 jobs:
