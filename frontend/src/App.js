@@ -7,9 +7,10 @@ import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
 import SideMenu from './SideMenu';
 import VerticalLinearStepper from './VerticalLinearStepper'
+import FeedbackWidget from './FeedbackWidget';
 
 import { useEffect, useState } from 'react';
-import { FETCH_PATH } from './environment'
+import { FETCH_PATH } from './environment';
 
 import {PageContext} from './Page';
 import { useContext } from 'react';
@@ -23,7 +24,7 @@ function App() {
   const [user, setUser] = useState(null)
 
   const [prTitle, setPrTitle] = useState("")
- 
+
   useEffect(() => {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
       .then(response => response.json())
@@ -43,6 +44,7 @@ function App() {
 
   document.body.style.overflow = "hidden";
   if (isLoggedIn) {
+
     return (
       <div class="home">
         <Grid direction="column"
@@ -59,7 +61,7 @@ function App() {
             }}
           >
             <SideMenu />
-            
+
             <Grid
               container
               flex={1}
@@ -124,7 +126,7 @@ function App() {
                       <VerticalLinearStepper />
                     </Box>
                   </Box>
-                    
+
                   <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 5em', boxSizing: 'border-box', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
                     <Typography style={{fontWeight: 'bold'}} sx={{paddingTop: '2em'}}>What it is</Typography>
                     <Typography align='left' paragraph>The bSI Validation Service is a free, online platform for validating IFC files, developed by buildingSMART – with the help of software vendors and bSI projects.</Typography>
@@ -163,10 +165,13 @@ function App() {
 
                     <Footer/>
                   </div>
-                
+
                 </Grid>
               </div>
             </Grid>
+
+            <FeedbackWidget user={user} />
+
           </Grid>
         </Grid>
       </div>
