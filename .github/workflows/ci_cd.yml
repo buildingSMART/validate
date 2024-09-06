@@ -11,6 +11,9 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github/**'
+  pull_request:
+    branches:
+      - development
   workflow_dispatch:
 
 jobs:
@@ -94,6 +97,7 @@ jobs:
     
     name: deploy to server
     needs: [build_frontend, build_backend]
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
       name: development
