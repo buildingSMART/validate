@@ -2,7 +2,8 @@ import Dz from './Dz'
 import ResponsiveAppBar from './ResponsiveAppBar'
 import DashboardTable from './DashboardTable'
 import Disclaimer from './Disclaimer';
-import Footer from './Footer'
+import Footer from './Footer';
+import FeedbackWidget from './FeedbackWidget';
 import Grid from '@mui/material/Grid';
 import VerticalLinearStepper from './VerticalLinearStepper'
 import Button from '@mui/material/Button';
@@ -126,6 +127,9 @@ function Dashboard() {
               </div>
             </Grid>
           </Grid>
+
+          <FeedbackWidget user={user} />
+
         </Grid>
       </div>
     );

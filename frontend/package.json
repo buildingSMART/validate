@@ -1,6 +1,6 @@
 {
     "name": "bsi-valsvc-ui",
-    "description": "WebUI of the bSI Validation Service",    
+    "description": "WebUI of the bSI Validation Service",
     "author": "buildingSMART International Ltd.",
     "license": "MIT",
     "private": true,
@@ -15,6 +15,7 @@
         "@testing-library/jest-dom": "^5.16.5",
         "@testing-library/react": "^13.4.0",
         "@testing-library/user-event": "^13.5.0",
+        "@typeform/embed-react": "^4.1.0",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-router-dom": "^6.4.3",
