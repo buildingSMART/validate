@@ -10,8 +10,8 @@ function FeedbackWidget({ user }) {
         id="cttcZ07p"
         medium="bsi-validation-service"
         hidden={{
-            version: { VERSION },
-            commit_hash: { COMMIT_HASH },
+            version: VERSION,
+            commit_hash: COMMIT_HASH,
             user: user["email"]
         }}
         buttonText="Share feedback"
