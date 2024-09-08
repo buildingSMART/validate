@@ -32,6 +32,13 @@ function unsafe_format(obj) {
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`
     return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
+  } else if (typeof obj== 'object' && 'num_digits' in obj) {
+    // custom formatting for calculated alignment consistency (e.g. ALS016, ALS017, ALS018)
+    console.log(`object is ${obj.expected}`);
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`
+    let value = obj.expected || obj.observed;
+    let display_value = value.toExponential(obj.num_digits);
+    return <div>{ctx} {display_value}</div>
   } else {
     return JSON.stringify(obj);
   }
