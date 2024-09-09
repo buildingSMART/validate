@@ -184,7 +184,7 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
   return (
     <Toolbar
       sx={{
-        pl: { sm: 2 },
+        pl: { sm: 1 },
         pr: { xs: 1, sm: 1 },
         backgroundColor: "none",
         ...(numSelected > 0 && {
@@ -193,26 +193,6 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
         }),
       }}
     >
-      {numSelected > 0 ? (
-        <Typography
-          sx={{ flex: '1 1 100%' }}
-          color="inherit"
-          variant="subtitle1"
-          component="div"
-        >
-          {numSelected} selected
-        </Typography>
-      ) : (
-        <Typography
-          sx={{ flex: '1 1 100%' }}
-          variant="h6"
-          id="tableTitle"
-          component="div"
-        >
-
-        </Typography>
-      )}
-
       {numSelected > 0 && (
         <Tooltip title="Delete">
           <IconButton onClick={onDelete}>
@@ -226,6 +206,25 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
             <ReplayIcon />
           </IconButton>
         </Tooltip>)} */}
+
+      {numSelected > 0 ? (
+        <Typography
+          //sx={{ flex: '1 1 100%' }}
+          color="inherit"
+          variant="subtitle1"
+          component="div"
+        >
+          {numSelected} selected
+        </Typography>
+      ) : (
+        <Typography
+          // sx={{ flex: '1 1 100%' }}
+          variant="h6"
+          id="tableTitle"
+          component="div"
+        />
+      )}
+      
     </Toolbar>
   );
 }
