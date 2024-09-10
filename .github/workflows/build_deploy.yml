@@ -82,8 +82,13 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ifcopenshell # TEMP workaround
-          
+          # use version of ifcopenshell with desired schema parsing
+          # TODO: revert to pyPI when schema parsing is published in the future
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.9-c18e4ea-linux64.zip"
+          mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
+          unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	        rm /tmp/ifcopenshell_python.zip
+
       - name: Check Django config
         run: |
           cd backend
@@ -96,38 +101,40 @@ jobs:
           source venv/bin/activate
           python3 manage.py test
 
-  # note: duplicate deploy tasks per environment (else unable to access environment secrets)
-  deploy_dev:
+  deploy:
     
-    if: ${{ inputs.environment == 'development' }}
-    name: deploy to server (dev)
+    name: deploy to server (${{ inputs.environment }})
     needs: [build_frontend, build_backend]
     runs-on: ubuntu-latest
     environment:
-      name: development
+      name: ${{ inputs.environment }}
      
     steps:
-      - name: Set up SSH key        
+      - name: Configure SSH
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/ssh_host.key
+          chmod 600 ~/.ssh/ssh_host.key
+          cat >>~/.ssh/config <<END
+          Host ssh_host
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/ssh_host.key
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_USER: ${{ secrets.SSH_USERNAME }}
+          SSH_KEY: ${{ secrets.SSH_PRIV_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
   
-      - name: Install sshpass
-        run: sudo apt-get install sshpass
-        
       - name: Stop Docker containers
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make stop
-          ENDSSH
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
+          sudo make stop'      
           
       - name: Fetch sources & submodules
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
           git checkout -q ${{ inputs.branch }} && git pull
           sudo make fetch-modules
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ inputs.branch }} && git pull
@@ -135,117 +142,47 @@ jobs:
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
           cd ${{ vars.REPO_CLONE_PATH }}
-          ./check-submodules.sh
-          ENDSSH
+          ./check-submodules.sh'
+
+      - name: Check local changes
+        run: |
+           ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
+           if [ -z "$(git status --porcelain)" ]; then 
+             echo "No local changes"
+           else
+             echo "ERROR: There are local changes in ${{ inputs.environment }}"
+             git status --porcelain
+             exit -1
+           fi'
 
       - name: Show repo & git status
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
           echo "*** Validate repository"
           git remote get-url origin && git rev-parse --abbrev-ref HEAD && git rev-parse --short HEAD
           echo "*** git status"
-          git status
-          ENDSSH
+          git status'
+
+      - name: Show submodule status
+        run: |
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }} && \
+          ./check-submodules.sh'
 
       - name: Set VERSION
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
           COMMIT_HASH=$(git rev-parse --short HEAD)
           VERSION="${{ vars.VERSION }}"
           echo "Set VERSION to ${VERSION}"
-          echo "Commit hash ${COMMIT_HASH}"
-          echo "${VERSION}" > .VERSION          
-          ENDSSH
+          echo "Set COMMIT_HASH to ${COMMIT_HASH}"
+          echo "${VERSION}" > .VERSION'
           
       - name: Build Docker images
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make rebuild
-          ENDSSH
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
+          sudo make rebuild'
           
       - name: Start Docker containers
         run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d
-          ENDSSH
-
-  # note: duplicate deploy tasks per environment (else unable to access environment secrets)
-  deploy_prod:
-    
-    if: ${{ inputs.environment == 'production' }}
-    name: deploy to server (prd)
-    needs: [build_frontend, build_backend]
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-     
-    steps:
-      - name: Set up SSH key        
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-  
-      - name: Install sshpass
-        run: sudo apt-get install sshpass
-        
-      - name: Stop Docker containers
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make stop
-          ENDSSH
-          
-      - name: Fetch sources & submodules
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          git checkout -q ${{ inputs.branch }} && git pull
-          sudo make fetch-modules
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ inputs.branch }} && git pull
-          cd ./ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}
-          ./check-submodules.sh
-          ENDSSH
-      
-      - name: Show repo & git status
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          echo "*** Validate repository"
-          git remote get-url origin && git rev-parse --abbrev-ref HEAD && git rev-parse --short HEAD
-          echo "*** git status"
-          git status
-          ENDSSH
-
-      - name: Set VERSION
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION="${{ vars.VERSION }}"
-          echo "Set VERSION to ${VERSION}"
-          echo "Commit hash ${COMMIT_HASH}"
-          echo "${VERSION}" > .VERSION          
-          ENDSSH
-          
-      - name: Build Docker images
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make rebuild
-          ENDSSH
-          
-      - name: Start Docker containers
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d
-          ENDSSH
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
+          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d'
