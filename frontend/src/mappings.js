@@ -28,7 +28,7 @@ export const severityToStatus =
 export const severityToLabel = 
 {
     0: "N/A",
-    1: "Executed",
+    1: "Applicable",
     2: "Passed",
     3: "Warning",
     4: "Error",
