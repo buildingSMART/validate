@@ -140,13 +140,7 @@ jobs:
         run: |
           ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
           git checkout -q ${{ inputs.branch }} && git pull
-          sudo make fetch-modules
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ inputs.branch }} && git pull
-          cd ./ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}
-          ./check-submodules.sh'
+          sudo make fetch-modules'
 
       - name: Check local changes
         run: |
@@ -158,6 +152,16 @@ jobs:
              git status --porcelain
              exit -1
            fi'
+
+      - name: Checkout correct branches
+        run: |
+          ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ inputs.branch }} && git pull
+          cd ./ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ inputs.branch }} && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}
+          ./check-submodules.sh'
 
       - name: Show repo & git status
         run: |
