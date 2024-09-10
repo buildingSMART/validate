@@ -82,12 +82,16 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Install ifcopenshell package (temp)
+        run: |
+          cd backend
+          source venv/bin/activate
           # use version of ifcopenshell with desired schema parsing
           # TODO: revert to pyPI when schema parsing is published in the future
           wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.9-c18e4ea-linux64.zip"
-          mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-          unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
-          rm /tmp/ifcopenshell_python.zip
+          mkdir -p /opt/venv/lib/python3.11/site-packages
+          unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
       - name: Check Django config
         run: |
