@@ -12,6 +12,7 @@ on:
         options:
           - main
           - development
+          - release/0.6.6
 
       environment:
         description: 'Environment to (re)deploy to'
