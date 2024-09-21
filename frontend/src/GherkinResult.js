@@ -103,7 +103,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
       ]
     }
 
-    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature);
+    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
     
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
