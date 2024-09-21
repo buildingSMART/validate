@@ -30,7 +30,7 @@ At this time the service will only accept non-zipped STEP physical files having 
 
 ### Color codes and icons
 
-```{image} ../_static/user_results_icons.png
+```{image} ../_static/user_results_icons_no_bSDD.png
 :alt: Color codes and icons displayed by the service
 :scale: 80 %
 :align: center

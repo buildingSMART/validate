@@ -63,5 +63,7 @@ Therefore, any issues identified result in warnings rather than errors.
 
 ### buildingSMART Data Dictionary (bSDD) Compliance
 
-This step includes checking whether references to classifications and properties from bSDD
-found in an IFC file comply the source definitions in bSDD.
+```{note}
+bSDD Checks are temporarily disabled as of v0.6.6.
+```
+
