@@ -27,29 +27,46 @@ stop:
 	docker compose down
 
 build:
-	docker compose build
+	docker compose build \
+	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
+	--build-arg VERSION="$$(cat .VERSION)"
 
 rebuild: clean
-	docker compose build --no-cache
+	docker compose build --no-cache \
+	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
+	--build-arg VERSION="$$(cat .VERSION)"
 
 rebuild-frontend:
 	docker stop frontend || true
-	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
-	docker compose build
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
+	docker compose build \
+	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
+	--build-arg VERSION="$$(cat .VERSION)"
 
 rebuild-backend:
 	docker stop backend || true
 	docker stop worker || true
-	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend' | uniq) || true
-	docker compose build
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
+	docker compose build \
+	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
+	--build-arg VERSION="$$(cat .VERSION)"
 
 clean:
 	docker stop backend || true
 	docker stop worker || true
 	docker stop frontend || true
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
+	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
+	docker image prune --all --force --filter=label=org.opencontainers.image.vendor="buildingSMART.org"
+	docker system prune --all --force --volumes --filter=label=org.opencontainers.image.vendor="buildingSMART.org"	
+
+clean-all:
+	docker stop backend || true
+	docker stop worker || true
+	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend' | uniq) || true
-	docker image prune --all --force --filter=label=org.opencontainers.image.vendor="buildingSMART.org"	
+	docker image prune --all --force --filter=label=org.opencontainers.image.vendor="buildingSMART.org"
 	docker system prune --all --force --volumes --filter=label=org.opencontainers.image.vendor="buildingSMART.org"	
 
 fetch-modules:

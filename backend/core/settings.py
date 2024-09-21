@@ -36,6 +36,9 @@ STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
+# URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)
+FEATURE_URL = os.getenv('FEATURE_URL', 'https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/')
+
 ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost", "backend"]
 
 if os.environ.get("DJANGO_ALLOWED_HOSTS") is not None:

@@ -165,7 +165,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 
     parallel_tasks = group([
         schema_validation_subtask.s(id, file_name),
-        bsdd_validation_subtask.s(id, file_name),
+        #bsdd_validation_subtask.s(id, file_name), # disabled
         normative_rules_ia_validation_subtask.s(id, file_name),
         normative_rules_ip_validation_subtask.s(id, file_name),
         industry_practices_subtask.s(id, file_name)
@@ -568,7 +568,15 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
             task.mark_as_failed(err)
             raise
 
-        output = list(filter(None, proc.stdout.split("\n")))
+        # schema check returns either multiple JSON lines, or a single line message, or nothing.        
+        def is_schema_error(line):
+            try:
+                json.loads(line) # ignoring non-JSON messages
+            except ValueError:
+                return False
+            return True
+        
+        output = list(filter(is_schema_error, proc.stdout.split("\n")))
         # success = (len(output) == 0)
         # tfk: if we mark this task as failed we don't do the instance population either.
         # marking as failed should probably be reserved for blocking errors (prerequisites)

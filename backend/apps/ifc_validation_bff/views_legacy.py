@@ -22,6 +22,7 @@ from apps.ifc_validation.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
 from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
+from core.settings import FEATURE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -96,16 +97,10 @@ def file_contains_string(file_name, fragment):
     return False
 
 
-@functools.lru_cache(maxsize=16)
-def get_remote_base_url(folder):
-
-    git_remote = subprocess.check_output(['git', 'remote', 'get-url', 'origin'], cwd=folder).decode('ascii').split('\n')[0]
-    git_blob = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=folder).decode('ascii').split('\n')[0]
-    return f'{git_remote}/tree/{git_blob}'
-
-
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code, feature_version):
+
+    # TODO - fetch remote/sha based on code/version; for now we point to main repo (configurable)
 
     file_folder = os.path.dirname(os.path.realpath(__file__))
     feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
@@ -116,7 +111,7 @@ def get_feature_url(feature_code, feature_version):
         version_tag = f'@version{feature_version}'
         
         if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-                return get_remote_base_url(feature_folder) + '/features/' + file_name
+            return FEATURE_URL + file_name
     
     return None
 
@@ -502,7 +497,11 @@ def report(request, id: str):
     # retrieve and map bsdd results + instances
     bsdd_results = []
     if report_type == 'bsdd' and request.model:
-        
+
+        # bSDD is disabled > 404-NotFound
+        logger.warning('Note: bSDD checks/reports are disabled.')
+        return HttpResponseNotFound('bSDD checks are disabled')
+
         logger.info('Fetching and mapping bSDD results...')
 
         # only concerned about last run of each task

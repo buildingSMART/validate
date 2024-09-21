@@ -1,8 +1,8 @@
 services:
 
-    # Frontend - React + nginx
+    # Frontend - React + nginx + Certbot
     frontend:
-        image: buildingsmart/validationsvc-frontend:${VERSION}
+        image: buildingsmart/validationsvc-frontend
         build:
             context: .
             dockerfile: ./docker/frontend/Dockerfile
@@ -12,6 +12,9 @@ services:
         ports:
             - 80:80
             - 443:443
+        environment:
+            CERTBOT_DOMAIN: ${CERTBOT_DOMAIN}
+            CERTBOT_EMAIL: ${CERTBOT_EMAIL}
         volumes:
             - ./docker/frontend/letsencrypt:/etc/letsencrypt
             - static_data:/app/backend/django_static
@@ -20,7 +23,7 @@ services:
 
     # Backend - Django
     backend:
-        image: buildingsmart/validationsvc-backend:${VERSION}
+        image: buildingsmart/validationsvc-backend
         build:
             context: .
             dockerfile: ./docker/backend/Dockerfile
@@ -62,7 +65,11 @@ services:
 
     # Worker - Celery worker + beat
     worker:
-        image: buildingsmart/validationsvc-backend:${VERSION}
+        image: buildingsmart/validationsvc-backend
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
         entrypoint: /app/backend/worker-entrypoint.sh
         restart: unless-stopped
         container_name: worker

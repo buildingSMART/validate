@@ -31,6 +31,7 @@ pyparsing
 behave
 pytest
 pydantic
+pyspellchecker
 requests
 pydot
 numpy

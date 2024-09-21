@@ -5,6 +5,9 @@
 **/.dev
 **/letsencrypt
 .DS_Store
+.env.*
+redeploy.*
+.VERSION
 
 ### VisualStudioCode ###
 .vscode/*
