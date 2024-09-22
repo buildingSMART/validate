@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Data validation is a key component of openBIM(r) workflows.
+Data validation is a key component of openBIM<sup>&reg;</sup> workflows.
 The IFC Validation Services allows users to check the validity of their IFC models
 against the IFC standard.
 
