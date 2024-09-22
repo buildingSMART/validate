@@ -6,3 +6,8 @@
 :heading-offset: 0
 :relative-images:
 ```
+
+```{include} ./normative-rules/ALS016.md
+:heading-offset: 0
+:relative-images:
+```
