@@ -1,0 +1,102 @@
+name: Sync Submodules (CI/CD)
+  
+# Checks, aligns and updates all submodules for development and main branches.
+#
+# Changes are triggered via repository_dispatch events in the submodule repositories:
+#
+#   - ifc-gherkin-rules
+#   - ifc-validation-data-model
+
+on: repository_dispatch
+  
+jobs:
+
+  on_dispatch:
+    name: On Dispatch
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Log received event
+        run: ${{ tojson(github.event) }}
+        shell: cat {0}
+
+      - name: Dispatch from ifc-gherkin-rules (development)
+        run: echo "ifc-gherkin-rules (development branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-gherkin-rules' && github.event.client_payload.branch == 'development' }}
+        
+      - name: Dispatch from ifc-validation-data-model (development)
+        run: echo "ifc-validation-data-model (development branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-validation-data-model' && github.event.client_payload.branch == 'development' }}
+
+      - name: Dispatch from ifc-gherkin-rules (main)
+        run: echo "ifc-gherkin-rules (main branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-gherkin-rules' && github.event.client_payload.branch == 'main' }}
+        
+      - name: Dispatch from ifc-validation-data-model (main)
+        run: echo "ifc-validation-data-model (main branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-validation-data-model' && github.event.client_payload.branch == 'main' }}
+
+      - name: Checkout sources & submodules
+        run: |
+          cd ${{ github.workspace }}
+          git clone ${{ github.event.repository.clone_url }} .
+          git fetch && git pull
+          git checkout -q ${{ github.event.client_payload.branch }}
+          git submodule update --init --recursive
+          git submodule update --remote
+          
+      - name: Fetch latest submodule - ifc_gherkin_rules
+        run: |
+          cd ${{ github.workspace }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules 
+          git checkout -q ${{ github.event.client_payload.branch }}
+          
+      - name: Fetch latest submodule - step_file_parser
+        run: |
+          cd ${{ github.workspace }}/backend/apps/ifc_validation/checks/step_file_parser 
+          git checkout -B master # note: only using master branch for now          
+          
+      - name: Fetch latest submodule - ifc-validation-models
+        run: |
+          cd ${{ github.workspace }}/backend/apps/ifc_validation_models
+          git checkout -q ${{ github.event.client_payload.branch }}
+          
+      - name: Show submodule status
+        run: |
+          cd ${{ github.workspace }}
+          git submodule foreach --recursive "git remote get-url origin && git rev-parse --abbrev-ref HEAD && git rev-parse --short HEAD && echo $''"
+          
+      - name: Show repo status
+        run: |
+          cd ${{ github.workspace }}
+          echo "Validate repository"
+          git remote get-url origin && git rev-parse --abbrev-ref HEAD && git rev-parse --short HEAD
+          
+      - name: Add changes
+        run: |
+          cd ${{ github.workspace }}
+          git add backend/apps/ifc_validation/checks/ifc_gherkin_rules
+          git add backend/apps/ifc_validation/checks/step_file_parser
+          git add backend/apps/ifc_validation_models
+          
+      - name: Show git status (pre)
+        run: |
+          cd ${{ github.workspace }}
+          git status
+          
+      - name: Commit changes (if any)
+        run: |
+          cd ${{ github.workspace }}
+          if [ -n "$(git status --porcelain)" ]; then            
+            git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}
+            git config --local user.name 'github-actions[bot]'
+            git config --local user.email 'github-actions[bot]@users.noreply.github.com'
+            git commit -am "Update of submodules (bSI-Bot via GH action)"
+            git push origin ${{ github.event.client_payload.branch }}
+          else
+            echo 'No changes to commit'
+          fi
+          
+      - name: Show git status (post)
+        run: |
+          cd ${{ github.workspace }}
+          git status
