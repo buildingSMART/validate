@@ -11,6 +11,8 @@ import HomeIcon from '@mui/icons-material/Home';
 import CheckIcon from '@mui/icons-material/Check';
 import Divider from '@mui/material/Divider';
 
+import { VERSION, COMMIT_HASH } from './environment';
+
 import { PageContext } from './Page';
 import { useContext } from 'react';
 
@@ -48,7 +50,7 @@ export default function SideMenu() {
                 <Divider />
                     <ListItem key={"test"} disablePadding>
                         <ListItemButton>
-                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} v0.6.0-alpha`} />
+                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} ${VERSION || ''} ${COMMIT_HASH ? ' - #' + COMMIT_HASH : ''}`} />
                         </ListItemButton>
                     </ListItem>
                 </List>

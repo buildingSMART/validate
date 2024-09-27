@@ -7,15 +7,16 @@ none:
 	@echo
 
 venv:
-	test -d $(VIRTUAL_ENV) || python3 -m venv $(VIRTUAL_ENV)
+	test -d $(VIRTUAL_ENV) || python3.11 -m venv $(VIRTUAL_ENV)
 
 install: venv
 	. $(VIRTUAL_ENV)/bin/activate && \
 	pip install --upgrade pip && \
 	pip install -r requirements.txt && \
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.0-742a9ec-linux64.zip" && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.9-c18e4ea-linux64.zip" && \
     mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
-    unzip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+    unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
 	cd ./apps && \
@@ -56,10 +57,6 @@ test-models:
 test-tasks:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_tasks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
-
-test-checks:
-	. $(VIRTUAL_ENV)/bin/activate && \
-	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_checks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 clean:
 	rm -rf .dev

@@ -10,10 +10,11 @@ import SchemaResult from './SchemaResult';
 import BsddTreeView from './BsddTreeView';
 import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
+import FeedbackWidget from './FeedbackWidget';
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 
 import { useEffect, useState, useContext } from 'react';
-import { FETCH_PATH } from './environment';
+import { FETCH_PATH } from './environment'
 import { PageContext } from './Page';
 import HandleAsyncError from './HandleAsyncError';
 
@@ -162,7 +163,8 @@ function Report({ kind }) {
                         {(kind === "bsdd") && <BsddTreeView 
                           status={reportData.model.status_bsdd} 
                           summary={"bSDD Compliance"} 
-                          bsddResults={reportData.results.bsdd_results} />}
+                          content={[...reportData.results.bsdd_results]}
+                          instances={reportData.instances} />}
 
                         {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
@@ -189,6 +191,9 @@ function Report({ kind }) {
               </div>
             </Grid>
           </Grid>
+
+          <FeedbackWidget user={user} />
+          
         </Grid>
       </div>
     );

@@ -20,7 +20,9 @@ from apps.ifc_validation_models.models import Model
 
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
-from core.settings import MEDIA_ROOT, DEVELOPMENT, LOGIN_URL, MAX_FILES_PER_UPLOAD
+from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
+from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
+from core.settings import FEATURE_URL
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +43,9 @@ def get_current_user(request):
 
         logger.info(f"Authenticated user with username = '{username}' via OAuth, user.id = {user.id}")
         return user
-    
-    elif DEVELOPMENT:
+
+    # only used for local development
+    elif DEVELOPMENT and not USE_WHITELIST:
 
         username = 'development'
         user = User.objects.all().filter(username=username).first()
@@ -94,16 +97,10 @@ def file_contains_string(file_name, fragment):
     return False
 
 
-@functools.lru_cache(maxsize=16)
-def get_remote_base_url(folder):
-
-    git_remote = subprocess.check_output(['git', 'remote', 'get-url', 'origin'], cwd=folder).decode('ascii').split('\n')[0]
-    git_blob = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=folder).decode('ascii').split('\n')[0]
-    return f'{git_remote}/tree/{git_blob}'
-
-
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code, feature_version):
+
+    # TODO - fetch remote/sha based on code/version; for now we point to main repo (configurable)
 
     file_folder = os.path.dirname(os.path.realpath(__file__))
     feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
@@ -114,7 +111,7 @@ def get_feature_url(feature_code, feature_version):
         version_tag = f'@version{feature_version}'
         
         if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-                return get_remote_base_url(feature_folder) + '/features/' + file_name
+            return FEATURE_URL + file_name
     
     return None
 
@@ -142,7 +139,7 @@ def get_feature_description(feature_code, feature_version):
                 for line in input:
                     if 'Feature:' in line:
                         reading = True
-                    if 'Scenario:' in line or 'Background:' in line:
+                    if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
                         return gherkin_desc
                     if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line: 
                         gherkin_desc += '\n' + line.strip()
@@ -406,7 +403,6 @@ def report(request, id: str):
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SYNTAX).last()
         if task.outcomes:
             for outcome in task.outcomes.iterator():
-
                 # TODO - should we not do this in the model?
                 match = re.search('^On line ([0-9])+ column ([0-9])+(.)*', outcome.observed)                
                 mapped = {
@@ -414,7 +410,7 @@ def report(request, id: str):
                     "lineno": match.groups()[0] if match and len(match.groups()) > 0 else None,
                     "column": match.groups()[1] if match and len(match.groups()) > 1 else None,
                     "severity": outcome.severity,
-                    "msg": outcome.observed,
+                    "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
                     "task_id": outcome.validation_task_public_id
                 }
                 syntax_results.append(mapped)
@@ -451,7 +447,7 @@ def report(request, id: str):
     
         logger.info('Fetching and mapping schema done.')
 
-    # retrieve and gherkin rules outcome(s)
+    # retrieve and map gherkin rules outcome(s) + instances
     grouping = (
         ('normative', (ValidationTask.Type.NORMATIVE_IA, ValidationTask.Type.NORMATIVE_IP)),
         ('prerequisites', (ValidationTask.Type.PREREQUISITES,)),
@@ -501,9 +497,40 @@ def report(request, id: str):
     # retrieve and map bsdd results + instances
     bsdd_results = []
     if report_type == 'bsdd' and request.model:
-        
-        # TODO
-        pass
+
+        # bSDD is disabled > 404-NotFound
+        logger.warning('Note: bSDD checks/reports are disabled.')
+        return HttpResponseNotFound('bSDD checks are disabled')
+
+        logger.info('Fetching and mapping bSDD results...')
+
+        # only concerned about last run of each task
+        task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.BSDD).last()
+        if task.outcomes:
+            for outcome in task.outcomes.iterator():
+                feature_json = json.loads(outcome.feature)
+                mapped = {
+                    "id": outcome.id,                    
+                    "severity": outcome.severity,
+                    "instance_id": outcome.instance_id,
+                    "expected": outcome.expected,
+                    "observed": outcome.observed,
+                    "category": feature_json['category'] if 'category' in feature_json else None,
+                    "dictionary": feature_json['dictionary'] if 'dictionary' in feature_json else None,
+                    "class": feature_json['class'] if 'class' in feature_json else None,
+                    "task_id": outcome.validation_task_public_id,
+                }
+                bsdd_results.append(mapped)
+
+                inst = outcome.instance
+                if inst and inst.id not in instances:
+                    instance = {
+                        "guid": f'#{inst.stepfile_id}',
+                        "type": inst.ifc_type
+                    }
+                    instances[inst.id] = instance
+
+        logger.info('Fetching and mapping bSDD done.')
 
     response_data = {
         'instances': instances,

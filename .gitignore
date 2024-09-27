@@ -3,7 +3,11 @@
 **/.pytest_cache/
 **/node_modules
 **/.dev
+**/letsencrypt
 .DS_Store
+.env.*
+redeploy.*
+.VERSION
 
 ### VisualStudioCode ###
 .vscode/*

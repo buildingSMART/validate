@@ -60,16 +60,11 @@ services:
             B2C_USER_FLOW: ${B2C_USER_FLOW}
             USE_WHITELIST: ${USE_WHITELIST}
         depends_on:
-            - db
             - redis
 
     # Worker - Celery worker + beat
     worker:
         image: buildingsmart/validationsvc-backend
-        build:
-            context: .
-            dockerfile: ./docker/backend/Dockerfile
-            target: run
         entrypoint: /app/backend/worker-entrypoint.sh
         restart: unless-stopped
         container_name: worker
@@ -100,7 +95,6 @@ services:
             ADMIN_EMAIL: ${ADMIN_EMAIL}
             CONTACT_EMAIL: ${CONTACT_EMAIL}
         depends_on:
-            - db
             - redis
 
     # Redis
@@ -113,22 +107,7 @@ services:
         volumes:
             - redis_data:/data
 
-    # PostgreSQL DB
-    db:
-        image: postgres:16.2-alpine
-        restart: unless-stopped
-        container_name: db
-        volumes:
-            - postgres_data:/var/lib/postgresql/data/
-        environment:
-            POSTGRES_DB: ${POSTGRES_NAME}
-            POSTGRES_USER: ${POSTGRES_USER}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-        expose:
-            - ${POSTGRES_PORT}
-
 volumes:
     static_data:
     files_data:
-    postgres_data:
     redis_data:

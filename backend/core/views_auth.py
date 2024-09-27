@@ -11,7 +11,8 @@ from requests.models import PreparedRequest
 from authlib.integrations.django_client import OAuth
 
 from .email_tasks import send_user_registered_admin_email_task
-from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL, PRODUCTION
+from .settings import LOGIN_CALLBACK_URL, POST_LOGIN_REDIRECT_URL, LOGOUT_URL, LOGIN_URL 
+from .settings import USE_WHITELIST
 
 oauth = OAuth()
 oauth.register(name="b2c")
@@ -51,7 +52,7 @@ def callback(request):
                 username = username,
                 password = username,
                 email = userinfo['email'],
-                is_active = True if PRODUCTION else False, 
+                is_active = not USE_WHITELIST, # whitelisting of users
                 is_superuser = False,
                 is_staff = False,
                 first_name = userinfo['given_name'],

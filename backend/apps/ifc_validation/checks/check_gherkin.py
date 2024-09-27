@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Runs Gherkin style validation checks.")
     parser.add_argument("--file-name", "-f", type=str, required=True)
-    parser.add_argument("--task-id", "-t", type=int, required=True)
+    parser.add_argument("--task-id", "-t", type=int, required=False, default=None)
     parser.add_argument("--rule-type", "-r", type=str, default='ALL')
     parser.add_argument("--verbose", "-v", action='store_true')
     args = parser.parse_args()

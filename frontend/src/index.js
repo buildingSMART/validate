@@ -9,12 +9,16 @@ import Logout from './Logout';
 import Report from './Report';
 import Page from './Page';
 
+import { FETCH_PATH, VERSION, COMMIT_HASH, PUBLIC_URL, NODE_ENV } from './environment';
+
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-console.log('REACT_APP_FETCH_PATH', process.env.REACT_APP_FETCH_PATH)
-console.log('PUBLIC_URL', process.env.PUBLIC_URL)
-console.log('NODE_ENV', process.env.NODE_ENV)
+console.log('REACT_APP_VERSION', VERSION)
+console.log('REACT_APP_COMMIT_HASH', COMMIT_HASH)
+console.log('REACT_APP_FETCH_PATH', FETCH_PATH)
+console.log('PUBLIC_URL', PUBLIC_URL)
+console.log('NODE_ENV', NODE_ENV)
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

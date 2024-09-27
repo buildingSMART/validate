@@ -1,5 +1,3 @@
-*(Work In Progress - dev-v0.6-alpha)*
-
 # Software Infrastructure
 
 ![image](https://github.com/buildingSMART/validate/assets/155643707/5286c847-cf2a-478a-8940-fcdbd6fffeea)
@@ -11,7 +9,7 @@ The application consists of three main submodules, each hosted in separate GitHu
 
 ### Submodules
 
-Documentation of the seperate functionalities can be found within each submodule. d
+Documentation of the seperate functionalities can be found within each submodule.
 
 1. **File Parser**: A module within IfcOpenShell, dedicated to parsing files. https://github.com/IfcOpenShell/step-file-parser
 2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the repository and executing:
@@ -36,10 +34,10 @@ https://github.com/buildingSMART/ifc-validation-data-model
 
 The application supports multiple validation checks on one or multiple IFC files that can be run separately:
 
-- BSDD-Check
 - Syntax Check
 - Schema Check
 - Gherkin-Rules Check
+- bSDD Check (disabled)
 
 # How to start?
 
@@ -50,19 +48,31 @@ More scenario's exist - have a look at the various *make* files.
 
 ## Option 1 - Run minimal set of services via Docker Compose (easiest to run)
 
-1. Make sure Docker is running.
+1. Clone this repo in a local folder
 
-2. Start all services.
+```shell
+mkdir bsi-validate
+cd bsi-validate
+git clone https://github.com/buildingSMART/validate .
+```
+
+2. Make sure Docker is running.
+
+```shell
+docker info
+```
+
+3. Start all services.
 
 ```shell
 make start
-
-or 
-
+```
+_or_ 
+```
 docker compose up
 ```
 
-3. This pulls Docker-hub images, builds and spins up **five** different services:
+4. This pulls Docker-hub images, builds and spins up **five** different services:
 
 ```
 db       - PostgreSQL database
@@ -72,7 +82,7 @@ worker   - Celery worker
 frontend - React UI
 ```
 
-4. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
+5. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
 
 ```shell
 docker exec -it backend sh
@@ -86,31 +96,43 @@ DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUS
 exit
 ```
 
-5. Navigate to different services:
+6. Navigate to different services:
 
 - Validation Service - React UI: http://localhost
-- Django Admin UI: http://localhost/admin (or http://localhost:8000/admin) - default user/password: root/root
+- Django Admin UI: http://localhost/admin - default user/password per step 5.
 - Django API - Swagger: http://localhost/api/swagger-ui
 - Django API - Redoc: http://localhost/api/redoc
 
-6. Optionally, use a tool like curl or Postman to invoke API requests directly
+7. Optionally, use a tool like curl or Postman to invoke API requests directly
 
 ## Option 2 - Local debugging + infrastructure via Docker Compose (easiest to debug)
 
-1. Make sure Docker is running.
+1. Clone this repo in a local folder
 
-2. Start infrastructure services only (Redis, Postgres, Celery Flower)
+```shell
+mkdir bsi-validate
+cd bsi-validate
+git clone https://github.com/buildingSMART/validate .
+```
+
+2. Make sure Docker is running.
+
+```shell
+docker info
+```
+
+3. Start infrastructure services only (Redis, Postgres, Celery Flower)
 
 ```shell
 make start-infra
-
-or
-
+```
+_or_
+```
 docker compose -f docker-compose.infra_only.yml up
 ```
 
 
-3. This pulls **three** different Docker-hub images and spins up  services:
+4. This pulls different Docker-hub images and spins up **three** services:
 
 ```
 db       - PostgreSQL database
@@ -118,7 +140,7 @@ redis    - Redis instance
 flower   - Celery flower dashboard
 ```
 
-4. Start Django backend (Admin + API)
+5. Start Django backend (Admin + API)
 
 ```shell
 cd backend
@@ -126,14 +148,14 @@ make install
 make start-django
 ```
 
-5. Start Celery worker(s)
+6. Start Celery worker(s)
 
 ```shell
 cd backend
 make start-worker
 ```
 
-6. Start Node Development server to serve the React UI
+7. Start Node Development server to serve the React UI
 
 ```shell
 cd frontend
@@ -141,22 +163,24 @@ npm install
 npm run start
 ```
 
-7. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
+8. One-time only: create Django superuser accounts for Django Admin and Celery background worker(s), for example:
 
 ```shell
 cd backend
+
+. .dev/venv/bin/activate
 
 DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost python3 manage.py createsuperuser --noinput
 
 DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost python3 manage.py createsuperuser --noinput
 ```
 
-8. Navigate to different services:
+9. Navigate to different services:
 
 - Validation Service - React UI: http://localhost:3000
-- Django Admin UI: http://localhost:8000/admin - default user/password: root/root
+- Django Admin UI: http://localhost:8000/admin - default user/password per step 8
 - Django API - Swagger: http://localhost:8000/api/swagger-ui
 - Django API - Redoc: http://localhost:8000/api/redoc
 - Celery Flower UI: http://localhost:5555
 
-9. Optionally, use a tool like curl or Postman to invoke API requests directly
+10. Optionally, use a tool like curl or Postman to invoke API requests directly

@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth import get_permission_codename
+from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
@@ -73,7 +74,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
         return ("Yes" if obj.deleted else "No")
 
-    @admin.display(description="File Size")
+    @admin.display(description="File Size", ordering='size')
     def file_size_text(self, obj):
 
         return utils.format_human_readable_file_size(obj.size)
@@ -281,7 +282,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
         
         return None if obj.number_of_properties is None else f'{obj.number_of_properties:,}'
 
-    @admin.display(description="File Size")
+    @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
         
         return utils.format_human_readable_file_size(obj.size)
@@ -315,7 +316,7 @@ class AuthoringToolAdmin(BaseAdmin):
     list_filter = ["company", "created", "updated"]
 
 
-class UserAdmin(BaseAdmin):
+class CustomUserAdmin(UserAdmin):
 
     list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "is_superuser", "last_login", "date_joined"]
     list_filter = ['is_staff', 'is_superuser', 'is_active']
@@ -348,4 +349,4 @@ admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
 
 admin.site.unregister(User)
-admin.site.register(User, UserAdmin)
+admin.site.register(User, CustomUserAdmin)

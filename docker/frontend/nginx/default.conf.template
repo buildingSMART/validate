@@ -1,6 +1,6 @@
 server {
     listen 80;
-    server_name dev.validate.buildingsmart.org;
+    server_name ${CERTBOT_DOMAIN};
     server_tokens off;
 
     # turn off buffering, enable streaming to backend
@@ -33,6 +33,11 @@ server {
 
     # Django admin
     location /admin {
+        try_files $uri @proxy_api;
+    }
+
+    # Django admin files
+    location /files {
         try_files $uri @proxy_api;
     }
 

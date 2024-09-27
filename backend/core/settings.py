@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 
 import os
 import logging
+import ast
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -34,6 +35,9 @@ DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVEL
 STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
+
+# URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)
+FEATURE_URL = os.getenv('FEATURE_URL', 'https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/')
 
 ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost", "backend"]
 
@@ -358,6 +362,10 @@ LOGIN_URL = os.environ.get("LOGIN_URL", f"{PUBLIC_URL}/login")
 LOGOUT_URL = os.environ.get("LOGOUT_URL", f"{PUBLIC_URL}/logout")
 LOGIN_CALLBACK_URL = os.environ.get("CALLBACK_URL", f"{PUBLIC_URL}/callback")
 POST_LOGIN_REDIRECT_URL = os.environ.get("POST_LOGIN_REDIRECT_URL", f"{PUBLIC_URL}/dashboard")
+
+# whitelisting of users
+USE_WHITELIST = ast.literal_eval(os.environ.get("USE_WHITELIST", 'False'))
+
 
 AUTHLIB_OAUTH_CLIENTS = {
     'b2c': {

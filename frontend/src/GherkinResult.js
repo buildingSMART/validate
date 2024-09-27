@@ -22,11 +22,23 @@ function unsafe_format(obj) {
     }
   } else if (typeof obj === 'string' || obj instanceof String) {
     return <i>{obj}</i>;
+  } else if (typeof obj == 'object' && 'instance' in obj) {
+    // @todo turn into actual instance in DB
+    return <span style={{padding: '3px', borderBottom: 'dotted 3px gray'}}>{obj.instance}</span>
   } else if (typeof obj == 'object' && 'entity' in obj) {
     // @todo actual URL for schema
-    return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${obj.entity}.htm`}>{obj.entity}</a>
+    var entity = obj.entity.split('(#')[0];
+    return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${entity}.htm`}>{entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    return <li>{obj.oneOf.map(v =><ul>{v}</ul>)}</li>
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`
+    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
+  } else if (typeof obj== 'object' && 'num_digits' in obj) {
+    // custom formatting for calculated alignment consistency (e.g. ALS016, ALS017, ALS018)
+    console.log(`object is ${obj.expected}`);
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`
+    let value = obj.expected || obj.observed;
+    let display_value = value.toExponential(obj.num_digits);
+    return <div>{ctx} {display_value}</div>
   } else {
     return JSON.stringify(obj);
   }
@@ -91,7 +103,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
       ]
     }
 
-    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature);
+    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
     
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
@@ -155,6 +167,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
           "td, th": { padding: '0.2em 0.5em', verticalAlign: 'top' },
+          "td ul": { paddingLeft: '2em' },
           ".pre": {
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',

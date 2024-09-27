@@ -267,7 +267,8 @@ Given A model with Schema "IFC4.3"
 </details>
 
 #### Must vs Shall
-Use **must**, not **shall** to impose requirements.[ALB001_Alignment-in-spatial-structure.feature](ALB001_Alignment-in-spatial-structure.feature)
+Use **must**, not **shall** to impose requirements.
+[ALB001_Alignment-in-spatial-structure.feature](https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/ALB002_Alignment-layout.feature)
 "Shall" is ambiguous, also in the legal field the community is moving to a strong preference for “must” as the clearest way to express a requirement or obligation.
 
 <details><summary>wrong</summary>
@@ -288,6 +289,7 @@ Then There must be exactly 1 IfcSite element(s)
 </details>
 
 #### Verbs for IFC relationships
+
 When a rule requires a specific IFC relationship to exist, refer to the table below for the right verb to be used.
 
 | IFC relationship       | Verb for rules        | Examples                                                           |
@@ -298,6 +300,7 @@ When a rule requires a specific IFC relationship to exist, refer to the table be
 
 
 #### Reference for schema versioning
+
 Rules that are applicable only to specific schema versions must specify
 the schema version with the initial `Given` statement.
 

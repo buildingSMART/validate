@@ -1,0 +1,160 @@
+name: Build & Deploy (CI/CD - DEV)
+
+concurrency: 
+  group: development
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - development
+    paths-ignore:
+      - 'README.md'
+      - '.github/**'
+  pull_request:
+    branches:
+      - development
+  workflow_dispatch:
+
+jobs:
+
+  build_frontend:
+
+    name: build frontend
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+      
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+                
+      - name: Install npm packages
+        run: |
+          cd frontend
+          npm install
+
+      - name: Build & bundle
+        run: |
+          cd frontend          
+          unset CI # ignore React warnings
+          npm run build
+
+  build_backend:
+
+    name: build backend
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Fetch submodules
+        run: |
+          cd backend
+          cd apps
+          git submodule update --init --recursive
+          git submodule update --remote
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Create venv
+        run: |
+          cd backend
+          python3.11 -m venv venv
+
+      - name: Install packages
+        run: |
+          cd backend
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ifcopenshell # TEMP workaround
+
+      - name: Check Django config
+        run: |
+          cd backend
+          source venv/bin/activate
+          python3 manage.py check
+
+      - name: Run tests
+        run: |
+          cd backend
+          source venv/bin/activate
+          python3 manage.py test
+
+  deploy:
+    
+    name: deploy to server
+    needs: [build_frontend, build_backend]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: development
+     
+    steps:
+      - name: Set up SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+  
+      - name: Install sshpass
+        run: sudo apt-get install sshpass
+        
+      - name: Stop Docker containers
+        run: |
+          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          cd ${{ vars.REPO_CLONE_PATH }}
+          sudo make stop
+          ENDSSH
+
+      - name: Fetch sources & submodules
+        run: |
+          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          cd ${{ vars.REPO_CLONE_PATH }}
+          git checkout -q ${{ vars.BRANCH_NAME }} && git pull
+          sudo make fetch-modules
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
+          cd ./ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
+          cd ${{ vars.REPO_CLONE_PATH }}
+          ./check-submodules.sh
+          ENDSSH
+      
+      - name: Set VERSION
+        run: |
+          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          cd ${{ vars.REPO_CLONE_PATH }}
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          VERSION="${{ vars.VERSION }}"
+          echo "Set VERSION to ${VERSION}"
+          echo "Commit hash ${COMMIT_HASH}"
+          echo "${VERSION}" > .VERSION          
+          ENDSSH
+
+      - name: Build Docker images
+        run: |
+          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          cd ${{ vars.REPO_CLONE_PATH }}
+          sudo make rebuild
+          ENDSSH
+
+      - name: Start Docker containers
+        run: |
+          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          cd ${{ vars.REPO_CLONE_PATH }}
+          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d
+          ENDSSH

@@ -2,13 +2,14 @@
 
 ## Usage as part of buildingSMART validation service
 
-This repository is one of three submodules in the overall validation service.  See (application_structure) for more information.
+This repository is one of three submodules in the overall validation service.
+See [application_structure](#application-structure) for more information.
 
 ## Making changes
 
 The rules developed in this repository follow the general ideas of Gherkin and its python implementation behave.
 
-This means there are human readable definitions of rules and Python implementations.
+This means there are human-readable definitions of rules and Python implementations.
 
 A third component of this repository are minimal sample files with expected outcomes, which means that extensions and modifications can be suggested with confidence of not breaking existing functionality.
 

@@ -10,7 +10,7 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! nc -z db 5432
+while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT}
 do
     echo "Waiting for DB to be ready..."
     sleep 3
@@ -21,6 +21,10 @@ python manage.py makemigrations
 python manage.py migrate
 python manage.py collectstatic --noinput
 
-# python manage.py createsuperuser --noinput
+DJANGO_GUNICORN_WORKERS=${DJANGO_GUNICORN_WORKERS:-4} # default 4 workers
+DJANGO_GUNICORN_THREADS_PER_WORKER=${DJANGO_GUNICORN_THREADS_PER_WORKER:-4} # default 4 threads
 
-gunicorn core.wsgi --bind 0.0.0.0:8000 --workers 4 --threads 4 --worker-class gevent --worker-tmp-dir /dev/shm --timeout 60 --keep-alive 60
+echo "Number of worker processes: $DJANGO_GUNICORN_WORKERS"
+echo "Number of threads per worker: $DJANGO_GUNICORN_THREADS_PER_WORKER"
+
+gunicorn core.wsgi --bind 0.0.0.0:8000 --workers $DJANGO_GUNICORN_WORKERS --threads $DJANGO_GUNICORN_THREADS_PER_WORKER --worker-class gevent --worker-tmp-dir /dev/shm --timeout 60 --keep-alive 60

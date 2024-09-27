@@ -114,12 +114,13 @@ const headCells = [
     align: 'center',
     tooltip: 'Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid'
   },
-  {
-    id: 'bsdd',
-    label: 'bSDD Compliance',
-    width: 100,
-    align: 'center'
-  },
+  // disabled bSDD
+  // {
+  //   id: 'bsdd',
+  //   label: 'bSDD Compliance',
+  //   width: 100,
+  //   align: 'center'
+  // },
   {
     id: 'date',
     label: 'Date',
@@ -183,7 +184,7 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
   return (
     <Toolbar
       sx={{
-        pl: { sm: 2 },
+        pl: { sm: 1 },
         pr: { xs: 1, sm: 1 },
         backgroundColor: "none",
         ...(numSelected > 0 && {
@@ -192,26 +193,6 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
         }),
       }}
     >
-      {numSelected > 0 ? (
-        <Typography
-          sx={{ flex: '1 1 100%' }}
-          color="inherit"
-          variant="subtitle1"
-          component="div"
-        >
-          {numSelected} selected
-        </Typography>
-      ) : (
-        <Typography
-          sx={{ flex: '1 1 100%' }}
-          variant="h6"
-          id="tableTitle"
-          component="div"
-        >
-
-        </Typography>
-      )}
-
       {numSelected > 0 && (
         <Tooltip title="Delete">
           <IconButton onClick={onDelete}>
@@ -225,6 +206,25 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
             <ReplayIcon />
           </IconButton>
         </Tooltip>)} */}
+
+      {numSelected > 0 ? (
+        <Typography
+          //sx={{ flex: '1 1 100%' }}
+          color="inherit"
+          variant="subtitle1"
+          component="div"
+        >
+          {numSelected} selected
+        </Typography>
+      ) : (
+        <Typography
+          // sx={{ flex: '1 1 100%' }}
+          variant="h6"
+          id="tableTitle"
+          component="div"
+        />
+      )}
+      
     </Toolbar>
   );
 }
@@ -401,9 +401,9 @@ export default function DashboardTable({ models }) {
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}
                   </TableCell>
-                  <TableCell align="center">
+                  {/* <TableCell align="center">
                     {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}
-                  </TableCell>
+                  </TableCell> */}
                 
                   {
                     // (row.progress == 100) ?
