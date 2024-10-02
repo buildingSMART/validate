@@ -35,6 +35,7 @@ pyspellchecker
 requests
 pydot
 numpy
+rtree
 
 # dev
 django-debug-toolbar
