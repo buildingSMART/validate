@@ -14,6 +14,28 @@ import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
 
 function unsafe_format(obj) {
+  // PJS003 -> Invalid characters in GUID
+  if (typeof obj == 'object' && 'invalid_guid_chars' in obj && 'expected_or_observed' in obj) {
+    if (obj.expected_or_observed === 'expected') {
+      return <span>{`One of the following characters: ${obj.invalid_guid_chars}`}</span>;
+    } else if (obj.expected_or_observed === 'observed' && 'inst' in obj) {
+      return (
+        <span>
+          {`For guid '${obj.inst}', the following invalid character(s) is/were found: ${obj.invalid_guid_chars}`}
+        </span>
+      );
+    }
+  }
+
+    // PJS003 -> invalid length
+    if (typeof obj == 'object' && 'length' in obj && 'expected_or_observed' in obj) {
+      if (obj.expected_or_observed === 'expected') {
+        return <span>{`A sequence of length ${obj.length} for the global ID`}</span>;
+      } else if (obj.expected_or_observed === 'observed' && 'inst' in obj) {
+        return <span>{`The guid '${obj.inst}' is a sequence of length ${obj.length}`}</span>;
+      }
+    }
+
   if (typeof obj == 'object' && 'value' in obj) {
     if (typeof obj.value === 'string' || obj.value instanceof String || typeof obj.value === 'number' || typeof obj.value === 'boolean') {
       return <span style={{background: '#00000010', padding: '3px'}}>{obj.value}</span>
@@ -23,34 +45,34 @@ function unsafe_format(obj) {
   } else if (typeof obj === 'string' || obj instanceof String) {
     return <i>{obj}</i>;
   } else if (typeof obj == 'object' && 'instance' in obj) {
-    // @todo turn into actual instance in DB
     return <span style={{padding: '3px', borderBottom: 'dotted 3px gray'}}>{obj.instance}</span>
   } else if (typeof obj == 'object' && 'entity' in obj) {
-    // @todo actual URL for schema
     var entity = obj.entity.split('(#')[0];
     return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${entity}.htm`}>{entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`
-    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
-  } else if (typeof obj== 'object' && 'num_digits' in obj) {
-    // custom formatting for calculated alignment consistency (e.g. ALS016, ALS017, ALS018)
-    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`;
+    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v => <li>{v}</li>)}</ul></div>;
+  } else if (typeof obj == 'object' && 'num_digits' in obj) {
+    // Custom formatting for calculated alignment consistency
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
     let value = obj.expected || obj.observed;
     let display_value = value.toExponential(obj.num_digits);
     if ('continuity_details' in obj) {
       let dts = obj.continuity_details;
-      return <div>
-        <div>{ctx} {display_value}</div>
-        <div>at end of {dts.previous_segment}</div>
-        <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
-        <ul>Tangent Direction: {dts.preceding_end_direction}</ul>
-        <br/>
-        <div>and start of {dts.segment_to_analyze}</div>
-        <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
-        <ul>Tangent Direction: {dts.current_start_direction}</ul>
-      </div>
+      return (
+        <div>
+          <div>{ctx} {display_value}</div>
+          <div>at end of {dts.previous_segment}</div>
+          <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
+          <ul>Tangent Direction: {dts.preceding_end_direction}</ul>
+          <br />
+          <div>and start of {dts.segment_to_analyze}</div>
+          <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
+          <ul>Tangent Direction: {dts.current_start_direction}</ul>
+        </div>
+      );
     } else {
-      return <div>{ctx} {display_value}</div>
+      return <div>{ctx} {display_value}</div>;
     }
   } else {
     return JSON.stringify(obj);
