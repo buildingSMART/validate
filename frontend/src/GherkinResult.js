@@ -34,11 +34,24 @@ function unsafe_format(obj) {
     return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
   } else if (typeof obj== 'object' && 'num_digits' in obj) {
     // custom formatting for calculated alignment consistency (e.g. ALS016, ALS017, ALS018)
-    console.log(`object is ${obj.expected}`);
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`
     let value = obj.expected || obj.observed;
     let display_value = value.toExponential(obj.num_digits);
-    return <div>{ctx} {display_value}</div>
+    if ('continuity_details' in obj) {
+      let dts = obj.continuity_details;
+      return <div>
+        <div>{ctx} {display_value}</div>
+        <div>at end of {dts.previous_segment}</div>
+        <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
+        <ul>Tangent Direction: {dts.preceding_end_direction}</ul>
+        <br/>
+        <div>and start of {dts.segment_to_analyze}</div>
+        <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
+        <ul>Tangent Direction: {dts.current_start_direction}</ul>
+      </div>
+    } else {
+      return <div>{ctx} {display_value}</div>
+    }
   } else {
     return JSON.stringify(obj);
   }
