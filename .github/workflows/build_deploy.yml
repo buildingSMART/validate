@@ -13,6 +13,7 @@ on:
           - main
           - development
           - release/0.6.6
+          - release/0.6.7
 
       environment:
         description: 'Environment to (re)deploy to'
