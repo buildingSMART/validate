@@ -14,6 +14,7 @@ RUN set -ex && \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends --no-install-suggests \ 
+        build-essential \
         python3-dev \
         unzip \
         wget \
