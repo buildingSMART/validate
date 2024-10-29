@@ -57,6 +57,18 @@ function unsafe_format(obj) {
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
     let value = obj.expected || obj.observed;
     let display_value = value.toExponential(obj.num_digits);
+
+    let directionLabel;
+    if (ctx.includes('direction')) {
+      directionLabel = 'Tangent Direction';
+    }
+    else if (ctx.includes('gradient'))  {
+      directionLabel = 'Gradient';
+    }
+    else {
+      directionLabel= '';
+    }
+
     if ('continuity_details' in obj) {
       let dts = obj.continuity_details;
       return (
@@ -64,11 +76,11 @@ function unsafe_format(obj) {
           <div>{ctx} {display_value}</div>
           <div>at end of {dts.previous_segment}</div>
           <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
-          <ul>Tangent Direction: {dts.preceding_end_direction}</ul>
+          <ul>{directionLabel}: {dts.preceding_end_direction}</ul>
           <br />
           <div>and start of {dts.segment_to_analyze}</div>
           <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
-          <ul>Tangent Direction: {dts.current_start_direction}</ul>
+          <ul>{directionLabel}: {dts.current_start_direction}</ul>
         </div>
       );
     } else {
