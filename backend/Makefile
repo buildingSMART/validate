@@ -18,6 +18,15 @@ install: venv
     unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
 	rm /tmp/ifcopenshell_python.zip
 
+install-macos: venv
+	. $(VIRTUAL_ENV)/bin/activate && \
+	pip install --upgrade pip && \
+	pip install -r requirements.txt && \
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.9-c18e4ea-macos64.zip" && \
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
+	unzip /tmp/ifcopenshell_python.zip -d .dev/venv/lib/python3.11/site-packages && \
+	rm /tmp/ifcopenshell_python.zip
+
 fetch-modules:
 	cd ./apps && \
 	git submodule update --init --recursive
