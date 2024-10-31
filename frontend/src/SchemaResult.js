@@ -56,6 +56,10 @@ export default function SchemaResult({ summary, content, status, instances }) {
     setGrouped(grouped)
   }, [page, content, checked]);
 
+  function getSuffix(rows) {
+    return (rows && rows.length > 0) ? '(' + rows.length.toLocaleString() + ')' : ''
+  }
+
   return (
     <div>
       <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
@@ -111,7 +115,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} {getSuffix(rows)}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
 
