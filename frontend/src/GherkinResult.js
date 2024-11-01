@@ -163,7 +163,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
   }, [page, content, checked]);
 
   function getSuffix(rows) {
-    return (rows && rows.length > 0) ? '(' + rows.length.toLocaleString() + ')' : ''
+    return (rows && rows.length > 0) ? '<i>(failed ' + rows.length.toLocaleString() + ' times)</i>' : ''
   }
 
   return (
