@@ -175,7 +175,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
   }, [page, content, checked]);
 
   function getSuffix(rows) {
-    return (rows && rows.length > 0) ? '<i>(failed ' + rows.length.toLocaleString() + ' times)</i>' : ''
+    return (rows && rows.length > 0) ? '(failed ' + rows.length.toLocaleString() + ' times)' : ''
   }
 
   return (
@@ -237,7 +237,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
                   >
                     <TreeItem 
                       nodeId={feature} 
-                      label={<div class='caption'>{feature} {getSuffix(rows)}</div>} 
+                      label={<div class='caption'>{feature} <i>{getSuffix(rows)}</i></div>} 
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>

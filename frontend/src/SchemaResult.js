@@ -57,7 +57,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
   }, [page, content, checked]);
 
   function getSuffix(rows) {
-    return (rows && rows.length > 0) ? '<i>(failed ' + rows.length.toLocaleString() + ' times)</i>' : ''
+    return (rows && rows.length > 0) ? '(failed ' + rows.length.toLocaleString() + ' times)' : ''
   }
 
   return (
@@ -115,7 +115,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} {getSuffix(rows)}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} <i>{getSuffix(rows)}</i></div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
 
