@@ -56,8 +56,9 @@ export default function SchemaResult({ summary, content, status, instances }) {
     setGrouped(grouped)
   }, [page, content, checked]);
 
-  function getSuffix(rows) {
-    return (rows && rows.length > 0) ? '(failed ' + rows.length.toLocaleString() + ' times)' : ''
+  function getSuffix(rows, status) {
+    let times = (rows && rows.length > 1) ? ' times' : ' time';
+    return (rows && rows.length > 0 && rows[0].severity >= 4) ? '(failed ' + rows.length.toLocaleString() + times + ')' : '';
   }
 
   return (
@@ -98,6 +99,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
             ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
             ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
             ".caption" : { paddingTop: "1em", paddingBottom: "1em", textTransform: 'capitalize' },
+            ".caption-suffix" : { paddingTop: "1em", paddingBottom: "1em", fontSize: '0.9em', textTransform: 'none', fontStyle: 'italic' },
             ".subcaption" : { visibility: "hidden", fontSize: '80%' },
             ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
             "table": { borderCollapse: 'collapse', fontSize: '80%' },
@@ -115,7 +117,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} <i>{getSuffix(rows)}</i></div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} <span class='caption-suffix'>{getSuffix(rows, status)}</span></div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
 
