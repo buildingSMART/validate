@@ -66,7 +66,8 @@ function unsafe_format(obj) {
       directionLabel = 'Gradient';
     }
     else {
-      directionLabel= '';
+      // warning is raised for position, so don't report any details of direction or gradient
+      directionLabel= 'suppress';
     }
 
     if ('continuity_details' in obj) {
@@ -76,11 +77,13 @@ function unsafe_format(obj) {
           <div>{ctx} {display_value}</div>
           <div>at end of {dts.previous_segment}</div>
           <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
-          <ul>{directionLabel}: {dts.preceding_end_direction}</ul>
+          { directionLabel !== 'suppress' && (
+            <ul>{directionLabel}: {dts.preceding_end_direction}</ul>) }
           <br />
           <div>and start of {dts.segment_to_analyze}</div>
           <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
-          <ul>{directionLabel}: {dts.current_start_direction}</ul>
+          { directionLabel !== 'suppress' && (
+          <ul>{directionLabel}: {dts.current_start_direction}</ul> )}
         </div>
       );
     } else {
