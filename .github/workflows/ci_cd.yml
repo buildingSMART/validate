@@ -55,14 +55,17 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
 
       - name: Fetch submodules
         run: |
-          cd backend
-          cd apps
+          cd backend/apps
           git submodule update --init --recursive
-          git submodule foreach git clean -f .
-	        git submodule update --remote --recursive
+          git submodule foreach 'git clean -f -d'
+          git submodule update --remote --recursive
+
 
       - name: Set up Python
         uses: actions/setup-python@v5
