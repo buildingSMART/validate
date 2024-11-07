@@ -71,4 +71,5 @@ clean-all:
 
 fetch-modules:
 	git submodule update --init --recursive
-	git submodule update --remote
+	git submodule foreach git clean -f .
+	git submodule update --remote --recursive
