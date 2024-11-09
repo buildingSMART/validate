@@ -191,7 +191,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 @requires_django_user_context
 def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
-    prev_result_succeeded = prev_result is not None and prev_result[0]['is_valid'] is True
+    prev_result_succeeded = prev_result is not None and (prev_result[0]['is_valid'] is True or 'ifcopenshell.validate' in prev_result[0]['reason'])
     if prev_result_succeeded:
 
         request = ValidationRequest.objects.get(pk=id)
