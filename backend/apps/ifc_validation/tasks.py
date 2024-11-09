@@ -330,6 +330,17 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         task.mark_as_initiated()
 
+        # try to open IFC file (catch segfaults)
+        try:
+            code = "import ifcopenshell; ifcopenshell.open('" + file_path + "')"
+            check_program = [sys.executable, '-c', code, file_path]
+            logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+            subprocess.run(check_program, check=True)
+
+        except subprocess.CalledProcessError as err:
+            task.mark_as_failed(err)
+            raise
+
         # retrieve IFC info
         try:
             task.set_process_details(None, f"(module) ifcopenshell.open() for file '{file_path}')")
