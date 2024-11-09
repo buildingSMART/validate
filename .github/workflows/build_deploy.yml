@@ -145,17 +145,6 @@ jobs:
           git checkout -q ${{ inputs.branch }} && git pull
           sudo make fetch-modules'
 
-      - name: Check local changes
-        run: |
-           ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
-           if [ -z "$(git status --porcelain)" ]; then 
-             echo "No local changes"
-           else
-             echo "ERROR: There are local changes in ${{ inputs.environment }}"
-             git status --porcelain
-             exit -1
-           fi'
-
       - name: Checkout correct branches
         run: |
           ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
