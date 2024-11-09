@@ -23,7 +23,7 @@ function coerceToStr(v) {
   return JSON.stringify(v);
 }
 
-export default function SchemaResult({ summary, content, status, instances }) {
+export default function SchemaResult({ summary, count, content, status, instances }) {
   const [data, setRows] = React.useState([])
   const [grouped, setGrouped] = useState([])
   const [page, setPage] = useState(0);  
@@ -46,9 +46,11 @@ export default function SchemaResult({ summary, content, status, instances }) {
       return checked || el.severity > 2; // all or warning/error only?
     });
 
+    // sort & group
+    filteredContent.sort((f1, f2) => f1.title > f2.title ? 1 : -1);
     for (let c of (filteredContent || [])) {
-      if (grouped.length === 0 || (c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized')) !== grouped[grouped.length-1][0]) {
-        grouped.push([c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized'),[]])
+      if (grouped.length === 0 || (c.title) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.title,[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
@@ -56,9 +58,19 @@ export default function SchemaResult({ summary, content, status, instances }) {
     setGrouped(grouped)
   }, [page, content, checked]);
 
+  function partialResultsOnly(rows) {
+    let counts = Object.assign({}, count[0], count[1]);
+    return counts[rows[0].title] > rows.length;
+  }
+
   function getSuffix(rows, status) {
-    let times = (rows && rows.length > 1) ? ' times' : ' time';
-    return (rows && rows.length > 0 && rows[0].severity >= 4) ? '(failed ' + rows.length.toLocaleString() + times + ')' : '';
+    let counts = Object.assign({}, count[0], count[1]);
+    // const error_or_warning = status === 'i' || status === 'w';
+    // //return (rows && rows.length > 0 && error_or_warning) ? '(occurred ' + rows.length.toLocaleString() + times + ')' : '';
+    //return '- rows: ' + rows.length.toLocaleString() + ' - count: ' + counts[rows[0].title];
+    let occurrences = counts[rows[0].title];
+    let times = (occurrences > 1) ? ' times' : ' time';
+    return '(occurred ' + occurrences.toLocaleString() + times + ')';
   }
 
   return (
@@ -110,17 +122,31 @@ export default function SchemaResult({ summary, content, status, instances }) {
               // overflowWrap: 'break-word'
             }
           }}>
-          <div >
+          <div>
             { data.length
               ? data.map(([hd, rows]) => {
                   return <TreeView 
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd} <span class='caption-suffix'>{getSuffix(rows, status)}</span></div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem 
+                        nodeId={hd} 
+                        label={
+                          <div>
+                            <div class='caption'>{rows[0].title} <span class='caption-suffix'>{getSuffix(rows, status)}</span>
+                            </div>
+                            <div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}
+                            </div>
+                          </div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
-
+                      { partialResultsOnly(rows) &&
+                        <div>
+                          ⓘ Note: a high number of occurrences were identified. Only the first {rows.length.toLocaleString()} occurrences are displayed below.
+                          <br />
+                          <br />
+                        </div>
+                      }
                       <table width='100%' style={{ 'text-align': 'left'}}>
                           <thead>
                             <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th></tr>

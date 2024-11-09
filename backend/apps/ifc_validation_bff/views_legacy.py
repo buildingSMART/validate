@@ -7,6 +7,7 @@ import logging
 import itertools
 import functools
 import typing
+from collections import Counter
 
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
@@ -22,7 +23,7 @@ from apps.ifc_validation.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
 from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
-from core.settings import FEATURE_URL
+from core.settings import FEATURE_URL, MAX_OUTCOMES_PER_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -418,6 +419,7 @@ def report(request, id: str):
         logger.info('Fetching and mapping syntax done.')
 
     # retrieve and map schema outcome(s) + instances
+    schema_results_count = {}
     schema_results = []
     if report_type == 'schema' and request.model:
         
@@ -425,7 +427,8 @@ def report(request, id: str):
         
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SCHEMA).last()
         if task.outcomes:
-            for outcome in task.outcomes.iterator():
+            for outcome in task.outcomes.order_by('-severity').iterator():
+
                 mapped = {
                     "id": outcome.public_id,
                     "attribute": json.loads(outcome.feature)['attribute'] if outcome.feature else None, # eg. 'IfcSpatialStructureElement.WR41',
@@ -435,6 +438,15 @@ def report(request, id: str):
                     "msg": outcome.observed,
                     "task_id": outcome.validation_task_public_id
                 }
+
+                key = mapped['attribute'] if 'attribute' in mapped and mapped['attribute'] else 'Uncategorized'
+                _type = mapped['constraint_type'] if 'constraint_type' in mapped and mapped['constraint_type'] else 'Uncategorized'
+                title = _type.replace('_', ' ').capitalize() + ' - ' + key
+                mapped['title'] = title # eg. 'Schema - SegmentStart'
+                schema_results_count[title] = schema_results_count[title] + 1 if title in schema_results_count else 1
+                if schema_results_count[title] > MAX_OUTCOMES_PER_RULE:
+                    continue
+                
                 schema_results.append(mapped)
 
                 inst = outcome.instance
@@ -453,6 +465,11 @@ def report(request, id: str):
         ('prerequisites', (ValidationTask.Type.PREREQUISITES,)),
         ('industry', (ValidationTask.Type.INDUSTRY_PRACTICES,)))
     
+    grouped_gherkin_outcomes_counts = { 
+        'normative': {},
+        'prerequisites': {},
+        'industry': {}
+    }
     grouped_gherkin_outcomes = {k: list() for k in map(operator.itemgetter(0), grouping)}
 
     for label, types in grouping:
@@ -460,7 +477,7 @@ def report(request, id: str):
         if not (report_type == label or (label == 'prerequisites' and report_type == 'schema')):
             continue
 
-        logger.info('Fetching and mapping {label} Gherkin results...')
+        logger.info(f'Fetching and mapping {label} gherkin results...')
 
         print(*(request.id for t in types))
 
@@ -482,6 +499,14 @@ def report(request, id: str):
                 "task_id": outcome.validation_task_public_id,
                 "msg": outcome.observed,                    
             }
+            
+            # TODO: organize this differently?
+            key = 'Schema - Version' if label == 'prerequisites' else mapped['feature']
+            mapped['title'] = key
+            grouped_gherkin_outcomes_counts[label][key] = grouped_gherkin_outcomes_counts[label][key] + 1 if key in grouped_gherkin_outcomes_counts[label] else 1
+            if grouped_gherkin_outcomes_counts[label][key] > MAX_OUTCOMES_PER_RULE:
+                continue
+
             grouped_gherkin_outcomes[label].append(mapped)
 
             inst = outcome.instance
@@ -492,7 +517,7 @@ def report(request, id: str):
                 }
                 instances[inst.public_id] = instance
 
-        logger.info(f'Mapped {label} Gherkin results.')
+        logger.info(f'Mapped {label} gherkin results.')
     
     # retrieve and map bsdd results + instances
     bsdd_results = []
@@ -537,11 +562,23 @@ def report(request, id: str):
         'model': model,
         'results': {
             "syntax_results": syntax_results,
-            "schema_results": schema_results,
+            "schema": {
+                "counts": [schema_results_count],
+                "results": schema_results,
+            },
             "bsdd_results": bsdd_results,
-            "norm_rules_results": grouped_gherkin_outcomes["normative"],
-            "ind_rules_results": grouped_gherkin_outcomes["industry"],
-            "prereq_rules_results": grouped_gherkin_outcomes["prerequisites"],
+            "norm_rules": {
+                "counts": grouped_gherkin_outcomes_counts["normative"],
+                "results": grouped_gherkin_outcomes["normative"],
+            },
+            "ind_rules": {
+                "counts": grouped_gherkin_outcomes_counts["industry"],
+                "results": grouped_gherkin_outcomes["industry"],
+            },
+            "prereq_rules": {
+                "counts": [grouped_gherkin_outcomes_counts["prerequisites"]],
+                "results": grouped_gherkin_outcomes["prerequisites"]
+            }
         }
     }
 
