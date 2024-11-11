@@ -86,7 +86,7 @@ jobs:
           source venv/bin/activate
           # use version of ifcopenshell with desired schema parsing
           # TODO: revert to pyPI when schema parsing is published in the future
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-92b63a0-linux64.zip"
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-088bc20-linux64.zip"
           mkdir -p venv/lib/python3.11/site-packages
           unzip -d venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
