@@ -382,7 +382,10 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                             tzinfo=datetime.timezone.utc)
                         model.date = date_with_tz
                     except ValueError:
-                        model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                        try:
+                            model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                        except ValueError:
+                            pass
                 logger.debug(f'Detected date = {model.date}')
 
                 # MVD
