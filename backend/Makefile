@@ -67,6 +67,10 @@ test-tasks:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_tasks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
+test-parse-info-tasks:
+	. $(VIRTUAL_ENV)/bin/activate && \
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_parse_info_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
 clean:
 	rm -rf .dev
 	rm -rf django_db.sqlite3
