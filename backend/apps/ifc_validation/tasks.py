@@ -592,7 +592,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
         # tfk: if we mark this task as failed we don't do the instance population either.
         # marking as failed should probably be reserved for blocking errors (prerequisites)
         # and internal errors and differentiate between valid and task_success.
-        success = proc.returncode == 0
+        success = proc.returncode >= 0
         valid = (len(output) == 0)
 
         with transaction.atomic():
