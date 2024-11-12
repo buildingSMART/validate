@@ -1,5 +1,5 @@
 import operator
-import os, subprocess
+import os
 import re
 import json
 from datetime import datetime
@@ -7,7 +7,7 @@ import logging
 import itertools
 import functools
 import typing
-from collections import Counter
+from collections import defaultdict
 
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
@@ -419,7 +419,7 @@ def report(request, id: str):
         logger.info('Fetching and mapping syntax done.')
 
     # retrieve and map schema outcome(s) + instances
-    schema_results_count = {}
+    schema_results_count = defaultdict(int)
     schema_results = []
     if report_type == 'schema' and request.model:
         
@@ -439,11 +439,11 @@ def report(request, id: str):
                     "task_id": outcome.validation_task_public_id
                 }
 
-                key = mapped['attribute'] if 'attribute' in mapped and mapped['attribute'] else 'Uncategorized'
-                _type = mapped['constraint_type'] if 'constraint_type' in mapped and mapped['constraint_type'] else 'Uncategorized'
+                key = mapped.get('attribute', None) or 'Uncategorized'
+                _type = mapped.get('constraint_type', None) or 'Uncategorized'
                 title = _type.replace('_', ' ').capitalize() + ' - ' + key
                 mapped['title'] = title # eg. 'Schema - SegmentStart'
-                schema_results_count[title] = schema_results_count[title] + 1 if title in schema_results_count else 1
+                schema_results_count[title] += 1
                 if schema_results_count[title] > MAX_OUTCOMES_PER_RULE:
                     continue
                 
@@ -466,9 +466,9 @@ def report(request, id: str):
         ('industry', (ValidationTask.Type.INDUSTRY_PRACTICES,)))
     
     grouped_gherkin_outcomes_counts = { 
-        'normative': {},
-        'prerequisites': {},
-        'industry': {}
+        'normative': defaultdict(int),
+        'prerequisites': defaultdict(int),
+        'industry': defaultdict(int)
     }
     grouped_gherkin_outcomes = {k: list() for k in map(operator.itemgetter(0), grouping)}
 
@@ -503,7 +503,7 @@ def report(request, id: str):
             # TODO: organize this differently?
             key = 'Schema - Version' if label == 'prerequisites' else mapped['feature']
             mapped['title'] = key
-            grouped_gherkin_outcomes_counts[label][key] = grouped_gherkin_outcomes_counts[label][key] + 1 if key in grouped_gherkin_outcomes_counts[label] else 1
+            grouped_gherkin_outcomes_counts[label][key] += 1
             if grouped_gherkin_outcomes_counts[label][key] > MAX_OUTCOMES_PER_RULE:
                 continue
 
