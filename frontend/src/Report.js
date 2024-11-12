@@ -157,25 +157,28 @@ function Report({ kind }) {
                         {(kind === "schema") && <SchemaResult 
                           status={reportData.model.status_schema} 
                           summary={"IFC Schema"} 
-                          content={[...reportData.results.schema_results, ...reportData.results.prereq_rules_results]} 
+                          count={[...reportData.results.schema.counts, ...reportData.results.prereq_rules.counts]}
+                          content={[...reportData.results.schema.results, ...reportData.results.prereq_rules.results]}
                           instances={reportData.instances} />}
 
                         {(kind === "bsdd") && <BsddTreeView 
                           status={reportData.model.status_bsdd} 
                           summary={"bSDD Compliance"} 
-                          content={[...reportData.results.bsdd_results]}
+                          content={reportData.results.bsdd_results}
                           instances={reportData.instances} />}
 
                         {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
                           summary={"Normative IFC Rules"}
-                          content={reportData.results.norm_rules_results} 
+                          count={reportData.results.norm_rules.counts}
+                          content={reportData.results.norm_rules.results} 
                           instances={reportData.instances} />}
                           
                         {(kind === "industry") && <GherkinResults 
                           status={reportData.model.status_ind}
                           summary={"Industry Practices"}
-                          content={reportData.results.ind_rules_results} 
+                          count={reportData.results.ind_rules.counts}
+                          content={reportData.results.ind_rules.results}
                           instances={reportData.instances} />}
                     </> }
                   {!isLoaded && <div>Loading...</div>}

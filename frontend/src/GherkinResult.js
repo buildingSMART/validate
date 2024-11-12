@@ -102,7 +102,7 @@ function format(obj) {
   }
 }
 
-export default function GherkinResult({ summary, content, status, instances }) {
+export default function GherkinResult({ summary, count, content, status, instances }) {
   const [data, setRows] = useState([])
   const [grouped, setGrouped] = useState([])
   const [page, setPage] = useState(0);  
@@ -126,7 +126,6 @@ export default function GherkinResult({ summary, content, status, instances }) {
     });
 
     // only keep visible columns
-    let columns = ['instance_id', 'severity', 'expected', 'observed', 'msg']
     filteredContent = filteredContent.map(function(el) {
       const container = {};
 
@@ -139,28 +138,29 @@ export default function GherkinResult({ summary, content, status, instances }) {
       container.expected = el.expected ? el.expected : '-';
       container.severity = el.severity;
       container.msg = el.msg;
+      container.title = el.title;
       
       return container
     })
     
-    // deduplicate
-    const uniqueArray = (array, key) => {
+    // // deduplicate
+    // const uniqueArray = (array, key) => {
 
-      return [
-        ...new Map(
-          array.map( x => [key(x), x])
-        ).values()
-      ]
-    }
+    //   return [
+    //     ...new Map(
+    //       array.map( x => [key(x), x])
+    //     ).values()
+    //   ]
+    // }
 
-    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
+    // filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
     
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
 
     for (let c of (filteredContent || [])) {
-      if (grouped.length === 0 || (c.feature ? c.feature : 'Uncategorized') !== grouped[grouped.length-1][0]) {
-        grouped.push([c.feature ? c.feature : 'Uncategorized',[]])
+      if (grouped.length === 0 || (c.title) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.title,[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
@@ -177,9 +177,16 @@ export default function GherkinResult({ summary, content, status, instances }) {
     setGrouped(grouped)
   }, [page, content, checked]);
 
+  function partialResultsOnly(rows) {
+    return count[rows[0].title] > rows.length;
+  }
+
   function getSuffix(rows, status) {
-    let times = (rows && rows.length > 1) ? ' times' : ' time';
-    return (rows && rows.length > 0 && rows[0].severity >= 4) ? '(failed ' + rows.length.toLocaleString() + times + ')' : '';
+    let occurrences = count[rows[0].title];
+    let times = (occurrences > 1) ? ' times' : ' time';
+    //const error_or_warning = status >= 4;    
+    //return (rows && rows.length > 0 && error_or_warning) ? '(occurred ' + rows.length.toLocaleString() + times + ')' : '';
+    return '(occurred ' + occurrences.toLocaleString() + times + ')';
   }
 
   return (
@@ -242,7 +249,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
                   >
                     <TreeItem 
                       nodeId={feature} 
-                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getSuffix(rows, status)}</span></div></div>} 
+                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getSuffix(rows, severity)}</span></div></div>} 
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>
@@ -251,7 +258,14 @@ export default function GherkinResult({ summary, content, status, instances }) {
                         <br />
                         <a size='small' target='blank' href={rows[0].feature_url}>{rows[0].feature_url}</a>
                         <br />
-                        <br />                        
+                        <br />
+                        { partialResultsOnly(rows) &&
+                          <div>
+                            ⓘ Note: a high number of occurrences were identified. Only the first {rows.length.toLocaleString()} occurrences are displayed below.
+                            <br />
+                            <br />
+                          </div>
+                        }                       
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>
