@@ -63,14 +63,13 @@ export default function SchemaResult({ summary, count, content, status, instance
     return counts[rows[0].title] > rows.length;
   }
 
-  function getSuffix(rows, status) {
+  function getTitleSuffix(rows) {
     let counts = Object.assign({}, count[0], count[1]);
-    // const error_or_warning = status === 'i' || status === 'w';
-    // //return (rows && rows.length > 0 && error_or_warning) ? '(occurred ' + rows.length.toLocaleString() + times + ')' : '';
-    //return '- rows: ' + rows.length.toLocaleString() + ' - count: ' + counts[rows[0].title];
+    console.log(rows[0].severity);
     let occurrences = counts[rows[0].title];
     let times = (occurrences > 1) ? ' times' : ' time';
-    return '(occurred ' + occurrences.toLocaleString() + times + ')';
+    const warning_or_error = (rows[0].severity >= 3);
+    return warning_or_error ? '(occurred ' + occurrences.toLocaleString() + times + ')' : '';
   }
 
   return (
@@ -133,7 +132,7 @@ export default function SchemaResult({ summary, count, content, status, instance
                         nodeId={hd} 
                         label={
                           <div>
-                            <div class='caption'>{rows[0].title} <span class='caption-suffix'>{getSuffix(rows, status)}</span>
+                            <div class='caption'>{rows[0].title} <span class='caption-suffix'>{getTitleSuffix(rows)}</span>
                             </div>
                             <div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}
                             </div>
