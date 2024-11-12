@@ -181,12 +181,11 @@ export default function GherkinResult({ summary, count, content, status, instanc
     return count[rows[0].title] > rows.length;
   }
 
-  function getSuffix(rows, status) {
+  function getTitleSuffix(rows) {
     let occurrences = count[rows[0].title];
     let times = (occurrences > 1) ? ' times' : ' time';
-    //const error_or_warning = status >= 4;    
-    //return (rows && rows.length > 0 && error_or_warning) ? '(occurred ' + rows.length.toLocaleString() + times + ')' : '';
-    return '(occurred ' + occurrences.toLocaleString() + times + ')';
+    const warning_or_error = (rows[0].severity >= 3);
+    return warning_or_error ? '(occurred ' + occurrences.toLocaleString() + times + ')' : '';
   }
 
   return (
@@ -249,7 +248,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
                   >
                     <TreeItem 
                       nodeId={feature} 
-                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getSuffix(rows, severity)}</span></div></div>} 
+                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getTitleSuffix(rows)}</span></div></div>} 
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>
