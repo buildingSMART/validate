@@ -330,8 +330,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         task.mark_as_initiated()
 
-        # try to open IFC file (only catch segfaults)
-        SEGFAULT_PROCESS_RETURNCODE = -11
+        # try to open IFC file (catches low-level/C++ errors)
         try:
             code = "import ifcopenshell; ifcopenshell.open('" + file_path + "')"
             check_program = [sys.executable, '-c', code, file_path]
@@ -340,7 +339,8 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         except subprocess.CalledProcessError as err:
 
-            if err.returncode == SEGFAULT_PROCESS_RETURNCODE:
+            if err.returncode < 0:
+                logger.debug(f'ifcopenshell.open() return error code {err.returncode} ({err})')
                 task.mark_as_failed(err)
                 raise
 
