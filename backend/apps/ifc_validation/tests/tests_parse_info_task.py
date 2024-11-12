@@ -143,8 +143,8 @@ class ParseInfoTasksTestCase(TestCase):
 
         model = Model.objects.all().first()
         self.assertIsNotNone(model)
-        self.assertEquals('IfcOpenShell-0.7.0', model.produced_by.name)
-        self.assertEquals('0.7.0', model.produced_by.version)
+        self.assertEquals('IfcOpenShell-0.8.0', model.produced_by.name)
+        self.assertEquals('0.8.0', model.produced_by.version)
 
     @requires_django_user_context
     def test_parse_info_task_correctly_parses_missing_authoring_tool(self):
