@@ -142,7 +142,7 @@ jobs:
       - name: Fetch sources & submodules
         run: |
           ssh ssh_host 'cd ${{ vars.REPO_CLONE_PATH }}
-          git checkout -q ${{ inputs.branch }} && git pull
+          git pull && checkout -q ${{ inputs.branch }} && git pull
           sudo make fetch-modules'
 
       - name: Checkout correct branches
