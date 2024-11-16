@@ -230,8 +230,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
     request.save()
 
     # determine program/script to run
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "step_file_parser", "main.py")
-    check_program = [sys.executable, check_script, '--json', file_path]
+    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", '--json', file_path]
     logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
     # add task
