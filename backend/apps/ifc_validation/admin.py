@@ -9,13 +9,21 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import ngettext
-from core import utils
 
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome
-from apps.ifc_validation_models.models import Model, ModelInstance, Company, AuthoringTool
+from apps.ifc_validation_models.models import ValidationRequest
+from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import ValidationOutcome
+from apps.ifc_validation_models.models import Model
+from apps.ifc_validation_models.models import ModelInstance
+from apps.ifc_validation_models.models import Company
+from apps.ifc_validation_models.models import AuthoringTool
+from apps.ifc_validation_models.models import UserAdditionalInfo
+from apps.ifc_validation_models.models import Version
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
+
+from core import utils
 
 logger = logging.getLogger(__name__)
 
@@ -316,12 +324,27 @@ class AuthoringToolAdmin(BaseAdmin):
     list_filter = ["company", "created", "updated"]
 
 
+class UserAdditionalInfoInlineAdmin(admin.StackedInline):
+
+    model = UserAdditionalInfo
+    fk_name = "user"
+
+    fieldsets = [
+        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor"]}),
+        ('Auditing Information', {"classes": ("wide"), "fields":  [("created", "created_by"), ("updated", "updated_by")]})
+    ]
+    ordering = ("company", "is_vendor", "created", "created_by", "updated", "updated_by")
+    readonly_fields = ["created", "created_by", "updated", "updated_by"]
+
+
 class CustomUserAdmin(UserAdmin):
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "is_superuser", "last_login", "date_joined"]
-    list_filter = ['is_staff', 'is_superuser', 'is_active']
+    inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    search_fields = ('username', 'email', 'first_name', 'last_name', "last_login", "date_joined")
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "last_login", "date_joined"]
+    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor']
+
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "last_login", "date_joined")
 
     actions = ["activate", "deactivate"]
     actions_on_top = True
@@ -338,6 +361,28 @@ class CustomUserAdmin(UserAdmin):
     def deactivate(self, request, queryset):
         queryset.update(is_active=False)
 
+    @admin.display(description="Company")
+    def company(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.company
+    
+    @admin.display(description="Is Vendor?")
+    def is_vendor(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+
+
+class VersionAdmin(BaseAdmin):
+
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "released", "release_notes"]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
+    ]
+    list_display = ["id", "name", "released", "release_notes", "created", "updated"]
+    readonly_fields = ["id", "created", "updated"]
+    list_filter = ["created", "updated"]
+    search_fields = ("name", "released", "release_notes")
+
 
 # register all admin classes
 admin.site.register(ValidationRequest, ValidationRequestAdmin)
@@ -347,6 +392,7 @@ admin.site.register(Model, ModelAdmin)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
+admin.site.register(Version, VersionAdmin)
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
