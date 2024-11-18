@@ -337,7 +337,7 @@ class UserAdditionalInfoInlineAdmin(admin.StackedInline):
     readonly_fields = ["created", "created_by", "updated", "updated_by"]
 
 
-class CustomUserAdmin(UserAdmin):
+class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
