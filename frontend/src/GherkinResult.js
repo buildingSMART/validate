@@ -57,6 +57,19 @@ function unsafe_format(obj) {
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
     let value = obj.expected || obj.observed;
     let display_value = value.toExponential(obj.num_digits);
+
+    let directionLabel;
+    if (ctx.includes('direction')) {
+      directionLabel = 'Tangent Direction';
+    }
+    else if (ctx.includes('gradient'))  {
+      directionLabel = 'Gradient';
+    }
+    else {
+      // warning is raised for position, so don't report any details of direction or gradient
+      directionLabel= 'suppress';
+    }
+
     if ('continuity_details' in obj) {
       let dts = obj.continuity_details;
       return (
@@ -64,11 +77,13 @@ function unsafe_format(obj) {
           <div>{ctx} {display_value}</div>
           <div>at end of {dts.previous_segment}</div>
           <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
-          <ul>Tangent Direction: {dts.preceding_end_direction}</ul>
+          { directionLabel !== 'suppress' && (
+            <ul>{directionLabel}: {dts.preceding_end_direction}</ul>) }
           <br />
           <div>and start of {dts.segment_to_analyze}</div>
           <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
-          <ul>Tangent Direction: {dts.current_start_direction}</ul>
+          { directionLabel !== 'suppress' && (
+          <ul>{directionLabel}: {dts.current_start_direction}</ul> )}
         </div>
       );
     } else {
@@ -87,7 +102,7 @@ function format(obj) {
   }
 }
 
-export default function GherkinResult({ summary, content, status, instances }) {
+export default function GherkinResult({ summary, count, content, status, instances }) {
   const [data, setRows] = useState([])
   const [grouped, setGrouped] = useState([])
   const [page, setPage] = useState(0);  
@@ -111,7 +126,6 @@ export default function GherkinResult({ summary, content, status, instances }) {
     });
 
     // only keep visible columns
-    let columns = ['instance_id', 'severity', 'expected', 'observed', 'msg']
     filteredContent = filteredContent.map(function(el) {
       const container = {};
 
@@ -124,28 +138,29 @@ export default function GherkinResult({ summary, content, status, instances }) {
       container.expected = el.expected ? el.expected : '-';
       container.severity = el.severity;
       container.msg = el.msg;
+      container.title = el.title;
       
       return container
     })
     
-    // deduplicate
-    const uniqueArray = (array, key) => {
+    // // deduplicate
+    // const uniqueArray = (array, key) => {
 
-      return [
-        ...new Map(
-          array.map( x => [key(x), x])
-        ).values()
-      ]
-    }
+    //   return [
+    //     ...new Map(
+    //       array.map( x => [key(x), x])
+    //     ).values()
+    //   ]
+    // }
 
-    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
+    // filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
     
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
 
     for (let c of (filteredContent || [])) {
-      if (grouped.length === 0 || (c.feature ? c.feature : 'Uncategorized') !== grouped[grouped.length-1][0]) {
-        grouped.push([c.feature ? c.feature : 'Uncategorized',[]])
+      if (grouped.length === 0 || (c.title) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.title,[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
@@ -161,6 +176,17 @@ export default function GherkinResult({ summary, content, status, instances }) {
     setRows(grouped.slice(page * 10, page * 10 + 10))
     setGrouped(grouped)
   }, [page, content, checked]);
+
+  function partialResultsOnly(rows) {
+    return count[rows[0].title] > rows.length;
+  }
+
+  function getTitleSuffix(rows) {
+    let occurrences = count[rows[0].title];
+    let times = (occurrences > 1) ? ' times' : ' time';
+    const warning_or_error = (rows[0].severity >= 3);
+    return warning_or_error ? '(occurred ' + occurrences.toLocaleString() + times + ')' : '';
+  }
 
   return (
     <div>
@@ -198,6 +224,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
           ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
           ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
           ".caption" : { paddingTop: "1em", paddingBottom: "1em", textTransform: 'capitalize' },
+          ".caption-suffix" : { paddingTop: "1em", paddingBottom: "1em", fontSize: '0.9em', textTransform: 'none', fontStyle: 'italic' },
           ".subcaption" : { visibility: "hidden", fontSize: '80%' },
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
@@ -221,7 +248,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
                   >
                     <TreeItem 
                       nodeId={feature} 
-                      label={<div class='caption'>{feature}</div>} 
+                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getTitleSuffix(rows)}</span></div></div>} 
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>
@@ -230,7 +257,14 @@ export default function GherkinResult({ summary, content, status, instances }) {
                         <br />
                         <a size='small' target='blank' href={rows[0].feature_url}>{rows[0].feature_url}</a>
                         <br />
-                        <br />                        
+                        <br />
+                        { partialResultsOnly(rows) &&
+                          <div>
+                            ⓘ Note: a high number of occurrences were identified. Only the first {rows.length.toLocaleString()} occurrences are displayed below.
+                            <br />
+                            <br />
+                          </div>
+                        }                       
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>

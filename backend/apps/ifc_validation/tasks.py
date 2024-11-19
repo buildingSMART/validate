@@ -330,6 +330,20 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         task.mark_as_initiated()
 
+        # try to open IFC file (catches low-level/C++ errors)
+        try:
+            code = "import ifcopenshell; ifcopenshell.open('" + file_path + "')"
+            check_program = [sys.executable, '-c', code, file_path]
+            logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+            subprocess.run(check_program, check=True)
+
+        except subprocess.CalledProcessError as err:
+
+            if err.returncode < 0:
+                logger.debug(f'ifcopenshell.open() return error code {err.returncode} ({err})')
+                task.mark_as_failed(err)
+                raise
+
         # retrieve IFC info
         try:
             task.set_process_details(None, f"(module) ifcopenshell.open() for file '{file_path}')")
@@ -371,7 +385,10 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                             tzinfo=datetime.timezone.utc)
                         model.date = date_with_tz
                     except ValueError:
-                        model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                        try:
+                            model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                        except ValueError:
+                            pass
                 logger.debug(f'Detected date = {model.date}')
 
                 # MVD
@@ -598,27 +615,43 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                     observed=None
                 )
             else:
+                outcomes_to_save = list()
+                outcomes_instances_to_save = list()
+
                 for line in output:
                     message = json.loads(line)
                     model.status_schema = Model.Status.INVALID
-                    outcome = task.outcomes.create(
+                    outcome = ValidationOutcome(
                         severity=ValidationOutcome.OutcomeSeverity.ERROR,
                         outcome_code=ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR,
                         observed=message['message'],
                         feature=json.dumps({
                             'type': message['type'] if 'type' in message else None,
                             'attribute': message['attribute'] if 'attribute' in message else None
-                        }),
+                        })
                     )
+                    outcome.validation_task = task
+                    outcomes_to_save.append(outcome)
 
                     if 'instance' in message and message['instance'] is not None and 'id' in message['instance'] and 'type' in message['instance']:
-                        instance, _ = model.instances.get_or_create(
+                        instance = ModelInstance(
                             stepfile_id=message['instance']['id'],
                             ifc_type=message['instance']['type'],
                             model=model
                         )
-                        outcome.instance = instance
-                        outcome.save()
+                        outcomes_instances_to_save.append(instance)
+                
+                ModelInstance.objects.bulk_create(outcomes_instances_to_save, ignore_conflicts=True) # ignore existing
+                model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
+
+                for outcome in outcomes_to_save:
+                    if 'instance' in message and message['instance'] is not None and 'id' in message['instance']:
+                        stepfile_id = message['instance']['id']
+                        instance_id = model_instances[stepfile_id]
+                        if instance_id:
+                            outcome.instance_id = instance_id
+
+                ValidationOutcome.objects.bulk_create(outcomes_to_save)
 
             model.save(update_fields=['status_schema'])
 

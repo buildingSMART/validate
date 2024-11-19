@@ -39,6 +39,9 @@ PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is no
 # URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)
 FEATURE_URL = os.getenv('FEATURE_URL', 'https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/')
 
+# Max. number of outcomes shown in UI
+MAX_OUTCOMES_PER_RULE = 10
+
 ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost", "backend"]
 
 if os.environ.get("DJANGO_ALLOWED_HOSTS") is not None:

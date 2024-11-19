@@ -13,9 +13,18 @@ install: venv
 	. $(VIRTUAL_ENV)/bin/activate && \
 	pip install --upgrade pip && \
 	pip install -r requirements.txt && \
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.7.9-c18e4ea-linux64.zip" && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-088bc20-linux64.zip" && \
     mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
     unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+	rm /tmp/ifcopenshell_python.zip
+
+install-macos: venv
+	. $(VIRTUAL_ENV)/bin/activate && \
+	pip install --upgrade pip && \
+	pip install -r requirements.txt && \
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-088bc20-macos64.zip" && \
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
+	unzip /tmp/ifcopenshell_python.zip -d .dev/venv/lib/python3.11/site-packages && \
 	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
@@ -52,11 +61,19 @@ start-worker-scheduler:
 
 test-models:
 	. $(VIRTUAL_ENV)/bin/activate && \
-	python3 manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
 
 test-tasks:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_tasks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-parse-info-tasks:
+	. $(VIRTUAL_ENV)/bin/activate && \
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_parse_info_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-schema-tasks:
+	. $(VIRTUAL_ENV)/bin/activate && \
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 clean:
 	rm -rf .dev
