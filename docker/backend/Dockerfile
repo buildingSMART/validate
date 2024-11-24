@@ -72,6 +72,7 @@ RUN set -ex && \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends --no-install-suggests \
+        postgresql-client \
         netcat-openbsd \
         procps \
         htop && \
