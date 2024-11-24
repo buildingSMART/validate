@@ -5,7 +5,7 @@
 1. Syntax Validation
 
 ```shell
-python3 apps/ifc_validation/checks/step_file_parser/main.py --json filename 
+python3 -m ifcopenshell.simple_spf --json filename 
 ```
 
 2. Parse Info
