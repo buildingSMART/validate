@@ -298,9 +298,9 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "stepfile_id", "model", "ifc_type", "created", "updated"]
-
+    list_display = ["id", "public_id", "model", "model_id", "stepfile_id", "ifc_type", "created", "updated"]
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
+    list_filter = ["ifc_type", "model_id", "created", "updated"]
 
 
 class CompanyAdmin(BaseAdmin):
