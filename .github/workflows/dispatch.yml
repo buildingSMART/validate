@@ -70,7 +70,6 @@ jobs:
         run: |
           cd ${{ github.workspace }}
           git add backend/apps/ifc_validation/checks/ifc_gherkin_rules
-          git add backend/apps/ifc_validation/checks/step_file_parser
           git add backend/apps/ifc_validation_models
           
       - name: Show git status (pre)
