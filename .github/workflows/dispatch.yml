@@ -50,11 +50,6 @@ jobs:
           cd ${{ github.workspace }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules 
           git checkout -q ${{ github.event.client_payload.branch }}
           
-      - name: Fetch latest submodule - step_file_parser
-        run: |
-          cd ${{ github.workspace }}/backend/apps/ifc_validation/checks/step_file_parser 
-          git checkout -B master # note: only using master branch for now          
-          
       - name: Fetch latest submodule - ifc-validation-models
         run: |
           cd ${{ github.workspace }}/backend/apps/ifc_validation_models
