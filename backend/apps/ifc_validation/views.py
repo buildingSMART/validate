@@ -163,6 +163,13 @@ class ValidationTaskDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
 
+    def get_for_user_by_public_id(self, user_id, public_id):
+
+        user_tasks = ValidationTask.objects.filter(request__created_by__id=user_id, request__deleted=False)
+        instance = [t for t in user_tasks if t.public_id == public_id]
+        
+        return instance[0] if instance else None
+
     @extend_schema(operation_id='validationtask_get')
     def get(self, request, id, *args, **kwargs):
 
@@ -172,12 +179,12 @@ class ValidationTaskDetailAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=id).first()
+        instance = self.get_for_user_by_public_id(request.user.id, id)
         if instance:
             serializer = ValidationTaskSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Task with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Task with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -218,6 +225,13 @@ class ValidationOutcomeDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
 
+    def get_for_user_by_public_id(self, user_id, public_id):
+
+        user_outcomes = ValidationOutcome.objects.filter(validation_task__request__created_by__id=user_id, validation_task__request__deleted=False)
+        instance = [o for o in user_outcomes if o.public_id == public_id]
+        
+        return instance[0] if instance else None
+
     @extend_schema(operation_id='validationoutcome_get')
     def get(self, request, id, *args, **kwargs):
 
@@ -227,12 +241,12 @@ class ValidationOutcomeDetailAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=id).first()
+        instance = self.get_for_user_by_public_id(request.user.id, id)
         if instance:
             serializer = ValidationOutcomeSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Outcome with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Outcome with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
