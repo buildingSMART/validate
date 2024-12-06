@@ -192,13 +192,22 @@ class ValidationTaskListAPIView(APIView):
     def get(self, request, *args, **kwargs):
 
         """
-        Returns a list of all Validation Tasks.
+        Returns a list of all Validation Tasks, optionally filtered by request_public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_tasks = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
+        
+        # parse query arguments
+        request_public_id = self.request.query_params.get('request_public_id', '').lower()
+        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
+        
+        # apply filter(s)
+        if request_public_ids:
+            user_tasks = [t for t in user_tasks if t.request_public_id in request_public_ids]
+
+        serializer = self.serializer_class(user_tasks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -238,12 +247,25 @@ class ValidationOutcomeListAPIView(APIView):
     def get(self, request, *args, **kwargs):
 
         """
-        Returns a list of all Validation Outcomes.
+        Returns a list of all Validation Outcomes, optionally filtered by request_public_id or validation_task_public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_outcomes = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
+
+        # parse query arguments
+        request_public_id = self.request.query_params.get('request_public_id', '').lower()
+        task_public_id = self.request.query_params.get('validation_task_public_id', '').lower()
+        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
+        task_public_ids = [id for id in (task_public_id.split(',') if task_public_id else [])]
+        
+        # apply filter(s)
+        if request_public_ids:
+            user_outcomes = [o for o in user_outcomes if o.validation_task.request_public_id in request_public_ids]
+        if task_public_ids:
+            user_outcomes = [o for o in user_outcomes if o.validation_task_public_id in task_public_ids]
+
+        serializer = self.serializer_class(user_outcomes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
