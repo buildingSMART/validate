@@ -309,8 +309,10 @@ class CompanyAdmin(BaseAdmin):
         ('General Information',  {"classes": ("wide"), "fields": ["id", "name" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
+    list_display = ["id", "name", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["company", "created", "updated"]
+    list_filter = ["name", "created", "updated"]
+    search_fields = ("name",)
 
 
 class AuthoringToolAdmin(BaseAdmin):
