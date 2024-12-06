@@ -5,7 +5,7 @@ from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import ValidationOutcome
 
 
-class BaseSerializer(serializers.HyperlinkedModelSerializer):
+class BaseSerializer(serializers.ModelSerializer):
 
     def get_field_names(self, declared_fields, info):
 
@@ -28,7 +28,8 @@ class ValidationRequestSerializer(BaseSerializer):
         model = ValidationRequest
         fields = '__all__'
         show = ["public_id", "model_public_id"]
-        hide = ["id", "model"]
+        hide = ["id"]
+        read_only_fields = ['size', 'created_by']
 
 
 class ValidationTaskSerializer(BaseSerializer):
