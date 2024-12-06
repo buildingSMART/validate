@@ -34,40 +34,46 @@ class ValidationRequestDetailAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
 
+    def get_for_user_by_public_id(self, user_id, public_id):
+
+        user_requests = ValidationRequest.objects.filter(created_by__id=user_id, deleted=False)
+        instance = [r for r in user_requests if r.public_id == public_id]
+        
+        return instance[0] if instance else None
+
     @extend_schema(operation_id='validationrequest_get')
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Request by Id.
+        Retrieves a single Validation Request by id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=id).first()
-
+        instance = self.get_for_user_by_public_id(user_id=request.user.id, public_id=id)
         if instance:
             serializer = ValidationRequestSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Request with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(operation_id='validationrequest_delete')
     def delete(self, request, id, *args, **kwargs):
 
         """
-        Deletes an IFC Validation Request instance.
+        Deletes an IFC Validation Request instance by id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False).filter(id=id).first()
+        instance = self.get_for_user_by_public_id(user_id=request.user.id, public_id=id)
         if instance:
             instance.delete()
-            data = {'message': f"Validation Request with id='{id}' was deleted successfully."}
+            data = {'message': f"Validation Request with public_id={id} was deleted successfully."}
             return Response(data, status=status.HTTP_204_NO_CONTENT)
         else:
-            data = {'message': f"Validation Request with id='{id}' does not exist."}
+            data = {'message': f"Validation Request with public_id={id} does not exist."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -88,8 +94,8 @@ class ValidationRequestListAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_requests = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
+        serializer = self.serializer_class(user_requests, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(operation_id='validationrequest_create')
