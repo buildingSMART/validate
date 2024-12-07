@@ -34,23 +34,16 @@ class ValidationRequestDetailAPIView(APIView):
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
 
-    def get_for_user_by_public_id(self, user_id, public_id):
-
-        user_requests = ValidationRequest.objects.filter(created_by__id=user_id, deleted=False)
-        instance = [r for r in user_requests if r.public_id == public_id]
-        
-        return instance[0] if instance else None
-
     @extend_schema(operation_id='validationrequest_get')
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Request by id.
+        Retrieves a single Validation Request by public_id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = self.get_for_user_by_public_id(user_id=request.user.id, public_id=id)
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
             serializer = ValidationRequestSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -67,7 +60,7 @@ class ValidationRequestDetailAPIView(APIView):
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = self.get_for_user_by_public_id(user_id=request.user.id, public_id=id)
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
             instance.delete()
             data = {'message': f"Validation Request with public_id={id} was deleted successfully."}
@@ -163,23 +156,16 @@ class ValidationTaskDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
 
-    def get_for_user_by_public_id(self, user_id, public_id):
-
-        user_tasks = ValidationTask.objects.filter(request__created_by__id=user_id, request__deleted=False)
-        instance = [t for t in user_tasks if t.public_id == public_id]
-        
-        return instance[0] if instance else None
-
     @extend_schema(operation_id='validationtask_get')
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Task by Id.
+        Retrieves a single Validation Task by public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = self.get_for_user_by_public_id(request.user.id, id)
+        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=ValidationTask.to_private_id(id)).first()
         if instance:
             serializer = ValidationTaskSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -225,23 +211,16 @@ class ValidationOutcomeDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
 
-    def get_for_user_by_public_id(self, user_id, public_id):
-
-        user_outcomes = ValidationOutcome.objects.filter(validation_task__request__created_by__id=user_id, validation_task__request__deleted=False)
-        instance = [o for o in user_outcomes if o.public_id == public_id]
-        
-        return instance[0] if instance else None
-
     @extend_schema(operation_id='validationoutcome_get')
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Outcome by Id.
+        Retrieves a single Validation Outcome by public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = self.get_for_user_by_public_id(request.user.id, id)
+        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=ValidationOutcome.to_private_id(id)).first()
         if instance:
             serializer = ValidationOutcomeSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
