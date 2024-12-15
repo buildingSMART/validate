@@ -27,6 +27,15 @@ install-macos: venv
 	unzip /tmp/ifcopenshell_python.zip -d .dev/venv/lib/python3.11/site-packages && \
 	rm /tmp/ifcopenshell_python.zip
 
+install-macos-m1: venv
+	. $(VIRTUAL_ENV)/bin/activate && \
+	pip install --upgrade pip && \
+	pip install -r requirements.txt && \
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-0267e2b-macosm164.zip" && \
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages && \
+	unzip /tmp/ifcopenshell_python.zip -d .dev/venv/lib/python3.11/site-packages && \
+	rm /tmp/ifcopenshell_python.zip
+
 fetch-modules:
 	cd ./apps && \
 	git submodule update --init --recursive
@@ -85,9 +94,6 @@ clean:
 init-db:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	PGPASSWORD=postgres psql -h localhost -U postgres --dbname postgres -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;" && \
-	rm ./apps/ifc_validation_models/migrations/0001_initial.bak || true && \
-	mv ./apps/ifc_validation_models/migrations/0001_initial.py ./apps/ifc_validation_models/migrations/0001_initial.bak || true && \
-	rm ./apps/ifc_validation_models/migrations/0001_initial.bak || true && \
 	python3 manage.py makemigrations && \
 	python3 manage.py migrate && \
 	DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost python3 manage.py createsuperuser --noinput && \

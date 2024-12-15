@@ -143,7 +143,7 @@ flower   - Celery flower dashboard
 
 ```shell
 cd backend
-make install
+make install (or make install-macos/install-macos-m1)
 make start-django
 ```
 
