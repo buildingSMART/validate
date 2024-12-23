@@ -36,6 +36,7 @@ requests
 pydot
 numpy
 rtree
+networkx
 
 # dev
 django-debug-toolbar
