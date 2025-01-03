@@ -37,6 +37,7 @@ pydot
 numpy
 rtree
 networkx
+mpmath
 
 # dev
 django-debug-toolbar
