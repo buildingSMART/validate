@@ -37,6 +37,7 @@ pydot
 numpy
 rtree
 networkx
+pyyaml
 
 # dev
 django-debug-toolbar

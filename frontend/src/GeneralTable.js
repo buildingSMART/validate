@@ -42,20 +42,80 @@ function prettyPrintNumber(number) {
 
 function preprocessData(data, type) {
 
+  const BASE_LINK = "https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#";
+
+  const validationErrors = data["model"]["header_validation"]?.["validation_errors"] || [];
+
+  function warningIconWithLink(field, path) {
+    return (
+      <>
+        {field}
+        <a href={`${BASE_LINK}${path}`} target="_blank" rel="noopener noreferrer">
+          <WarningIcon color="warning" sx={{ marginLeft: 1 }} />
+        </a>
+      </>
+    );
+  }
+  
+
   if (type === "general") {
     return [
       ["Report Date", data["model"]["date"]],
-      ["File Name", data["model"]["filename"]],
-      ["File Date", data["model"]["file_date"] !== null ? data["model"]["file_date"] : '-'],
-      //["License", data["model"]["license"] !== null ? data["model"]["license"] : '-'],
+      ["IFC Schema", data["model"]["schema"] !== null ? data["model"]["schema"] : "-"],
+      [
+        <>
+          MVD(s)
+          {validationErrors.includes("description") &&
+            warningIconWithLink("","description")}
+        </>,
+        data["model"]["header_validation"]?.["description"] || "-"
+      ],
+      [
+        "File Name",
+        data["model"]["header_validation"]?.["name"]
+          ? data["model"]["header_validation"]["name"]
+          : "-"
+      ],
       ["File Size", prettyPrintFileSize(data["model"]["size"])],
-      ["Number of Geometries", prettyPrintNumber(data["model"]["number_of_geometries"])],
-      ["Number of Properties", prettyPrintNumber(data["model"]["number_of_properties"])],
-      ["IFC Schema", data["model"]["schema"] !== null ? data["model"]["schema"] : '-'],
-      ["Authoring Application", data["model"]["authoring_application"] !== null ? data["model"]["authoring_application"] : '-'],
-      ["MVD(s)", data["model"]["mvd"] !== null ? data["model"]["mvd"] : '-']
-    ]
-
+      [
+        <>
+          File Date
+          {validationErrors.includes("time_stamp") &&
+            warningIconWithLink("","time_stamp")}
+        </>,
+        data["model"]["header_validation"]?.["time_stamp"] || "-"
+      ],
+      [
+        <>
+          Authoring Application
+          {validationErrors.includes("originating_system") &&
+            warningIconWithLink("","originating_system")}
+        </>,
+        data["model"]["header_validation"]?.["originating_system"] || "-"
+      ],
+      [
+        <>
+          Preprocessor Version
+          {validationErrors.includes("preprocessor_version") &&
+            warningIconWithLink("","preprocessor_version")}
+        </>,
+        data["model"]["header_validation"]?.["preprocessor_version"] || "-"
+      ],
+      [
+        "Author",
+        data["model"]["header_validation"]?.["author"]
+          ? data["model"]["header_validation"]["author"]
+          : "-"
+      ],
+      [
+        <>
+          Organization
+          {validationErrors.includes("organization") &&
+            warningIconWithLink("","organization")}
+        </>,
+        data["model"]["header_validation"]?.["organization"] || "-"
+      ]
+    ];
   } else {
 
     return [
@@ -63,6 +123,7 @@ function preprocessData(data, type) {
       ["Schema", statusToIcon[data["model"]["status_schema"]]],
       ["bSDD", statusToIcon[data["model"]["status_bsdd"]]],
       ["Prerequisites", statusToIcon[data["model"]["status_prereq"]]],
+      ["Header", statusToIcon[data["model"]["status_header"]]],
       ["Implementer Agreements", statusToIcon[data["model"]["status_ia"]]],
       ["Informal Propositions", statusToIcon[data["model"]["status_ip"]]],
       ["Industry Practices", statusToIcon[data["model"]["status_ind"]]],

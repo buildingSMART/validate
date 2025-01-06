@@ -163,6 +163,7 @@ def format_request(request):
         "progress": -2 if request.status == ValidationRequest.Status.FAILED else (-1 if request.status == ValidationRequest.Status.PENDING else request.progress),
         "date": datetime.strftime(request.created, '%Y-%m-%d %H:%M:%S'), # TODO - formatting is actually a UI concern...
         "license": '-' if (request.model is None or request.model.license is None) else request.model.license,
+        "header_validation": None if (request.model is None or request.model.header_validation is None) else request.model.header_validation,
         "number_of_elements": None if (request.model is None or request.model.number_of_elements is None) else request.model.number_of_elements,
         "number_of_geometries": None if (request.model is None or request.model.number_of_geometries is None) else request.model.number_of_geometries,
         "number_of_properties": None if (request.model is None or request.model.number_of_properties is None) else request.model.number_of_properties,
@@ -178,6 +179,7 @@ def format_request(request):
         "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
         "status_mvd": "p" if (request.model is None or request.model.status_mvd is None) else request.model.status_mvd,
         "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
+        "status_header": "p" if (request.model is None or request.model.status_header is None) else request.model.status_header,
         "status_rules": status_combine(
             "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
             "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
