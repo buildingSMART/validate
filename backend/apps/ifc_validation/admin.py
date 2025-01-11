@@ -56,15 +56,21 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "status", "progress", "duration_text", "created", "created_by", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_text", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "created_by", "created", "updated"]
-    search_fields = ('file_name', 'status', 'created_by__username', 'updated_by__username')
+    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created", "updated"]
+    search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
     actions_on_top = True
+
+    @admin.display(description="Authoring Tool")
+    def authoring_tool_text(self, obj):
+        
+        return obj.model.produced_by if obj.model else None
+    authoring_tool_text.admin_order_field = 'model__produced_by'
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -76,6 +82,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
             return '{0:.{1}f}'.format(duration, 1)
         else:
             return None
+
+    @admin.display(description="Is Vendor ?")
+    def is_vendor(self, obj):
+
+        return ("Yes" if obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor else "No")
+    is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
 
     @admin.display(description="Deleted ?")
     def is_deleted(self, obj):
