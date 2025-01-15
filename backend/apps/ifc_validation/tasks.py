@@ -662,15 +662,15 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                             ifc_type=message['instance']['type'],
                             model=model
                         )
+                        outcome.instance_id = instance.stepfile_id # store for later reference (not persisted)
                         outcomes_instances_to_save.append(instance)
                 
                 ModelInstance.objects.bulk_create(outcomes_instances_to_save, ignore_conflicts=True) # ignore existing
                 model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
 
                 for outcome in outcomes_to_save:
-                    if 'instance' in message and message['instance'] is not None and 'id' in message['instance']:
-                        stepfile_id = message['instance']['id']
-                        instance_id = model_instances[stepfile_id]
+                    if outcome.instance_id:
+                        instance_id = model_instances[outcome.instance_id]
                         if instance_id:
                             outcome.instance_id = instance_id
 
