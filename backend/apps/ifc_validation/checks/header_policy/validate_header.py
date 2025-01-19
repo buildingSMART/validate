@@ -78,22 +78,7 @@ class HeaderStructure(ConfiguredBaseModel):
         else:
             values.data.get('validation_errors').append('time_stamp')
             return v
-
-    @field_validator('preprocessor_version')
-    def validate_preprocessor_version(cls, v, values):
-        """
-        ^(?!None$): -> String is not exactly 'None'
-        (?!Unknown$): -> String is not exactly 'Unknown'
-        .*[a-zA-Z].*: -> At least one letter (upper or lowercase)
-        .*\d.*: -> At least one digit
-        .*$: -> Match rest of string
-        """
-        pattern = re.compile(r"^(?!None$)(?!Unknown$).*[a-zA-Z].*\d.*$", re.IGNORECASE)
-        if not pattern.match(v) or is_originating_system(v): # check if it's not an originating_system value. Should we also check this for other fields?
-            values.data.get('validation_errors').append('preprocessor_version')
-            return v
-        return v
-
+        
 
     @field_validator('originating_system')
     def validate_originating_system(cls, v, values):
