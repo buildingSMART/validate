@@ -78,16 +78,6 @@ class HeaderStructure(ConfiguredBaseModel):
         else:
             values.data.get('validation_errors').append('time_stamp')
             return v
-        
-
-    @field_validator('organization')
-    def validate_organization(cls, v, values):
-        v = recursive_unpack_value(v)
-        if v.lower() == "unknown" or re.fullmatch(r"[a-zA-Z]+", v) or is_originating_system(v) or not v:
-            values.data.get('validation_errors').append('organization')
-            return v
-        return v
-    
 
     @field_validator('preprocessor_version')
     def validate_preprocessor_version(cls, v, values):
