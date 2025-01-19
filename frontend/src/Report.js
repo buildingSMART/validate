@@ -140,7 +140,7 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded && !errorStatus && 
                     <>
-                        {(kind === "file") && <h2>Header Information</h2>}
+                        {(kind === "file") && <h2>File Info</h2>}
                         {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
                         {(kind === "schema") && <h2>IFC Schema Report</h2>}
                         {(kind === "bsdd") && <h2>bSDD Compliance Report</h2>}
