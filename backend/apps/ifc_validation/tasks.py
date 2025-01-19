@@ -198,7 +198,7 @@ def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwarg
 
     # increment overall progress
     PROGRESS_INCREMENT = 5
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -342,8 +342,8 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     file_path = get_absolute_file_path(request.file.name)
 
     # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    PROGRESS_INCREMENT = 5
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -493,8 +493,8 @@ def header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
     file_path = get_absolute_file_path(request.file.name)
     
     # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    PROGRESS_INCREMENT = 5
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -566,7 +566,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -645,7 +645,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -780,7 +780,7 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -884,7 +884,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -962,7 +962,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -1038,7 +1038,7 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
