@@ -116,15 +116,7 @@ class HeaderStructure(ConfiguredBaseModel):
             values.data.get('validation_errors').append('originating_system')
             return v
         return v
-
-
-def is_latin_string(s):
-    for char in s:
-        if not (char.isascii() or 
-                unicodedata.name(char, "").startswith("LATIN")):
-            return False
-    return True
-
+    
     
 def is_originating_system(value):
     return re.compile(r"^[^-]+?\s-\s[^-]+?\s-\s\d+([.,;|]\d+)*$").match(value)
