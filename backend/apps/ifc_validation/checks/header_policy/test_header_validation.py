@@ -8,7 +8,7 @@ def collect_test_files():
         (str(file), outcome, field_folder.name)
         for field_folder in Path("tests").iterdir() if field_folder.is_dir()
         for outcome in ["pass", "fail"]
-        for file in (field_folder / outcome).glob("*.ifc")
+        for file in field_folder.glob(f"{outcome}_*.ifc")
     ]
 
 @pytest.mark.parametrize("f", collect_test_files())
