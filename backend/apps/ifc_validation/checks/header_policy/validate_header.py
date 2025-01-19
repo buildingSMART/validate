@@ -43,11 +43,6 @@ class HeaderStructure(ConfiguredBaseModel):
             values['authorization'] = getattr(file_name, 'authorization', "") or ""
             
             values['validation_errors'] = []
-            
-            #check whether everything in string is in latin alphabet
-            values['validation_errors'].extend(
-                k for k, v in values.items() if k != "file" and not is_latin_string(recursive_unpack_value(v))
-            )
         
         return values
 
