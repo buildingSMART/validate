@@ -430,7 +430,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                     version = ifc_file.by_type("IfcApplication")[0].Version if len(ifc_file.by_type("IfcApplication")) > 0 else None
                 except RuntimeError:
                     version = None
-                name = None if (app is None and version is None) else (None if version is None else app + ' ' + version)
+                name = None if None in (app, version) else app + ' ' + version
                 logger.debug(f'Detected Authoring Tool in file = {name}')
 
                 if name is not None:
