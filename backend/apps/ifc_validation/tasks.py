@@ -191,27 +191,51 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 @requires_django_user_context
 def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
+    # fetch request info
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
+
+    # increment overall progress
+    PROGRESS_INCREMENT = 5
+    request.progress += PROGRESS_INCREMENT
+    request.save()
+
+    # add task
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INSTANCE_COMPLETION)
+
     prev_result_succeeded = prev_result is not None and prev_result[0]['is_valid'] is True
     if prev_result_succeeded:
 
-        request = ValidationRequest.objects.get(pk=id)
-        file_path = get_absolute_file_path(request.file.name)
-
+        task.mark_as_initiated()
+        
         try:
             ifc_file = ifcopenshell.open(file_path)
-        except:
-            logger.warning(f'Failed to open {file_path}. Likely previous tasks also failed.')
-            ifc_file = None
+        except:            
+            reason = f'Failed to open {file_path}. Likely previous tasks also failed.'
+            task.mark_as_completed(reason)
+            return {'is_valid': False, 'reason': reason}
 
         if ifc_file:
+
+            # fetch and update ModelInstance records without ifc_type
             with transaction.atomic():
-                for inst in request.model.instances.iterator():
+                model_id = request.model.id
+                model_instances = ModelInstance.objects.filter(model_id=model_id, ifc_type__in=[None, ''])
+                instance_count = model_instances.count()
+                logger.info(f'Retrieved {instance_count:,} ModelInstance record(s)')
+                
+                for inst in model_instances.iterator():
                     inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
                     inst.save()
 
+                # update Task info and return
+                reason = f'Updated {instance_count:,} ModelInstance record(s)'
+                task.mark_as_completed(reason)
+                return {'is_valid': True, 'reason': reason}
+
     else:
         reason = f'Skipped as prev_result = {prev_result}.'
-        #task.mark_as_skipped(reason)
+        task.mark_as_skipped(reason)
         return {'is_valid': None, 'reason': reason}
 
 
@@ -435,7 +459,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                     version = ifc_file.by_type("IfcApplication")[0][1] if len(ifc_file.by_type("IfcApplication")) > 0 else None
                 except RuntimeError:
                     version = None
-                name = None if (app is None and version is None) else (None if version is None else app + ' ' + version)
+                name = None if None in (app, version) else app + ' ' + version
                 logger.debug(f'Detected Authoring Tool in file = {name}')
 
                 if name is not None:
@@ -499,7 +523,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
     file_path = get_absolute_file_path(request.file.name)
 
     # increment overall progress
-    PROGRESS_INCREMENT = 15
+    PROGRESS_INCREMENT = 10
     request.progress += PROGRESS_INCREMENT
     request.save()
 
@@ -676,15 +700,15 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                             ifc_type=message['instance']['type'],
                             model=model
                         )
+                        outcome.instance_id = instance.stepfile_id # store for later reference (not persisted)
                         outcomes_instances_to_save.append(instance)
                 
                 ModelInstance.objects.bulk_create(outcomes_instances_to_save, ignore_conflicts=True) # ignore existing
                 model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
 
                 for outcome in outcomes_to_save:
-                    if 'instance' in message and message['instance'] is not None and 'id' in message['instance']:
-                        stepfile_id = message['instance']['id']
-                        instance_id = model_instances[stepfile_id]
+                    if outcome.instance_id:
+                        instance_id = model_instances[outcome.instance_id]
                         if instance_id:
                             outcome.instance_id = instance_id
 
