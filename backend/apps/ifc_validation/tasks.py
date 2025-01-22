@@ -372,8 +372,14 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
             task.set_process_details(None, f"(module) ifcopenshell.open() for file '{file_path}')")
 
             with transaction.atomic():
-
-                ifc_file = ifcopenshell.open(file_path)
+                using_purepythonparser = False
+                try:
+                    ifc_file = ifcopenshell.open(file_path)
+                except:
+                    # @todo rather slow, better use pypy
+                    import ifcopenshell.simple_spf
+                    ifc_file = ifcopenshell.simple_spf.open(file_path)
+                    using_purepythonparser = True
                 logger.info(f'Opened file {file_path} in ifcopenshell; schema = {ifc_file.schema}')
 
                 # create or retrieve Model info
@@ -389,11 +395,21 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
                 # date - format eg. 2024-02-25T10:05:22 - tz defaults to UTC
                 model.date = None
-                try:
-                    ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
-                except RuntimeError:
-                    ifc_file_time_stamp = None
-                    model.date = None
+                if using_purepythonparser:
+                    # ifcopenshell.simple_spf returns instance attributes as tuples,
+                    # also header information.
+                    try:
+                        ifc_file_time_stamp = ifc_file.header.file_name[1]
+                    except IndexError:
+                        ifc_file_time_stamp = None
+                        model.date = None
+                else:
+                    try:
+                        ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
+                    except RuntimeError:
+                        ifc_file_time_stamp = None
+                        model.date = None
+
                 if ifc_file_time_stamp:
                     try:
                         logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
@@ -416,18 +432,31 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
                 # MVD
                 try:
-                    model.mvd = ifc_file.header.file_description.description[0].split(" ", 1)[1][1:-1]
+                    if using_purepythonparser:
+                        # ifcopenshell.simple_spf returns instance attributes as tuples,
+                        # also header information.
+                        desc = ifc_file.header.file_description[0][0]
+                    else:
+                        desc = ifc_file.header.file_description.description[0]
+                    # @todo implement based on grammar in header agreement PDF
+                    model.mvd = desc.split(" ", 1)[1][1:-1]
                 except:
                     model.mvd = None
                 logger.debug(f'Detected MVD = {model.mvd}')
 
                 # authoring app
                 try:
-                    app = ifc_file.by_type("IfcApplication")[0].ApplicationFullName if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                    # IfcApplication
+                    #---------------
+                    # 0. ApplicationDeveloper: <entity IfcOrganization>
+                    # 1. Version: <type IfcLabel: <string>>
+                    # 2. ApplicationFullName: <type IfcLabel: <string>>
+                    # 3. ApplicationIdentifier: <type IfcIdentifier: <string>>
+                    app = ifc_file.by_type("IfcApplication")[0][2] if len(ifc_file.by_type("IfcApplication")) > 0 else None
                 except RuntimeError:
                     app = None
                 try:
-                    version = ifc_file.by_type("IfcApplication")[0].Version if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                    version = ifc_file.by_type("IfcApplication")[0][1] if len(ifc_file.by_type("IfcApplication")) > 0 else None
                 except RuntimeError:
                     version = None
                 name = None if None in (app, version) else app + ' ' + version
@@ -452,13 +481,15 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                         logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')
 
                 # number of elements/geometries/properties
-                try:
-                    model.number_of_elements = len(ifc_file.by_type("IfcBuildingElement"))
-                except:
-                    model.number_of_elements = len(ifc_file.by_type("IfcBuiltElement"))
-                model.number_of_geometries = len(ifc_file.by_type("IfcShapeRepresentation"))
-                model.number_of_properties = len(ifc_file.by_type("IfcProperty"))
-                logger.debug(f'Found {model.number_of_elements} elements, {model.number_of_geometries} geometries and {model.number_of_properties} properties')
+                if not using_purepythonparser:
+                    # No attempts at writing these using the pure python parser because it doens't have understand inheritance (yet?)
+                    try:
+                        model.number_of_elements = len(ifc_file.by_type("IfcBuildingElement"))
+                    except:
+                        model.number_of_elements = len(ifc_file.by_type("IfcBuiltElement"))
+                    model.number_of_geometries = len(ifc_file.by_type("IfcShapeRepresentation"))
+                    model.number_of_properties = len(ifc_file.by_type("IfcProperty"))
+                    logger.debug(f'Found {model.number_of_elements} elements, {model.number_of_geometries} geometries and {model.number_of_properties} properties')
 
                 # save all changes
                 model.save()
@@ -506,7 +537,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
         # determine program/script to run
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL']
+        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL', "--purepythonparser"]
         logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
         # check Gherkin IP
@@ -530,7 +561,14 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
             task.mark_as_failed(err)
             raise
 
-        if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        # @nb previously we also checked for:
+        # or (len(proc.stderr) > 0):
+        #
+        # but I now get warnings:
+        #
+        # - features/environment.py:86: ContextMaskWarning: user code is masking context attribute 'gherkin_outcomes'; 
+        #                                                   see the tutorial for what this means
+        if proc.returncode is not None and proc.returncode != 0: 
             error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
             task.mark_as_failed(error_message)
             raise RuntimeError(error_message)
@@ -742,7 +780,7 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
             task.mark_as_failed(err)
             raise
 
-        if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        if proc.returncode is not None and proc.returncode != 0:
             error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
             task.mark_as_failed(error_message)
             raise RuntimeError(error_message)
@@ -846,7 +884,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
             task.mark_as_failed(err)
             raise
 
-        if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        if proc.returncode is not None and proc.returncode != 0:
             error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
             task.mark_as_failed(error_message)
             raise RuntimeError(error_message)
@@ -923,7 +961,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
             task.mark_as_failed(err)
             raise
 
-        if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        if proc.returncode is not None and proc.returncode != 0:
             error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
             task.mark_as_failed(error_message)
             raise RuntimeError(error_message)
@@ -999,7 +1037,7 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
             task.mark_as_failed(err)
             raise
 
-        if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        if proc.returncode is not None and proc.returncode != 0:
             error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
             task.mark_as_failed(error_message)
             raise RuntimeError(error_message)
