@@ -52,6 +52,9 @@ function unsafe_format(obj) {
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`;
     return <div>{ctx}<div></div><ul>{obj.oneOf.map(v => <li>{v}</li>)}</ul></div>;
+  } else if (typeof obj == 'object' && 'schema_identifier' in obj) {
+    let lines = obj.schema_identifier.split("\n");
+    return <div>{lines ? lines.map(line => <div> {line }</div>) : obj.schema_identifier}</div>;
   } else if (typeof obj == 'object' && 'num_digits' in obj) {
     // Custom formatting for calculated alignment consistency
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
