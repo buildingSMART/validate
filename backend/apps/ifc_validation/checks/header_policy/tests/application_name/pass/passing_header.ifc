@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('ViewDefinition [Alignment-basedView]'),'2;1');
-FILE_NAME('Header example2.ifc', '2022-09-16T10:35:07', ('Evandro Alfieri'), ('buildingSMART Int.'), 'RailCOMPLETE\X2\00AE\X0\ version 0.12.7.0 with DNA 2023.a (alias 2023.a (alpha 2023-04-18T00:00:00+01:00)) for NO-BN (alias Bane NOR SF) created on 2023-04-18T00:00:00+01:00 by NO.0001 (alias Railcomplete AS)', 'none');
+FILE_NAME('Header example2.ifc', '2022-09-16T10:35:07', ('Evandro Alfieri'), ('buildingSMART Int.'), 'IFC Motor 1.0', 'Company - Application - 26.0.0.0', 'none');
 FILE_SCHEMA(('IFC4X3_ADD2'));
 ENDSEC;`
 DATA;

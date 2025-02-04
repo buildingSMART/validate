@@ -27,6 +27,7 @@ authlib
 
 # bsi
 lark-parser
+packaging
 pyparsing
 behave
 pytest

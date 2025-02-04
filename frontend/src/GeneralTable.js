@@ -11,6 +11,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
 import WarningIcon from '@mui/icons-material/Warning';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
+import Tooltip from '@mui/material/Tooltip';
 
 const statusToIcon = {
   "n": <BrowserNotSupportedIcon color="disabled" />,
@@ -41,100 +42,64 @@ function prettyPrintNumber(number) {
 }
 
 function preprocessData(data, type) {
-
-  const BASE_LINK = "https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#";
-
   const validationErrors = data["model"]["header_validation"]?.["validation_errors"] || [];
 
   function warningIconWithLink(field, path) {
+    const file_info_mapping = {
+      "description": "Specifies the version of this part of ISO 10303 used to create the exchange structure as well as its contents.",
+      "file_name": "The string of graphic characters used to name this particular instance of an exchange structure",
+      "time_stamp": "The date and time specifying when the exchange structure was created, formatted in ISO 8601",
+      "originating_system": "The software from which the model originated, also known as the authoring tool.",
+      "preprocessor_version": "The system used to create the exchange structure, including the system product name and version.",
+      "version": "The version of the model or file format used, derived from the originating system",
+      "company_name": "The name of the company, derived from the originating system",
+      "application_name": "The software used to export the model, derived from the originating system",
+      "authorization": "The name and mailing address of the person who authorized the sending of the exchange structure.",
+      "organization": "The group or organization with whom the author is associated.",
+      "author": "The name and mailing address of the person responsible for creating the exchange structure.",
+    };
+
     return (
       <>
-        {field}
-        <a href={`${BASE_LINK}${path}`} target="_blank" rel="noopener noreferrer">
-          <WarningIcon color="warning" sx={{ marginLeft: 1 }} />
-        </a>
+        <Tooltip title={file_info_mapping[path] || "No description available"}>
+          <span style={{ borderBottom: '1px dotted gray', cursor: 'help' }}>{field}</span>
+        </Tooltip>
+        {validationErrors.includes(path) && (
+          <a
+            href={`https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#${path}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <WarningIcon color="warning" sx={{ marginLeft: 1 }} />
+          </a>
+        )}
       </>
     );
   }
-  
 
-  if (type === "general") {
-    return [
-      ["Report Date", data["model"]["date"]],
-      ["IFC Schema", data["model"]["schema"] !== null ? data["model"]["schema"] : "-"],
-      [
-        <>
-          MVD(s)
-          {validationErrors.includes("description") &&
-            warningIconWithLink("","description")}
-        </>,
-        data["model"]["header_validation"]?.["description"] || "-"
-      ],
-      [
-        "File Name",
-        data["model"]["header_validation"]?.["name"]
-          ? data["model"]["header_validation"]["name"]
-          : "-"
-      ],
-      ["File Size", prettyPrintFileSize(data["model"]["size"])],
-      [
-        <>
-          File Date
-          {validationErrors.includes("time_stamp") &&
-            warningIconWithLink("","time_stamp")}
-        </>,
-        data["model"]["header_validation"]?.["time_stamp"] || "-"
-      ],
-      [
-        <>
-          Authoring Application
-          {validationErrors.includes("originating_system") &&
-            warningIconWithLink("","originating_system")}
-        </>,
-        data["model"]["header_validation"]?.["originating_system"] || "-"
-      ],
-      [
-        <>
-          Preprocessor Version
-          {validationErrors.includes("preprocessor_version") &&
-            warningIconWithLink("","preprocessor_version")}
-        </>,
-        data["model"]["header_validation"]?.["preprocessor_version"] || "-"
-      ],
-      [
-        "Author",
-        data["model"]["header_validation"]?.["author"]
-          ? data["model"]["header_validation"]["author"]
-          : "-"
-      ],
-      [
-        <>
-          Organization
-          {validationErrors.includes("organization") &&
-            warningIconWithLink("","organization")}
-        </>,
-        data["model"]["header_validation"]?.["organization"] || "-"
-      ]
-    ];
-  } else {
+  const rows = [
+    ["Report Date", data["model"]["date"]],
+    ["IFC Schema", data["model"]["schema"] || "-"],
+    [warningIconWithLink("MVD(s)", "description"), data["model"]["header_validation"]?.["description"] || "-"],
+    [warningIconWithLink("File Name", "file_name"), data["model"]["header_validation"]?.["name"] || "-"],
+    ["File Size", prettyPrintFileSize(data["model"]["size"])],
+    [warningIconWithLink("File Date", "time_stamp"), data["model"]["header_validation"]?.["time_stamp"] || "-"],
+    [warningIconWithLink("Originating System", "originating_system"), data["model"]["header_validation"]?.["originating_system"] || "-"],
+    [warningIconWithLink("Preprocessor Version", "preprocessor_version"), data["model"]["header_validation"]?.["preprocessor_version"] || "-"],
+    [warningIconWithLink("Company Name", "company_name"), data["model"]["header_validation"]?.["company_name"] || "-"],
+    [warningIconWithLink("Application Name", "application_name"), data["model"]["header_validation"]?.["application_name"] || "-"],
+    [warningIconWithLink("Version", "version"), data["model"]["header_validation"]?.["version"] || "-"],
+    [warningIconWithLink("Author", "author"), data["model"]["header_validation"]?.["author"] || "-"],
+    [warningIconWithLink("Organization", "organization"), data["model"]["header_validation"]?.["organization"] || "-"],
+  ];
 
-    return [
-      ["Syntax", statusToIcon[data["model"]["status_syntax"]]],
-      ["Schema", statusToIcon[data["model"]["status_schema"]]],
-      ["bSDD", statusToIcon[data["model"]["status_bsdd"]]],
-      ["Prerequisites", statusToIcon[data["model"]["status_prereq"]]],
-      ["Header", statusToIcon[data["model"]["status_header"]]],
-      ["Implementer Agreements", statusToIcon[data["model"]["status_ia"]]],
-      ["Informal Propositions", statusToIcon[data["model"]["status_ip"]]],
-      ["Industry Practices", statusToIcon[data["model"]["status_ind"]]],
-    ]
-  }
-
+  return rows;
 }
 
-
 export default function GeneralTable({ data, type }) {
-  const rows = preprocessData(data, type)
+  const rows = preprocessData(data, type);
+
+  console.log("Rows generated by preprocessData: ", rows);  // Debug to catch duplicates
 
   return (
     <TableContainer sx={{ maxWidth: 850 }} component={Paper}>
@@ -145,16 +110,12 @@ export default function GeneralTable({ data, type }) {
           </TableCell>
         </TableHead>
         <TableBody>
-          {rows.map((row) => (
-            <TableRow
-              key={row[0]}
-              sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-            >
-              <TableCell sx={{width:'33%'}}>
+          {rows.map((row, index) => (
+            <TableRow key={`${row[0]}-${index}`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+              <TableCell sx={{ width: '33%' }}>
                 <b>{row[0]}</b>
               </TableCell>
               <TableCell align="left">{row[1]}</TableCell>
-
             </TableRow>
           ))}
         </TableBody>
@@ -162,3 +123,4 @@ export default function GeneralTable({ data, type }) {
     </TableContainer>
   );
 }
+
