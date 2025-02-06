@@ -78,7 +78,7 @@ class HeaderStructure(ConfiguredBaseModel):
     file: ifcopenshell.file
     validation_errors : list 
     
-    description: Union[Tuple[str, ...],str] = Field(default_factory=tuple)
+    description: Tuple[str, ...] = Field(default_factory=tuple)
     implementation: str = Field(default="")
     name: str = Field(default="")
     time_stamp: str = Field(default="")
@@ -140,7 +140,7 @@ class HeaderStructure(ConfiguredBaseModel):
                 values.data.get('validation_errors').append(values.field_name)
         except:
             pass  ## ---> what to do with invalid schema identifier? (IFC4X3)
-        return v
+        return (v,)
     
     
     @field_validator('time_stamp')
