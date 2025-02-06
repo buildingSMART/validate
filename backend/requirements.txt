@@ -27,6 +27,7 @@ authlib
 
 # bsi
 lark-parser
+packaging
 pyparsing
 behave
 pytest
@@ -37,6 +38,7 @@ pydot
 numpy
 rtree
 networkx
+pyyaml
 mpmath
 
 # dev

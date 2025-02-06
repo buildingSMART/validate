@@ -160,7 +160,8 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     serial_tasks = chain(
         syntax_validation_subtask.s(id, file_name),
         parse_info_subtask.s(id, file_name),
-        prerequisites_subtask.s(id, file_name)
+        prerequisites_subtask.s(id, file_name),
+        header_validation_subtask.s(id, file_name)
     )
 
     parallel_tasks = group([
@@ -197,7 +198,7 @@ def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwarg
 
     # increment overall progress
     PROGRESS_INCREMENT = 5
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -341,8 +342,8 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     file_path = get_absolute_file_path(request.file.name)
 
     # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    PROGRESS_INCREMENT = 5
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -516,6 +517,78 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+def header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+    
+    # fetch request info 
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
+    
+    # increment overall progress
+    PROGRESS_INCREMENT = 5
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
+    request.save()
+
+    # add task
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.HEADER)
+    
+    task.mark_as_initiated()
+    # check for header policy 
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
+    
+    try:
+        logger.debug(f'before header validation task, path {file_path}, script {check_script} ')
+        proc = subprocess.run(
+            [sys.executable, check_script, file_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=TASK_TIMEOUT_LIMIT  # Add timeout to prevent infinite hangs
+        )
+        
+    except subprocess.TimeoutExpired as err:
+        task.mark_as_failed(err)
+        raise
+    except Exception as err:
+        task.mark_as_failed(err)
+        raise
+    
+    if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
+
+    header_validation = {}
+    stdout_lines = proc.stdout.splitlines()
+    for line in stdout_lines:
+        try:
+            header_validation = json.loads(line)
+        except json.JSONDecodeError:
+            continue 
+    
+    logger.debug(f'header validation output : {header_validation}')
+    
+    with transaction.atomic():
+        # create or retrieve Model info
+        model = get_or_create_ifc_model(id)
+
+        # update Model info
+        agg_status = task.determine_aggregate_status()
+        model.status_prereq = agg_status
+        
+        # update header validation
+        model.header_validation = header_validation
+        model.save(update_fields=['status_header', 'header_validation'])
+        
+        # update Task info and return
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
+
+
+@shared_task(bind=True)
+@log_execution
+@requires_django_user_context
 def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
@@ -524,7 +597,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -539,6 +612,8 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
         check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL', "--purepythonparser"]
         logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+        logger.debug(f"gherkin log path : {os.path.join(os.getenv('Django_LOG_FOLDER', 'logs'), 'gherkin_rules.log')}")
+        logger.debug(f"Log folder exists and writable: {os.access(os.getenv('Django_LOG_FOLDER', 'logs'), os.W_OK)}")
 
         # check Gherkin IP
         try:
@@ -608,7 +683,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -743,7 +818,7 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -847,7 +922,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -925,7 +1000,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -1001,7 +1076,7 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
