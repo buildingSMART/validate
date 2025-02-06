@@ -2,13 +2,46 @@ import sys
 from pydantic import Field, field_validator, model_validator
 from typing import Tuple, Union
 import ifcopenshell
+from ifcopenshell import validate
 import yaml
 import re
 import os
 from datetime import datetime
 from packaging.version import parse, InvalidVersion
 
+import logging 
+import io
+from contextlib import redirect_stdout
 from config import ConfiguredBaseModel
+
+
+def ifcopenshell_pre_validation(file):
+    log_stream = io.StringIO()
+    
+    logger = logging.getLogger("local_ifcopenshell_logger")
+    logger.setLevel(logging.DEBUG)  
+    
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    
+    handler = logging.StreamHandler(log_stream)
+    handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    logger.addHandler(handler)
+
+    validate.validate_ifc_header(file, logger)
+    
+    log_contents = log_stream.getvalue().strip().split('\n') 
+    extracted_info = []
+    
+    pattern = r"Attribute '(.+?)' has invalid"
+    
+    for line in log_contents:
+        match = re.search(pattern, line)
+        if match:
+            extracted_info.append(match.group(1))
+    
+    return extracted_info
+
 
 def is_valid_iso8601(dt_str: str) -> bool:
     try:
@@ -29,7 +62,7 @@ def validate_and_split_originating_system(attributes):
     match = pattern.match(attributes['originating_system'])
     if not match:
         attributes['validation_errors'].append('originating_system')
-        company_name = application_name = version = 'N/D'
+        company_name = application_name = version = 'Not Defined'
 
     else:
         company_name, application_name, version = match.group(1), match.group(2), match.group(3)
@@ -45,12 +78,12 @@ class HeaderStructure(ConfiguredBaseModel):
     file: ifcopenshell.file
     validation_errors : list 
     
-    description: Union[Tuple[str, ...], str] = Field(default_factory=tuple)
+    description: Union[Tuple[str, ...],str] = Field(default_factory=tuple)
     implementation: str = Field(default="")
     name: str = Field(default="")
     time_stamp: str = Field(default="")
-    author: Union[Tuple[str, ...], str] = Field(default_factory=tuple)
-    organization: Union[Tuple[str, ...], str] = Field(default_factory=tuple)
+    author: Tuple[str, ...] = Field(default_factory=tuple)
+    organization: Tuple[str, ...] = Field(default_factory=tuple)
     preprocessor_version: str = Field(default="")
     originating_system: str = Field(default="")
     authorization: str = Field(default="")
@@ -81,6 +114,12 @@ class HeaderStructure(ConfiguredBaseModel):
             }
             
             attributes = validate_and_split_originating_system(attributes)
+            
+            errors_from_pre_validation = ifcopenshell_pre_validation(file)
+            for error in errors_from_pre_validation:
+                attributes['validation_errors'].append(error)
+                attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
+            
             values.update(attributes)
                     
         
@@ -130,10 +169,12 @@ class HeaderStructure(ConfiguredBaseModel):
     
     @field_validator('version')
     def validate_version(cls, v, values):
-        try:
-            parse(v)
-        except InvalidVersion:
-            values.data['validation_errors'].append(values.field_name)
+        if v.lower() != 'not defined': # in this case, there is already an error for originating_system       
+            try:
+                parse(v)
+            except InvalidVersion:
+                values.data['validation_errors'].append(values.field_name)
+        return v
     
 
 def main():

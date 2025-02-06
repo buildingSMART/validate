@@ -391,13 +391,17 @@ export default function DashboardTable({ models }) {
                   <TableCell align="left">
                   {row.filename}{" "}
                   {wrap_status(
-                    row.header_validation && row.header_validation.validation_errors && row.header_validation.validation_errors.length > 0
-                      ? "w" 
-                      : "info", 
-                    context.sandboxId
-                      ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
-                      : `/report_file/${row.code}`
-                  )}
+                      row.header_validation && 
+                      row.header_validation.validation_errors && 
+                      row.header_validation.validation_errors.some(error => 
+                        ['originating_system', 'company_name', 'application_name', 'version'].includes(error)
+                      )
+                        ? "w" 
+                        : "info", 
+                      context.sandboxId
+                        ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
+                        : `/report_file/${row.code}`
+                    )}
                 </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}
