@@ -81,17 +81,21 @@ function preprocessData(data, type) {
     ["Report Date", data["model"]["date"]],
     ["IFC Schema", data["model"]["schema"] || "-"],
     [warningIconWithLink("MVD(s)", "description"), data["model"]["header_validation"]?.["description"] || "-"],
-    [warningIconWithLink("File Name", "file_name"), data["model"]["header_validation"]?.["name"] || "-"],
+    [warningIconWithLink("File Name in Header", "file_name"), data["model"]["header_validation"]?.["name"] || "-"],
     ["File Size", prettyPrintFileSize(data["model"]["size"])],
     [warningIconWithLink("File Date", "time_stamp"), data["model"]["header_validation"]?.["time_stamp"] || "-"],
-    [warningIconWithLink("Originating System", "originating_system"), data["model"]["header_validation"]?.["originating_system"] || "-"],
-    [warningIconWithLink("Preprocessor Version", "preprocessor_version"), data["model"]["header_validation"]?.["preprocessor_version"] || "-"],
-    [warningIconWithLink("Company Name", "company_name"), data["model"]["header_validation"]?.["company_name"] || "-"],
-    [warningIconWithLink("Application Name", "application_name"), data["model"]["header_validation"]?.["application_name"] || "-"],
-    [warningIconWithLink("Version", "version"), data["model"]["header_validation"]?.["version"] || "-"],
-    [warningIconWithLink("Author", "author"), data["model"]["header_validation"]?.["author"] || "-"],
-    [warningIconWithLink("Organization", "organization"), data["model"]["header_validation"]?.["organization"] || "-"],
   ];
+
+  // return additional information for header validation report
+  if (type === "file") {
+    rows.push([warningIconWithLink("Originating System", "originating_system"), data["model"]["header_validation"]?.["originating_system"] || "-"]);
+    rows.push([warningIconWithLink("Preprocessor Version", "preprocessor_version"), data["model"]["header_validation"]?.["preprocessor_version"] || "-"]);
+    rows.push([warningIconWithLink("Company Name", "company_name"), data["model"]["header_validation"]?.["company_name"] || "-"]);
+    rows.push([warningIconWithLink("Application Name", "application_name"), data["model"]["header_validation"]?.["application_name"] || "-"]);
+    rows.push([warningIconWithLink("Application Version", "version"), data["model"]["header_validation"]?.["version"] || "-"]);
+    rows.push([warningIconWithLink("Author", "author"), data["model"]["header_validation"]?.["author"] || "-"]);
+    rows.push([warningIconWithLink("Organization", "organization"), data["model"]["header_validation"]?.["organization"] || "-"]);
+  }
 
   return rows;
 }

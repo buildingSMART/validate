@@ -147,7 +147,7 @@ function Report({ kind }) {
                         {(kind === "normative") && <h2>Normative IFC Rules Report</h2>}
                         {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
-                        <GeneralTable data={reportData} type={"general"} />
+                        <GeneralTable data={reportData} type={kind} />
 
                         {(kind === "syntax") && <SyntaxResult 
                           status={reportData.model.status_syntax} 
