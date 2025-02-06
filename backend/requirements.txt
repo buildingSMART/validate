@@ -39,6 +39,7 @@ numpy
 rtree
 networkx
 pyyaml
+mpmath
 
 # dev
 django-debug-toolbar

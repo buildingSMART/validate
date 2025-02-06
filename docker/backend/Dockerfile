@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache \
     pip install --no-cache-dir -r /app/backend/requirements.txt && \    
     # use version of ifcopenshell with desired schema parsing
     # TODO: revert to pyPI when schema parsing is published in the future
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-0267e2b-linux64.zip" && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.1-c49ca69-linux64.zip" && \
     mkdir -p /opt/venv/lib/python3.11/site-packages  && \
     unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
     # some cleanup
