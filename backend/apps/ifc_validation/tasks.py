@@ -5,6 +5,7 @@ import subprocess
 import functools
 import json
 import ifcopenshell
+import re
 
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
@@ -447,19 +448,18 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
                 # authoring app
                 try:
-                    # IfcApplication
-                    #---------------
-                    # 0. ApplicationDeveloper: <entity IfcOrganization>
-                    # 1. Version: <type IfcLabel: <string>>
-                    # 2. ApplicationFullName: <type IfcLabel: <string>>
-                    # 3. ApplicationIdentifier: <type IfcIdentifier: <string>>
-                    app = ifc_file.by_type("IfcApplication")[0][2] if len(ifc_file.by_type("IfcApplication")) > 0 else None
+                    originating_system = ifc_file.header.file_name.originating_system if not using_purepythonparser else ifc_file.header.file_name[5]
+                    pattern = re.compile(r"(.+) - (.+) - (.+)") # very greedy parsing, we'll use pydantic parsing to set constraints
+
+                    match = pattern.match(originating_system)
+                    if not match:
+                        app = originating_system # or simply state that it can't be reliable parsed (?)
+                        version = '0'
+                        company = ''
+                    else:
+                        company, app, version = match.group(1), match.group(2), match.group(3)
                 except RuntimeError:
                     app = None
-                try:
-                    version = ifc_file.by_type("IfcApplication")[0][1] if len(ifc_file.by_type("IfcApplication")) > 0 else None
-                except RuntimeError:
-                    version = None
                 name = None if None in (app, version) else app + ' ' + version
                 logger.debug(f'Detected Authoring Tool in file = {name}')
 
