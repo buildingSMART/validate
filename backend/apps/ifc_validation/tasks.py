@@ -5,6 +5,7 @@ import subprocess
 import functools
 import json
 import ifcopenshell
+from ifcopenshell import SchemaError, Error, simple_spf
 import re
 
 from celery import shared_task, chain, chord, group
@@ -377,12 +378,14 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 using_purepythonparser = False
                 try:
                     ifc_file = ifcopenshell.open(file_path)
-                except:
+                except SchemaError:
                     # @todo rather slow, better use pypy
-                    import ifcopenshell.simple_spf
                     ifc_file = ifcopenshell.simple_spf.open(file_path)
                     using_purepythonparser = True
-                logger.info(f'Opened file {file_path} in ifcopenshell; schema = {ifc_file.schema}')
+                except Error:
+                    reason = f'Failed to open {file_path}. Likely previous tasks also failed.'
+                    task.mark_as_completed(reason)
+                    return {'is_valid': False, 'reason': reason}
 
                 # create or retrieve Model info
                 model = get_or_create_ifc_model(id)
@@ -499,7 +502,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
                 task.mark_as_completed(reason)
                 return {'is_valid': True, 'reason': reason}
 
-        except ifcopenshell.Error as err:
+        except Error as err:
             reason = str(err)
             task.mark_as_completed(reason)
             return {'is_valid': False, 'reason': reason}
