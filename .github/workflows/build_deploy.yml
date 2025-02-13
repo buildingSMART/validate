@@ -18,6 +18,7 @@ on:
           - release/0.6.9
           - release/0.6.10
           - release/0.6.11
+          - release/0.6.12
 
       environment:
         description: 'Environment to (re)deploy to'
