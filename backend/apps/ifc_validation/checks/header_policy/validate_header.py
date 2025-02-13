@@ -13,6 +13,7 @@ import logging
 import io
 from contextlib import redirect_stdout
 from config import ConfiguredBaseModel
+from mvd_parser import parse_mvd
 
 
 def ifcopenshell_pre_validation(file):
@@ -96,6 +97,7 @@ class HeaderStructure(ConfiguredBaseModel):
     @model_validator(mode='before')
     def populate_header(cls, values):
         if (file := values.get('file')):
+
             header = file.wrapped_data.header
             file_description = header.file_description
             file_name = header.file_name
@@ -128,19 +130,61 @@ class HeaderStructure(ConfiguredBaseModel):
 
     @field_validator('description')
     def validate_description(cls, v, values):
-        # https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
-        v = v[0].replace(' ', '') # allow whitespaces
-        allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
-        
-        schema_identifier = values.data.get('file').schema_identifier
+        """
+        https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
+        For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
+        """
+        header_description_text = ' '.join(v)
         try:
-            if not v in list(map(lambda desc: desc.replace(" ", ""), allowed_descriptions.get(schema_identifier))):
-                values.data.get('validation_errors').append(values.field_name)
-            if not v: # description field is mandatory
-                values.data.get('validation_errors').append(values.field_name)
+            parsed_description = parse_mvd(header_description_text)
         except:
-            pass  ## ---> what to do with invalid schema identifier? (IFC4X3)
-        return (v,)
+            pass
+        view_definitions = parsed_description.mvd
+        
+        if not view_definitions:
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+
+        
+        if view_definitions == 'Not defined':
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+
+        
+        if values.data.get('file').schema_identifier == 'IFC4X3_ADD2':
+            view_definitions_previous_versions = {
+                'StructuralAnalysisView',
+                'SpaceBoundaryAddonView',
+                'BasicFMHandoverView',
+                'ReferenceView_V1.2',
+                'IFC4Precast'
+            }
+            if set(view_definitions) & view_definitions_previous_versions:
+                values.data.get('validation_errors').append(values.field_name)
+                return v if type(v) == tuple else v
+
+        
+        # comments is a free textfield, but constrainted to 256 characters
+        if len(parsed_description.comments) > 256:
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+
+        
+        # AddonViews cannot be used without CoordinationView.
+        view_definitions_lowercase = {mvd.lower() for mvd in view_definitions}
+        if any('addonview' in mvd for mvd in view_definitions_lowercase) and 'coordinationview' not in view_definitions_lowercase:
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+
+            
+        # anything besides exactly CoordinationView as a single item gets excluded
+        if len(view_definitions) == 1 and view_definitions[0].lower() != 'coordinationview':
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+
+        
+        return v if type(v) == tuple else v
+
     
     
     @field_validator('time_stamp')
