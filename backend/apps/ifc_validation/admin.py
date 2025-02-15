@@ -9,13 +9,21 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import ngettext
-from core import utils
 
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome
-from apps.ifc_validation_models.models import Model, ModelInstance, Company, AuthoringTool
+from apps.ifc_validation_models.models import ValidationRequest
+from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import ValidationOutcome
+from apps.ifc_validation_models.models import Model
+from apps.ifc_validation_models.models import ModelInstance
+from apps.ifc_validation_models.models import Company
+from apps.ifc_validation_models.models import AuthoringTool
+from apps.ifc_validation_models.models import UserAdditionalInfo
+from apps.ifc_validation_models.models import Version
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
+
+from core import utils
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +56,21 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "status", "progress", "duration_text", "created", "created_by", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_text", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "created_by", "created", "updated"]
-    search_fields = ('file_name', 'status', 'created_by__username', 'updated_by__username')
+    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created", "updated"]
+    search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
     actions_on_top = True
+
+    @admin.display(description="Authoring Tool")
+    def authoring_tool_text(self, obj):
+        
+        return obj.model.produced_by if obj.model else None
+    authoring_tool_text.admin_order_field = 'model__produced_by'
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -68,6 +82,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
             return '{0:.{1}f}'.format(duration, 1)
         else:
             return None
+
+    @admin.display(description="Is Vendor ?")
+    def is_vendor(self, obj):
+
+        return ("Yes" if obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor else "No")
+    is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
 
     @admin.display(description="Deleted ?")
     def is_deleted(self, obj):
@@ -290,9 +310,9 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "stepfile_id", "model", "ifc_type", "created", "updated"]
-
+    list_display = ["id", "public_id", "model", "model_id", "stepfile_id", "ifc_type", "created", "updated"]
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
+    list_filter = ["ifc_type", "model_id", "created", "updated"]
 
 
 class CompanyAdmin(BaseAdmin):
@@ -301,8 +321,10 @@ class CompanyAdmin(BaseAdmin):
         ('General Information',  {"classes": ("wide"), "fields": ["id", "name" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
+    list_display = ["id", "name", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["company", "created", "updated"]
+    list_filter = ["name", "created", "updated"]
+    search_fields = ("name",)
 
 
 class AuthoringToolAdmin(BaseAdmin):
@@ -316,12 +338,27 @@ class AuthoringToolAdmin(BaseAdmin):
     list_filter = ["company", "created", "updated"]
 
 
-class CustomUserAdmin(UserAdmin):
+class UserAdditionalInfoInlineAdmin(admin.StackedInline):
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "is_superuser", "last_login", "date_joined"]
-    list_filter = ['is_staff', 'is_superuser', 'is_active']
+    model = UserAdditionalInfo
+    fk_name = "user"
 
-    search_fields = ('username', 'email', 'first_name', 'last_name', "last_login", "date_joined")
+    fieldsets = [
+        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor"]}),
+        ('Auditing Information', {"classes": ("wide"), "fields":  [("created", "created_by"), ("updated", "updated_by")]})
+    ]
+    ordering = ("company", "is_vendor", "created", "created_by", "updated", "updated_by")
+    readonly_fields = ["created", "created_by", "updated", "updated_by"]
+
+
+class CustomUserAdmin(UserAdmin, BaseAdmin):
+
+    inlines = [ UserAdditionalInfoInlineAdmin ]
+
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "last_login", "date_joined"]
+    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor']
+
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "last_login", "date_joined")
 
     actions = ["activate", "deactivate"]
     actions_on_top = True
@@ -338,6 +375,28 @@ class CustomUserAdmin(UserAdmin):
     def deactivate(self, request, queryset):
         queryset.update(is_active=False)
 
+    @admin.display(description="Company")
+    def company(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.company
+    
+    @admin.display(description="Is Vendor?")
+    def is_vendor(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+
+
+class VersionAdmin(BaseAdmin):
+
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "released", "release_notes"]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
+    ]
+    list_display = ["id", "name", "released", "release_notes", "created", "updated"]
+    readonly_fields = ["id", "created", "updated"]
+    list_filter = ["created", "updated"]
+    search_fields = ("name", "released", "release_notes")
+
 
 # register all admin classes
 admin.site.register(ValidationRequest, ValidationRequestAdmin)
@@ -347,6 +406,7 @@ admin.site.register(Model, ModelAdmin)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
+admin.site.register(Version, VersionAdmin)
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)

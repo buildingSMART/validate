@@ -38,36 +38,35 @@ class ValidationRequestDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Request by Id.
+        Retrieves a single Validation Request by public_id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=id).first()
-
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
             serializer = ValidationRequestSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Request with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
     @extend_schema(operation_id='validationrequest_delete')
     def delete(self, request, id, *args, **kwargs):
 
         """
-        Deletes an IFC Validation Request instance.
+        Deletes an IFC Validation Request instance by id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
-        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False).filter(id=id).first()
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
             instance.delete()
-            data = {'message': f"Validation Request with id='{id}' was deleted successfully."}
+            data = {'message': f"Validation Request with public_id={id} was deleted successfully."}
             return Response(data, status=status.HTTP_204_NO_CONTENT)
         else:
-            data = {'message': f"Validation Request with id='{id}' does not exist."}
+            data = {'message': f"Validation Request with public_id={id} does not exist."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -88,8 +87,8 @@ class ValidationRequestListAPIView(APIView):
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_requests = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
+        serializer = self.serializer_class(user_requests, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(operation_id='validationrequest_create')
@@ -161,17 +160,17 @@ class ValidationTaskDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Task by Id.
+        Retrieves a single Validation Task by public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=id).first()
+        instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=ValidationTask.to_private_id(id)).first()
         if instance:
             serializer = ValidationTaskSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Task with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Task with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -186,13 +185,22 @@ class ValidationTaskListAPIView(APIView):
     def get(self, request, *args, **kwargs):
 
         """
-        Returns a list of all Validation Tasks.
+        Returns a list of all Validation Tasks, optionally filtered by request_public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_tasks = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
+        
+        # parse query arguments
+        request_public_id = self.request.query_params.get('request_public_id', '').lower()
+        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
+        
+        # apply filter(s)
+        if request_public_ids:
+            user_tasks = [t for t in user_tasks if t.request_public_id in request_public_ids]
+
+        serializer = self.serializer_class(user_tasks, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -207,17 +215,17 @@ class ValidationOutcomeDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Outcome by Id.
+        Retrieves a single Validation Outcome by public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=id).first()
+        instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=ValidationOutcome.to_private_id(id)).first()
         if instance:
             serializer = ValidationOutcomeSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Outcome with id='{id}' does not exist for user with id='{request.user.id}'."}
+            data = {'message': f"Validation Outcome with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
@@ -232,12 +240,25 @@ class ValidationOutcomeListAPIView(APIView):
     def get(self, request, *args, **kwargs):
 
         """
-        Returns a list of all Validation Outcomes.
+        Returns a list of all Validation Outcomes, optionally filtered by request_public_id or validation_task_public_id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
-        all_user_instances = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
-        serializer = self.serializer_class(all_user_instances, many=True)
+        user_outcomes = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
+
+        # parse query arguments
+        request_public_id = self.request.query_params.get('request_public_id', '').lower()
+        task_public_id = self.request.query_params.get('validation_task_public_id', '').lower()
+        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
+        task_public_ids = [id for id in (task_public_id.split(',') if task_public_id else [])]
+        
+        # apply filter(s)
+        if request_public_ids:
+            user_outcomes = [o for o in user_outcomes if o.validation_task.request_public_id in request_public_ids]
+        if task_public_ids:
+            user_outcomes = [o for o in user_outcomes if o.validation_task_public_id in task_public_ids]
+
+        serializer = self.serializer_class(user_outcomes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
