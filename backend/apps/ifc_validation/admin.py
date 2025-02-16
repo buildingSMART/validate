@@ -9,6 +9,8 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import ngettext
+from django.db.models import F, Case, When, DurationField
+from django.db.models.functions import Now
 
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
@@ -52,12 +54,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "deleted"]}),
-        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress"]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_text", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
-    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
+    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
     list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created", "updated"]
@@ -65,6 +67,17 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
     actions_on_top = True
+
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            _duration=Case(
+                When(completed__isnull=True, then=Now() - F('started')),
+                default=F('completed') - F('started'),
+                output_field=DurationField()
+            )
+        )
+        return queryset
 
     @admin.display(description="Authoring Tool")
     def authoring_tool_text(self, obj):
@@ -75,13 +88,8 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
 
-        duration = obj.duration
-        if duration is not None:
-            if isinstance(duration, timedelta): 
-                duration = duration.total_seconds()
-            return '{0:.{1}f}'.format(duration, 1)
-        else:
-            return None
+        return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
+    duration_text.admin_order_field = '_duration'
 
     @admin.display(description="Is Vendor ?")
     def is_vendor(self, obj):
@@ -237,30 +245,33 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "request", "type", "process_id", "process_cmd"]}),
-        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "ended", "duration"]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "ended", "_duration"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
     ]
 
     list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
-    readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "duration", "created", "updated"]
+    readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "created", "updated"]
     date_hierarchy = "created"
 
     list_filter = ["status", "type", "status", "started", "ended", "created", "updated"]
     search_fields = ('request__file_name', 'status', 'type')
 
+    def get_queryset(self, request):
+        queryset = super().get_queryset(request)
+        queryset = queryset.annotate(
+            _duration=Case(
+                When(ended__isnull=True, then=Now() - F('started')),
+                default=F('ended') - F('started'),
+                output_field=DurationField()
+            )
+        )
+        return queryset
+
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
-        
-        """
-        Returns the duration of the Validation Task in shorter form (eg. 90.3)
-        """
-        duration = obj.duration        
-        if duration is not None:
-            if isinstance(duration, timedelta): 
-                duration = duration.total_seconds()
-            return '{0:.{1}f}'.format(duration, 1)
-        else:
-            return None
+
+        return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
+    duration_text.admin_order_field = '_duration'
 
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
