@@ -1,8 +1,8 @@
 import sys
 from pydantic import Field, field_validator, model_validator
-from typing import Tuple
+from typing import Tuple, Union
 import ifcopenshell
-from ifcopenshell import validate
+from ifcopenshell import validate, SchemaError, simple_spf
 import re
 from datetime import datetime
 from packaging.version import parse, InvalidVersion
@@ -74,8 +74,9 @@ def validate_and_split_originating_system(attributes):
 
 
 class HeaderStructure(ConfiguredBaseModel):
-    file: ifcopenshell.file
-    validation_errors : list 
+    file: Union[ifcopenshell.file, simple_spf.file]
+    purepythonparser : bool = False
+    validation_errors : list = Field(default_factory=list)  
     
     description: Tuple[str, ...] = Field(default_factory=tuple)
     implementation: str = Field(default="")
@@ -96,26 +97,35 @@ class HeaderStructure(ConfiguredBaseModel):
     def populate_header(cls, values):
         if (file := values.get('file')):
 
-            header = file.wrapped_data.header
+            purepythonparser = values.get('purepythonparser')
+            header = file.wrapped_data.header if not purepythonparser else file.header
             file_description = header.file_description
             file_name = header.file_name
             
+            fields = [
+                ('description', 0),
+                ('implementation_level', 1),
+                ('name', 0),
+                ('time_stamp', 1),
+                ('author', 2),
+                ('organization', 3),
+                ('preprocessor_version', 4),
+                ('originating_system', 5),
+                ('authorization', 6)
+            ]
+
             attributes = {
-                'description': file_description.description,
-                'implementation': file_description.implementation_level,
-                'name': file_name.name,
-                'time_stamp': file_name.time_stamp,
-                'author': file_name.author,
-                'organization': file_name.organization,
-                'preprocessor_version': file_name.preprocessor_version,
-                'originating_system': file_name.originating_system,
-                'authorization': file_name.authorization, 
-                'validation_errors' : []
+                field: getattr(file_description, field) if not purepythonparser else file_description[index]
+                for field, index in fields[:2]  # First two fields are equal to file_description
+            } | {
+                field: getattr(file_name, field) if not purepythonparser else file_name[index]
+                for field, index in fields[2:]  # Remaining fields are equal to file_name
             }
+            attributes['validation_errors'] = []
             
             attributes = validate_and_split_originating_system(attributes)
             
-            errors_from_pre_validation = ifcopenshell_pre_validation(file)
+            errors_from_pre_validation = ifcopenshell_pre_validation(file) if not purepythonparser else []
             for error in errors_from_pre_validation:
                 attributes['validation_errors'].append(error)
                 attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
@@ -227,11 +237,13 @@ def main():
     filename = sys.argv[1] 
     try:
         file = ifcopenshell.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=False)
+    except SchemaError as e:
+        file = ifcopenshell.simple_spf.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=True)
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
         sys.exit(1)
-
-    header = HeaderStructure(file=file)
     
     print(header.model_dump_json(exclude={'file'}))
     

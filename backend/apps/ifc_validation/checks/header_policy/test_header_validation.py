@@ -27,9 +27,13 @@ def test_invocation(f):
 
 def run_single_file(filename=''):
     if filename:
-        file = ifcopenshell.open(filename)
-        header = HeaderStructure(file=file)
-        print("Validation errors:", header.validation_errors)
+        try:
+            file = ifcopenshell.open(filename)
+            header = HeaderStructure(file=file, purepythonparser=False)
+        except ifcopenshell.SchemaError:
+            file = ifcopenshell.simple_spf.open(filename)
+            header = HeaderStructure(file=file, purepythonparser=True)
+            print(header.validation_errors)
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
