@@ -336,6 +336,7 @@ class AuthoringToolAdmin(BaseAdmin):
     list_display = ["id", "company", "name", "version", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
     list_filter = ["company", "created", "updated"]
+    search_fields = ("name", "version", "company__name")
 
 
 class UserAdditionalInfoInlineAdmin(admin.StackedInline):
