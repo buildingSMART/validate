@@ -79,7 +79,7 @@ function preprocessData(data, type) {
 
   const rows = [
     ["Report Date", data["model"]["date"]],
-    ["IFC Schema", data["model"]["schema"] || "-"],
+    ["IFC Schema", data["model"]["header_validation"]?.["schema_identifier"] || "-"],
     [warningIconWithLink("MVD(s)", "description"), data["model"]["header_validation"]?.["description"] || "-"],
     [warningIconWithLink("File Name in Header", "file_name"), data["model"]["header_validation"]?.["name"] || "-"],
     ["File Size", prettyPrintFileSize(data["model"]["size"])],

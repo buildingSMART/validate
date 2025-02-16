@@ -90,7 +90,10 @@ class HeaderStructure(ConfiguredBaseModel):
     
     company_name: str = Field(default="")
     application_name: str = Field(default="")
+    schema_identifier: str = Field(default="")
     version: str = Field(default="")
+    mvd: str = Field(default="")
+    ifc_application_info: dict = Field(default_factory=dict)
     
     
     @model_validator(mode='before')
@@ -122,6 +125,8 @@ class HeaderStructure(ConfiguredBaseModel):
                 for field, index in fields[2:]  # Remaining fields are equal to file_name
             }
             attributes['validation_errors'] = []
+            attributes['mvd'] = ''
+            attributes['schema_identifier'] = ''
             
             attributes = validate_and_split_originating_system(attributes)
             
@@ -130,6 +135,28 @@ class HeaderStructure(ConfiguredBaseModel):
                 attributes['validation_errors'].append(error)
                 attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
             
+            
+            # fallback for authoring tool coming from IfcApplication 
+            try:
+                # IfcApplication
+                #---------------
+                # 0. ApplicationDeveloper: <entity IfcOrganization>
+                # 1. Version: <type IfcLabel: <string>>
+                # 2. ApplicationFullName: <type IfcLabel: <string>>
+                # 3. ApplicationIdentifier: <type IfcIdentifier: <string>>
+                app = file.by_type("IfcApplication")[0][2] if len(file.by_type("IfcApplication")) > 0 else None
+            except RuntimeError:
+                app = None
+            try:
+                version = file.by_type("IfcApplication")[0][1] if len(file.by_type("IfcApplication")) > 0 else None
+            except RuntimeError:
+                version = None
+            name = None if None in (app, version) else app + ' ' + version
+            attributes['ifc_application_info'] = {
+                'app': app, 
+                'version':version,
+                'name':name
+            }
             values.update(attributes)
                     
         
@@ -148,28 +175,7 @@ class HeaderStructure(ConfiguredBaseModel):
         except:
             pass
         view_definitions = parsed_description.mvd
-        
-        if not view_definitions:
-            values.data.get('validation_errors').append(values.field_name)
-            return v if type(v) == tuple else v
-
-        
-        if view_definitions == 'Not defined':
-            values.data.get('validation_errors').append(values.field_name)
-            return v if type(v) == tuple else v
-
-        
-        if values.data.get('file').schema_identifier == 'IFC4X3_ADD2':
-            view_definitions_previous_versions = {
-                'StructuralAnalysisView',
-                'SpaceBoundaryAddonView',
-                'BasicFMHandoverView',
-                'ReferenceView_V1.2',
-                'IFC4Precast'
-            }
-            if set(view_definitions) & view_definitions_previous_versions:
-                values.data.get('validation_errors').append(values.field_name)
-                return v if type(v) == tuple else v
+        values.data['mvd'] = view_definitions
 
         
         # comments is a free textfield, but constrainted to 256 characters
@@ -193,6 +199,35 @@ class HeaderStructure(ConfiguredBaseModel):
         
         return v if type(v) == tuple else v
 
+    @field_validator('mvd', mode='after')
+    def validate_and_set_mvd(cls, v, values):
+        """
+        This function runs after the other fields. It validates the mvd based on the grammar done in  
+        the 'description' field. The function checks the constraints on the mvds and returns 
+        the comma separated list into a single string.
+        """
+        view_definitions = values.data.get('mvd')
+        if not view_definitions:
+            values.data.get('validation_errors').append(values.field_name)
+            return ', '.join(view_definitions)
+
+        
+        if view_definitions == 'Not defined':
+            values.data.get('validation_errors').append(values.field_name)
+
+        
+        if values.data.get('file').schema_identifier == 'IFC4X3_ADD2':
+            view_definitions_previous_versions = {
+                'StructuralAnalysisView',
+                'SpaceBoundaryAddonView',
+                'BasicFMHandoverView',
+                'ReferenceView_V1.2',
+                'IFC4Precast'
+            }
+            if set(view_definitions) & view_definitions_previous_versions:
+                values.data.get('validation_errors').append(values.field_name)
+        return ', '.join(view_definitions)
+        
     
     
     @field_validator('time_stamp')
@@ -227,6 +262,11 @@ class HeaderStructure(ConfiguredBaseModel):
             except InvalidVersion:
                 values.data['validation_errors'].append(values.field_name)
         return v
+
+    @field_validator('schema_identifier')
+    def store_schema(cls, v, values):
+        # schema is further validated in gherkin IFC101
+        return values.data.get('file').schema_identifier
     
 
 def main():

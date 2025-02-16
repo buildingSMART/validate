@@ -30,6 +30,7 @@ def run_single_file(filename=''):
         try:
             file = ifcopenshell.open(filename)
             header = HeaderStructure(file=file, purepythonparser=False)
+            print(header.validation_errors)
         except ifcopenshell.SchemaError:
             file = ifcopenshell.simple_spf.open(filename)
             header = HeaderStructure(file=file, purepythonparser=True)
