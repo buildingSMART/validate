@@ -24,6 +24,7 @@ from apps.ifc_validation_models.models import set_user_context
 from .tasks import ifc_file_validation_task
 
 from core import utils
+from core.filters import AdvancedDateFilter
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration", "duration_text", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created", "updated"]
+    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", ('created', AdvancedDateFilter)]
     search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
@@ -245,7 +246,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
     readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "duration", "created", "updated"]
     date_hierarchy = "created"
 
-    list_filter = ["status", "type", "status", "started", "ended", "created", "updated"]
+    list_filter = ["status", "type", "status", "started", "ended", ('created', AdvancedDateFilter)]
     search_fields = ('request__file_name', 'status', 'type')
 
     @admin.display(description="Duration (sec)")
@@ -265,27 +266,35 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name_text", "type_text", "instance_id", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
+    list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
+    date_hierarchy = "created"
 
-    list_filter = ['validation_task__type', 'severity', 'outcome_code']
+    list_filter = ['validation_task__type', 'severity', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
     search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
 
-    @admin.display(description="File Name")
-    def file_name_text(self, obj):
-        return obj.validation_task.request.file_name
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
+    
+    @admin.display(description="Model")
+    def model_text(self, obj):
+        return obj.validation_task.request.model
+    model_text.admin_order_field = 'validation_task__request__model'
 
     @admin.display(description="Validation Type")
     def type_text(self, obj):
         return obj.validation_task.type
+    type_text.admin_order_field = 'validation_task__type'
 
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+    date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
+    list_filter = ['schema', 'produced_by', ('date', AdvancedDateFilter), ('created', AdvancedDateFilter)]
     
     @admin.display(description="# of Elements")
     def nbr_of_elements(self, obj):
@@ -310,9 +319,12 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "model", "model_id", "stepfile_id", "ifc_type", "created", "updated"]
+    list_display = ["id", "public_id", "model", "stepfile_id", "ifc_type", "created", "updated"]
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
-    list_filter = ["ifc_type", "model_id", "created", "updated"]
+    list_filter = ["ifc_type", "model_id", ('created', AdvancedDateFilter)]
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
 
 class CompanyAdmin(BaseAdmin):
@@ -323,7 +335,7 @@ class CompanyAdmin(BaseAdmin):
     ]
     list_display = ["id", "name", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["name", "created", "updated"]
+    list_filter = ["name", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name",)
 
 
@@ -335,7 +347,7 @@ class AuthoringToolAdmin(BaseAdmin):
     ]
     list_display = ["id", "company", "name", "version", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["company", "created", "updated"]
+    list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
 
 
@@ -356,10 +368,9 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "last_login", "date_joined"]
-    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor']
-
-    search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "last_login", "date_joined")
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "date_joined", "last_login"]
+    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
+    search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
     actions = ["activate", "deactivate"]
     actions_on_top = True
@@ -395,7 +406,7 @@ class VersionAdmin(BaseAdmin):
     ]
     list_display = ["id", "name", "released", "release_notes", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["created", "updated"]
+    list_filter = [('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "released", "release_notes")
 
 
