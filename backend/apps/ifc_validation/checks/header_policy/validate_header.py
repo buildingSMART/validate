@@ -1,11 +1,9 @@
 import sys
 from pydantic import Field, field_validator, model_validator
-from typing import Tuple, Union
+from typing import Tuple
 import ifcopenshell
 from ifcopenshell import validate
-import yaml
 import re
-import os
 from datetime import datetime
 from packaging.version import parse, InvalidVersion
 

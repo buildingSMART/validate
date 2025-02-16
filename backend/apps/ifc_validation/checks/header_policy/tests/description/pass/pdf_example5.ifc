@@ -3,7 +3,7 @@ HEADER;
 FILE_DESCRIPTION(('ViewDefinition [CoordinationView, SpaceBoundary1stLevelAddOnView, QuantityTakeOffAddOnView ]', 'Option [ExcludedObjects: Stair, Ramp, Space; SplitLevel: On]', 'Comment [This export contains Boolean Operation geometry that may not be fully supported by other application]'),'2;1');
 FILE_NAME('Header example2.ifc', '2022-09-16T10:35:07', ('Evandro Alfieri'), ('buildingSMART Int.'), 'IFC Motor 1.0', 'Company - Application - 26.0.0.0', 'none');
 FILE_SCHEMA(('IFC4X3_ADD2'));
-ENDSEC;`
+ENDSEC;
 DATA;
 #1=IFCPERSON($,$,'',$,$,$,$,$);
 #2=IFCORGANIZATION($,'',$,$,$);

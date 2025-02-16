@@ -3,7 +3,7 @@ HEADER;
 FILE_DESCRIPTION (('ViewDefinition [Alignment-basedReferenceView]'), '2;1');
 FILE_NAME ('test.ifc', '2024-06-25T09:41:25', (), (), 'test', 'test', $);
 FILE_SCHEMA (('IFC4X3_ADD2'));
-ENDSEC;`
+ENDSEC;
 DATA;
 #1=IFCPERSON($,$,'',$,$,$,$,$);
 #2=IFCORGANIZATION($,'',$,$,$);
