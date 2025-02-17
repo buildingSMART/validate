@@ -245,7 +245,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "request", "type", "process_id", "process_cmd"]}),
-        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "ended", "_duration"]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "ended"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
     ]
 
