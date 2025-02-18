@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import ngettext
-from django.db.models import F, Case, When, DurationField
+from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
 
 from apps.ifc_validation_models.models import ValidationRequest
@@ -379,12 +379,16 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
     actions = ["activate", "deactivate"]
     actions_on_top = True
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
 
     @admin.action(
         description="Activate selected user(s)"
@@ -407,6 +411,11 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+
+    @admin.display(description="# Requests")
+    def nbr_of_requests(self, obj):
+        return obj.nbr_of_requests
+    nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
 class VersionAdmin(BaseAdmin):
