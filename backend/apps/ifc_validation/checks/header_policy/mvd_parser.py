@@ -1,5 +1,5 @@
 from lark import Lark, Transformer
-import ifcopenshell
+from lark.exceptions import UnexpectedCharacters, UnexpectedEOF, UnexpectedToken
 
 
 # https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
@@ -91,12 +91,11 @@ class DescriptionTransform(Transformer):
 
 
 def parse_mvd(text):
-    print('parsing ...')
     parsed_description = DescriptionTransform()
     try:
         parse_tree = parser.parse(text)
         parsed_description.transform(parse_tree)
-    except:
+    except (UnexpectedCharacters, UnexpectedEOF, UnexpectedToken) as e:
         parsed_description.mvd = []
     return parsed_description
 

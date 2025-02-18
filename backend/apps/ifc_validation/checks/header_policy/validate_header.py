@@ -151,10 +151,7 @@ class HeaderStructure(ConfiguredBaseModel):
         For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         """
         header_description_text = ' '.join(v)
-        try:
-            parsed_description = parse_mvd(header_description_text)
-        except:
-            pass
+        parsed_description = parse_mvd(header_description_text)
         view_definitions = parsed_description.mvd
         values.data['mvd'] = view_definitions
 
