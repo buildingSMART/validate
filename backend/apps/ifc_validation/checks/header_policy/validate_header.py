@@ -134,30 +134,6 @@ class HeaderStructure(ConfiguredBaseModel):
             for error in errors_from_pre_validation:
                 attributes['validation_errors'].append(error)
                 attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
-            
-            
-            # fallback for authoring tool coming from IfcApplication 
-            try:
-                # IfcApplication
-                #---------------
-                # 0. ApplicationDeveloper: <entity IfcOrganization>
-                # 1. Version: <type IfcLabel: <string>>
-                # 2. ApplicationFullName: <type IfcLabel: <string>>
-                # 3. ApplicationIdentifier: <type IfcIdentifier: <string>>
-                app = file.by_type("IfcApplication")[0][2] if len(file.by_type("IfcApplication")) > 0 else None
-            except RuntimeError:
-                app = None
-            try:
-                version = file.by_type("IfcApplication")[0][1] if len(file.by_type("IfcApplication")) > 0 else None
-            except RuntimeError:
-                version = None
-            name = None if None in (app, version) else app + ' ' + version
-            attributes['ifc_application_info'] = {
-                'app': app, 
-                'version':version,
-                'name':name
-            }
-            values.update(attributes)
                     
         
         return values
