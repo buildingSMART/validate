@@ -58,8 +58,8 @@ def validate_and_split_originating_system(attributes):
     # using greedy (.+) to specify constraints on the subcategory (i.e. company name)
     pattern = re.compile(r"(.+) - (.+) - (.+)")
 
-    match = pattern.match(attributes['originating_system'])
     try:
+        match = pattern.match(attributes['originating_system'])
         if not match:
             attributes['validation_errors'].append('originating_system')
             company_name = application_name = version = None
@@ -215,12 +215,11 @@ class HeaderStructure(ConfiguredBaseModel):
         r"[0-5]\d:"                       # Minutes: 00-59
         r"[0-5]\d"                        # Seconds: 00-59
         r"(?:\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)?$"  # Optional fractional seconds and timezone
-    )
-        if iso8601_pattern.match(v) and is_valid_iso8601(v):
-            return v
-        else:
-            values.data.get('validation_errors').append(values.field_name)
-            return v
+    )   
+        if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
+            values.data['validation_errors'].append(values.field_name)
+        return v
+
         
         
     @field_validator('company_name', 'application_name')
