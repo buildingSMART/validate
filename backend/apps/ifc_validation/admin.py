@@ -379,7 +379,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
@@ -407,6 +407,11 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+
+    @admin.display(description="# Requests")
+    def nbr_of_requests(self, obj):
+        
+        return ValidationRequest.objects.filter(created_by=obj).count()
 
 
 class VersionAdmin(BaseAdmin):
