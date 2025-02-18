@@ -93,7 +93,6 @@ class HeaderStructure(ConfiguredBaseModel):
     schema_identifier: str = Field(default="")
     version: str = Field(default="")
     mvd: str = Field(default="")
-    ifc_application_info: dict = Field(default_factory=dict)
     
     
     @model_validator(mode='before')
@@ -134,7 +133,8 @@ class HeaderStructure(ConfiguredBaseModel):
             for error in errors_from_pre_validation:
                 attributes['validation_errors'].append(error)
                 attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
-                    
+
+            values.update(attributes)            
         
         return values
 
