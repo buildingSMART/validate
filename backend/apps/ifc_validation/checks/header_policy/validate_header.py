@@ -105,7 +105,7 @@ class HeaderStructure(ConfiguredBaseModel):
         if (file := values.get('file')):
 
             purepythonparser = values.get('purepythonparser')
-            header = file.wrapped_data.header if not purepythonparser else file.header
+            header = file.header
             file_description = header.file_description
             file_name = header.file_name
             
