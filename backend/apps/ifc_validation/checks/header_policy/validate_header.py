@@ -9,7 +9,8 @@ from packaging.version import parse, InvalidVersion
 
 import logging 
 import io
-from contextlib import redirect_stdout
+import yaml
+import os
 from config import ConfiguredBaseModel
 from mvd_parser import parse_mvd
 
@@ -157,22 +158,9 @@ class HeaderStructure(ConfiguredBaseModel):
         if len(parsed_description.comments) > 256:
             values.data.get('validation_errors').append(values.field_name)
             return v if type(v) == tuple else v
-
-        
-        # AddonViews cannot be used without CoordinationView.
-        view_definitions_lowercase = {mvd.lower() for mvd in view_definitions}
-        if any('addonview' in mvd for mvd in view_definitions_lowercase) and 'coordinationview' not in view_definitions_lowercase:
-            values.data.get('validation_errors').append(values.field_name)
-            return v if type(v) == tuple else v
-
-            
-        # anything besides exactly CoordinationView as a single item gets excluded
-        if len(view_definitions) == 1 and view_definitions[0].lower() != 'coordinationview':
-            values.data.get('validation_errors').append(values.field_name)
-            return v if type(v) == tuple else v
-
         
         return v if type(v) == tuple else v
+
 
     @field_validator('mvd', mode='after')
     def validate_and_set_mvd(cls, v, values):
@@ -186,17 +174,19 @@ class HeaderStructure(ConfiguredBaseModel):
             values.data.get('validation_errors').append('description')
             return v
 
+        allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
+        schema_identifier = values.data.get('file').schema_identifier
         
-        if values.data.get('file').schema_identifier == 'IFC4X3_ADD2':
-            view_definitions_previous_versions = {
-                'StructuralAnalysisView',
-                'SpaceBoundaryAddonView',
-                'BasicFMHandoverView',
-                'ReferenceView_V1.2',
-                'IFC4Precast'
-            }
-            if set(view_definitions) & view_definitions_previous_versions:
+        view_definitions_set = {view for view in view_definitions} 
+
+        if any("AddOnView" in view for view in view_definitions_set):
+            if not any("CoordinationView" in view for view in view_definitions_set):
+                values.data.get('validation_errors').append('description')  # AddOnView MVD without CoordinationView        
+        
+        for mvd in view_definitions:
+            if mvd not in allowed_descriptions.get(schema_identifier, [False]) and not 'AddOnView' in mvd:
                 values.data.get('validation_errors').append('description')
+   
         return ', '.join(view_definitions)
         
     
