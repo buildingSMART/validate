@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.translation import ngettext
-from django.db.models import F, Case, When, DurationField
+from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
 
 from apps.ifc_validation_models.models import ValidationRequest
@@ -386,6 +386,10 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     actions = ["activate", "deactivate"]
     actions_on_top = True
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
+
     @admin.action(
         description="Activate selected user(s)"
     )
@@ -410,8 +414,8 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
-        
-        return ValidationRequest.objects.filter(created_by=obj).count()
+        return obj.nbr_of_requests
+    nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
 class VersionAdmin(BaseAdmin):
