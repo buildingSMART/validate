@@ -110,24 +110,21 @@ class HeaderStructure(ConfiguredBaseModel):
             file_name = header.file_name
             
             fields = [
-                ('description', 0),
-                ('implementation_level', 1),
-                ('name', 0),
-                ('time_stamp', 1),
-                ('author', 2),
-                ('organization', 3),
-                ('preprocessor_version', 4),
-                ('originating_system', 5),
-                ('authorization', 6)
+                (file_description, 'description', 0),
+                (file_description, 'implementation_level', 1),
+                (file_name, 'name', 0),
+                (file_name, 'time_stamp', 1),
+                (file_name, 'author', 2),
+                (file_name, 'organization', 3),
+                (file_name, 'preprocessor_version', 4),
+                (file_name, 'originating_system', 5),
+                (file_name, 'authorization', 6)
             ]
 
-            attributes = {
-                field: getattr(file_description, field) if not purepythonparser else file_description[index]
-                for field, index in fields[:2]  # First two fields are equal to file_description
-            } | {
-                field: getattr(file_name, field) if not purepythonparser else file_name[index]
-                for field, index in fields[2:]  # Remaining fields are equal to file_name
+            attributes = {field: getattr(obj, field) if not purepythonparser else obj[index]
+                for obj, field, index in fields
             }
+            
             attributes['validation_errors'] = []
             attributes['mvd'] = ''
             attributes['schema_identifier'] = ''
