@@ -1,6 +1,6 @@
 import sys
 from pydantic import Field, field_validator, model_validator
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 import ifcopenshell
 from ifcopenshell import validate, SchemaError, simple_spf
 import re
@@ -59,17 +59,22 @@ def validate_and_split_originating_system(attributes):
     pattern = re.compile(r"(.+) - (.+) - (.+)")
 
     match = pattern.match(attributes['originating_system'])
-    if not match:
-        attributes['validation_errors'].append('originating_system')
-        company_name = application_name = version = 'Not Defined'
+    try:
+        if not match:
+            attributes['validation_errors'].append('originating_system')
+            company_name = application_name = version = None
 
-    else:
-        company_name, application_name, version = match.group(1), match.group(2), match.group(3)
-        
-    attributes['company_name'] = company_name
-    attributes['application_name'] = application_name
-    attributes['version'] = version
+        else:
+            company_name, application_name, version = match.group(1), match.group(2), match.group(3)
+    except TypeError:
+        company_name = application_name = version = None
     
+    attributes |= {
+        'company_name': company_name,
+        'application_name': application_name,
+        'version': version,
+    }
+        
     return attributes
 
 
@@ -78,21 +83,21 @@ class HeaderStructure(ConfiguredBaseModel):
     purepythonparser : bool = False
     validation_errors : list = Field(default_factory=list)  
     
-    description: Tuple[str, ...] = Field(default_factory=tuple)
-    implementation: str = Field(default="")
-    name: str = Field(default="")
-    time_stamp: str = Field(default="")
-    author: Tuple[str, ...] = Field(default_factory=tuple)
-    organization: Tuple[str, ...] = Field(default_factory=tuple)
-    preprocessor_version: str = Field(default="")
-    originating_system: str = Field(default="")
-    authorization: str = Field(default="")
+    description: Optional[Tuple[str, ...]] = Field(default=None)
+    implementation: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    time_stamp: Optional[str] = Field(default=None)
+    author: Optional[Tuple[str, ...]] = Field(default=None)
+    organization: Optional[Tuple[str, ...]] = Field(default=None)
+    preprocessor_version: Optional[str] = Field(default=None)
+    originating_system: Optional[str] = Field(default=None)
+    authorization: Optional[str] = Field(default=None)
     
-    company_name: str = Field(default="")
-    application_name: str = Field(default="")
-    schema_identifier: str = Field(default="")
-    version: str = Field(default="")
-    mvd: str = Field(default="")
+    company_name: Optional[str] = Field(default=None)
+    application_name: Optional[str] = Field(default=None)
+    schema_identifier: Optional[str] = Field(default=None)
+    version: Optional[str] = Field(default=None)
+    mvd: Optional[str] = Field(default=None)
     
     
     @model_validator(mode='before')
@@ -132,7 +137,7 @@ class HeaderStructure(ConfiguredBaseModel):
             errors_from_pre_validation = ifcopenshell_pre_validation(file) if not purepythonparser else []
             for error in errors_from_pre_validation:
                 attributes['validation_errors'].append(error)
-                attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
+                attributes[error] = None
 
             values.update(attributes)            
         
@@ -184,12 +189,8 @@ class HeaderStructure(ConfiguredBaseModel):
         """
         view_definitions = values.data.get('mvd')
         if not view_definitions:
-            values.data.get('validation_errors').append(values.field_name)
-            return ', '.join(view_definitions)
-
-        
-        if view_definitions == 'Not defined':
-            values.data.get('validation_errors').append(values.field_name)
+            values.data.get('validation_errors').append('description')
+            return v
 
         
         if values.data.get('file').schema_identifier == 'IFC4X3_ADD2':
@@ -201,7 +202,7 @@ class HeaderStructure(ConfiguredBaseModel):
                 'IFC4Precast'
             }
             if set(view_definitions) & view_definitions_previous_versions:
-                values.data.get('validation_errors').append(values.field_name)
+                values.data.get('validation_errors').append('description')
         return ', '.join(view_definitions)
         
     
@@ -225,14 +226,14 @@ class HeaderStructure(ConfiguredBaseModel):
     @field_validator('company_name', 'application_name')
     def check_non_empty_fields(cls, v, values):
         # The only constraint so far is that the field must not be empty and not contain dashes
-        if v.strip() == "" or '-' in v:
+        if not v or v.strip() == "" or '-' in v:
             values.data['validation_errors'].append(values.field_name)
         return v
     
     
     @field_validator('version')
     def validate_version(cls, v, values):
-        if v.lower() != 'not defined': # in this case, there is already an error for originating_system       
+        if v:         
             try:
                 parse(v)
             except InvalidVersion:

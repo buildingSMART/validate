@@ -16,11 +16,12 @@ def collect_test_files():
 @pytest.mark.parametrize("f", collect_test_files())
 def test_invocation(f):
     filename, outcome, field = f[0], f[1], f[2]
-    file = ifcopenshell.open(filename)
     try:
-        header = HeaderStructure(file=file)
-    except:
-        pass
+        file = ifcopenshell.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=False)
+    except ifcopenshell.SchemaError:
+        file = ifcopenshell.simple_spf.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=True)
     
     assert (field not in header.validation_errors) if outcome == 'pass' else (field in header.validation_errors)
 

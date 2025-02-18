@@ -97,6 +97,6 @@ def parse_mvd(text):
         parse_tree = parser.parse(text)
         parsed_description.transform(parse_tree)
     except:
-        parsed_description.mvd = 'Not defined'
+        parsed_description.mvd = []
     return parsed_description
 
