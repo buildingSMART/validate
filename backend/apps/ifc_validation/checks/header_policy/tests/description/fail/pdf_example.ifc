@@ -1,7 +1,14 @@
 ISO-10303-21;
 HEADER;
-FILE_DESCRIPTION(('ViewDefinition [Alignment-basedView]'),'2;1');
-FILE_NAME('Header example2.ifc', '2022-09-16T10:35:07', ('Evandro Alfieri'), ('buildingSMART Int.'), 'IFC Motor 1.0', 'IFC Export Version Jul 11 2019', 'none');
+FILE_DESCRIPTION(('ViewDefinition [CoordinationView,
+SpaceBoundary1stLevelAddOnView, QuantityTakeOffAddOnView ]', 'Option [
+ExcludedObjects: Stair, Ramp, Space; SplitLevel: On]', 'Comment [This
+export contains Boolean Operation geometry that may not be fully
+supported by other application and this export contains no bounding
+box geometry that would provide a fall back for such applications –
+this and other lenghtly descriptions may extend the maximum string
+length of 256 characters for each string field.]'),'2;1');
+FILE_NAME('Header example2.ifc', '2022-09-16T10:35:07', ('Evandro Alfieri'), ('buildingSMART Int.'), 'IFC Motor 1.0', 'Company - Application - 26.0.0.0', 'none');
 FILE_SCHEMA(('IFC4X3_ADD2'));
 ENDSEC;
 DATA;

@@ -1,18 +1,18 @@
 import sys
 from pydantic import Field, field_validator, model_validator
-from typing import Tuple, Union
+from typing import Tuple, Union, Optional
 import ifcopenshell
-from ifcopenshell import validate
-import yaml
+from ifcopenshell import validate, SchemaError, simple_spf
 import re
-import os
 from datetime import datetime
 from packaging.version import parse, InvalidVersion
 
 import logging 
 import io
-from contextlib import redirect_stdout
+import yaml
+import os
 from config import ConfiguredBaseModel
+from mvd_parser import parse_mvd
 
 
 def ifcopenshell_pre_validation(file):
@@ -59,88 +59,136 @@ def validate_and_split_originating_system(attributes):
     # using greedy (.+) to specify constraints on the subcategory (i.e. company name)
     pattern = re.compile(r"(.+) - (.+) - (.+)")
 
-    match = pattern.match(attributes['originating_system'])
-    if not match:
-        attributes['validation_errors'].append('originating_system')
-        company_name = application_name = version = 'Not Defined'
+    try:
+        match = pattern.match(attributes['originating_system'])
+        if not match:
+            attributes['validation_errors'].append('originating_system')
+            company_name = application_name = version = None
 
-    else:
-        company_name, application_name, version = match.group(1), match.group(2), match.group(3)
-        
-    attributes['company_name'] = company_name
-    attributes['application_name'] = application_name
-    attributes['version'] = version
+        else:
+            company_name, application_name, version = match.group(1), match.group(2), match.group(3)
+    except TypeError:
+        company_name = application_name = version = None
     
+    attributes |= {
+        'company_name': company_name,
+        'application_name': application_name,
+        'version': version,
+    }
+        
     return attributes
 
 
 class HeaderStructure(ConfiguredBaseModel):
-    file: ifcopenshell.file
-    validation_errors : list 
+    file: Union[ifcopenshell.file, simple_spf.file]
+    purepythonparser : bool = False
+    validation_errors : list = Field(default_factory=list)  
     
-    description: Tuple[str, ...] = Field(default_factory=tuple)
-    implementation: str = Field(default="")
-    name: str = Field(default="")
-    time_stamp: str = Field(default="")
-    author: Tuple[str, ...] = Field(default_factory=tuple)
-    organization: Tuple[str, ...] = Field(default_factory=tuple)
-    preprocessor_version: str = Field(default="")
-    originating_system: str = Field(default="")
-    authorization: str = Field(default="")
+    description: Optional[Tuple[str, ...]] = Field(default=None)
+    implementation: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    time_stamp: Optional[str] = Field(default=None)
+    author: Optional[Tuple[str, ...]] = Field(default=None)
+    organization: Optional[Tuple[str, ...]] = Field(default=None)
+    preprocessor_version: Optional[str] = Field(default=None)
+    originating_system: Optional[str] = Field(default=None)
+    authorization: Optional[str] = Field(default=None)
     
-    company_name: str = Field(default="")
-    application_name: str = Field(default="")
-    version: str = Field(default="")
+    company_name: Optional[str] = Field(default=None)
+    application_name: Optional[str] = Field(default=None)
+    schema_identifier: Optional[str] = Field(default=None)
+    version: Optional[str] = Field(default=None)
+    mvd: Optional[str] = Field(default=None)
     
     
     @model_validator(mode='before')
     def populate_header(cls, values):
         if (file := values.get('file')):
-            header = file.wrapped_data.header
+
+            purepythonparser = values.get('purepythonparser')
+            header = file.header
             file_description = header.file_description
             file_name = header.file_name
             
-            attributes = {
-                'description': file_description.description,
-                'implementation': file_description.implementation_level,
-                'name': file_name.name,
-                'time_stamp': file_name.time_stamp,
-                'author': file_name.author,
-                'organization': file_name.organization,
-                'preprocessor_version': file_name.preprocessor_version,
-                'originating_system': file_name.originating_system,
-                'authorization': file_name.authorization, 
-                'validation_errors' : []
+            fields = [
+                (file_description, 'description', 0),
+                (file_description, 'implementation_level', 1),
+                (file_name, 'name', 0),
+                (file_name, 'time_stamp', 1),
+                (file_name, 'author', 2),
+                (file_name, 'organization', 3),
+                (file_name, 'preprocessor_version', 4),
+                (file_name, 'originating_system', 5),
+                (file_name, 'authorization', 6)
+            ]
+
+            attributes = {field: getattr(obj, field) if not purepythonparser else obj[index]
+                for obj, field, index in fields
             }
+            
+            attributes['validation_errors'] = []
+            attributes['mvd'] = ''
+            attributes['schema_identifier'] = ''
             
             attributes = validate_and_split_originating_system(attributes)
             
-            errors_from_pre_validation = ifcopenshell_pre_validation(file)
+            errors_from_pre_validation = ifcopenshell_pre_validation(file) if not purepythonparser else []
             for error in errors_from_pre_validation:
                 attributes['validation_errors'].append(error)
-                attributes[error] = "Not Defined" if cls.__annotations__[error] == str else ('Not defined',)
-            
-            values.update(attributes)
-                    
+                attributes[error] = None
+
+            values.update(attributes)            
         
         return values
 
 
     @field_validator('description')
     def validate_description(cls, v, values):
-        # https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
-        v = v[0].replace(' ', '') # allow whitespaces
-        allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
+        """
+        https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
+        For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
+        """
+        header_description_text = ' '.join(v)
+        parsed_description = parse_mvd(header_description_text)
+        view_definitions = parsed_description.mvd
+        values.data['mvd'] = view_definitions
+
         
+        # comments is a free textfield, but constrainted to 256 characters
+        if len(parsed_description.comments) > 256:
+            values.data.get('validation_errors').append(values.field_name)
+            return v if type(v) == tuple else v
+        
+        return v if type(v) == tuple else v
+
+
+    @field_validator('mvd', mode='after')
+    def validate_and_set_mvd(cls, v, values):
+        """
+        This function runs after the other fields. It validates the mvd based on the grammar done in  
+        the 'description' field. The function checks the constraints on the mvds and returns 
+        the comma separated list into a single string.
+        """
+        view_definitions = values.data.get('mvd')
+        if not view_definitions:
+            values.data.get('validation_errors').append('description')
+            return v
+
+        allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
         schema_identifier = values.data.get('file').schema_identifier
-        try:
-            if not v in list(map(lambda desc: desc.replace(" ", ""), allowed_descriptions.get(schema_identifier))):
-                values.data.get('validation_errors').append(values.field_name)
-            if not v: # description field is mandatory
-                values.data.get('validation_errors').append(values.field_name)
-        except:
-            pass  ## ---> what to do with invalid schema identifier? (IFC4X3)
-        return (v,)
+        
+        view_definitions_set = {view for view in view_definitions} 
+
+        if any("AddOnView" in view for view in view_definitions_set):
+            if not any("CoordinationView" in view for view in view_definitions_set):
+                values.data.get('validation_errors').append('description')  # AddOnView MVD without CoordinationView        
+        
+        for mvd in view_definitions:
+            if mvd not in allowed_descriptions.get(schema_identifier, [False]) and not 'AddOnView' in mvd:
+                values.data.get('validation_errors').append('description')
+   
+        return ', '.join(view_definitions)
+        
     
     
     @field_validator('time_stamp')
@@ -151,30 +199,34 @@ class HeaderStructure(ConfiguredBaseModel):
         r"[0-5]\d:"                       # Minutes: 00-59
         r"[0-5]\d"                        # Seconds: 00-59
         r"(?:\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)?$"  # Optional fractional seconds and timezone
-    )
-        if iso8601_pattern.match(v) and is_valid_iso8601(v):
-            return v
-        else:
-            values.data.get('validation_errors').append(values.field_name)
-            return v
+    )   
+        if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
+            values.data['validation_errors'].append(values.field_name)
+        return v
+
         
         
     @field_validator('company_name', 'application_name')
     def check_non_empty_fields(cls, v, values):
         # The only constraint so far is that the field must not be empty and not contain dashes
-        if v.strip() == "" or '-' in v:
+        if not v or v.strip() == "" or '-' in v:
             values.data['validation_errors'].append(values.field_name)
         return v
     
     
     @field_validator('version')
     def validate_version(cls, v, values):
-        if v.lower() != 'not defined': # in this case, there is already an error for originating_system       
+        if v:         
             try:
                 parse(v)
             except InvalidVersion:
                 values.data['validation_errors'].append(values.field_name)
         return v
+
+    @field_validator('schema_identifier')
+    def store_schema(cls, v, values):
+        # schema is further validated in gherkin IFC101
+        return values.data.get('file').schema_identifier
     
 
 def main():
@@ -185,11 +237,13 @@ def main():
     filename = sys.argv[1] 
     try:
         file = ifcopenshell.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=False)
+    except SchemaError as e:
+        file = ifcopenshell.simple_spf.open(filename)
+        header = HeaderStructure(file=file, purepythonparser=True)
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
         sys.exit(1)
-
-    header = HeaderStructure(file=file)
     
     print(header.model_dump_json(exclude={'file'}))
     
