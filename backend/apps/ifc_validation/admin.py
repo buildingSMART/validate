@@ -356,10 +356,19 @@ class AuthoringToolAdmin(BaseAdmin):
         ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company", "name", "version", "created", "updated"]
+    list_display = ["id", "company", "name", "version", "nbr_of_requests", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
+
+    @admin.display(description="# Requests")
+    def nbr_of_requests(self, obj):
+        return obj.nbr_of_requests
+    nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
 class UserAdditionalInfoInlineAdmin(admin.StackedInline):
