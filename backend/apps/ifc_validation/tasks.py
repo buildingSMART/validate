@@ -400,7 +400,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
         logger.debug(f'Detected size = {model.size} bytes')
         
         # schema 
-        model.schema = header_validation.get('schema')
+        model.schema = header_validation.get('schema_identifier')
         
         logger.debug(f'The schema identifier = {header_validation.get("schema")}')
         
