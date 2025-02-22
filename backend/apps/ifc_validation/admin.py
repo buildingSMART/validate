@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta
 
 from django.contrib import admin
 from django.contrib import messages
@@ -224,13 +223,13 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     def has_change_status_permission(self, request):
 
         opts = self.opts
-        codename = get_permission_codename("change_status", opts)
+        codename = get_permission_codename("change_validationrequest", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
     
     def has_hard_delete_permission(self, request):
 
         opts = self.opts
-        codename = get_permission_codename("delete", opts)
+        codename = get_permission_codename("delete_validationrequest", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
     def has_soft_delete_permission(self, request):
@@ -270,7 +269,6 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
-
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
 
@@ -300,7 +298,14 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "size_text" ]}),
+        ('Model Information',  {"classes": ("wide"), "fields": [ "date", "schema", "mvd", "license", "produced_by", "number_of_elements", "number_of_geometries", "number_of_properties", "header_validation", "properties", "details" ]}),
+        ('Status Information',  {"classes": ("wide"), "fields": [ "status_syntax", "status_schema", "status_prereq", "status_header", "status_ia", "status_ip", "status_ids", "status_mvd", "status_industry_practices", "status_bsdd" ]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
+    ]
+
+    list_display = ["id", "public_id", "file_name", "size_text", "date", "produced_by", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
@@ -309,22 +314,18 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     
     @admin.display(description="# of Elements")
     def nbr_of_elements(self, obj):
-        
         return None if obj.number_of_elements is None else f'{obj.number_of_elements:,}'
     
     @admin.display(description="# of Geometries")
     def nbr_of_geometries(self, obj):
-        
         return None if obj.number_of_geometries is None else f'{obj.number_of_geometries:,}'
     
     @admin.display(description="# of Properties")
     def nbr_of_properties(self, obj):
-        
         return None if obj.number_of_properties is None else f'{obj.number_of_properties:,}'
 
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
-        
         return utils.format_human_readable_file_size(obj.size)
 
 
@@ -352,6 +353,71 @@ class CompanyAdmin(BaseAdmin):
         ('updated', AdvancedDateFilter)
     ]
     search_fields = ("name", "legal_name", "email_address_pattern")
+
+    actions = ["assign_users_action"]
+
+    @admin.action(
+        description="Assign Users to Company by email address pattern(s)",
+        permissions=["assign_users"]
+    )
+    def assign_users_action(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        detected_users_count = 0
+        detected_users = {}
+        detected_companies = []
+        for company in queryset:
+            if company.email_address_pattern:
+                matching_users = User.objects.filter(email__iregex=company.email_address_pattern)
+                matching_users = matching_users.exclude(useradditionalinfo__company=company)
+                if matching_users.exists():
+                    detected_companies.append(company)
+                    detected_users[company.id] = matching_users
+                    detected_users_count += detected_users[company.id].count()
+
+        if 'apply' in request.POST or detected_users_count == 0:
+
+            updated_user_count = 0
+            for company in queryset:
+                if company.email_address_pattern:
+                    for user in detected_users[company.id]:
+                        if 'user_' + str(user.id) in request.POST:
+                            uai = UserAdditionalInfo.objects.filter(user=user)
+                            if uai.exists():
+                                uai.update(company=company, is_vendor=True)
+                            else:
+                                UserAdditionalInfo.objects.create(user=user, company=company, is_vendor=True)
+                            updated_user_count += 1
+                            logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+
+            if detected_users_count == 0:
+                self.message_user(request, "No eligible users were found.", messages.WARNING)
+            elif updated_user_count == 0:
+                self.message_user(request, "No users were assigned.", messages.WARNING)
+            else:
+                self.message_user(
+                    request,
+                    ngettext(
+                        "%d User was successfully assigned.",
+                        "%d Users were successfully assigned.",
+                        updated_user_count
+                    )
+                    % updated_user_count,
+                    messages.SUCCESS,
+                )
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return render(request, 'admin/assign_company_intermediate.html', context={'companies': detected_companies, 'detected_users': detected_users})
+
+    def has_assign_users_permission(self, request):
+
+        opts = self.opts
+        codename = get_permission_codename("change_user", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
 
 class AuthoringToolAdmin(BaseAdmin):
@@ -396,7 +462,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
-    actions = ["activate", "deactivate"]
+    actions = ["activate", "deactivate", "remove_company_and_is_vendor"]
     actions_on_top = True
 
     def get_queryset(self, request):
@@ -414,6 +480,23 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     )
     def deactivate(self, request, queryset):
         queryset.update(is_active=False)
+
+    @admin.action(
+        description="Remove Company and is_vendor status from selected user(s)",
+    )
+    def remove_company_and_is_vendor(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        for user in queryset:
+            uai = UserAdditionalInfo.objects.filter(user=user)
+            if uai.exists():
+                prev_company = uai.first().company
+                uai.update(company=None, is_vendor=None)
+                logger.info(f"User with id={user.id} and email={user.email} had Company '{prev_company}' and 'is_vendor' status removed.")
 
     @admin.display(description="Company")
     def company(self, obj):
