@@ -341,13 +341,17 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 class CompanyAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "name" ]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "legal_name", "email_address_pattern" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "name", "created", "updated"]
+    list_display = ["id", "name", "legal_name", "email_address_pattern", "created", "updated"]
     readonly_fields = ["id", "created", "updated"]
-    list_filter = ["name", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
-    search_fields = ("name",)
+    list_filter = [
+        "name", 
+        ('created', AdvancedDateFilter), 
+        ('updated', AdvancedDateFilter)
+    ]
+    search_fields = ("name", "legal_name", "email_address_pattern")
 
 
 class AuthoringToolAdmin(BaseAdmin):
