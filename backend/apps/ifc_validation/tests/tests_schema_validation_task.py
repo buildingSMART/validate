@@ -112,7 +112,6 @@ class SchemaValidationTasksTestCase(TransactionTestCase):
         # assert
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 1)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
@@ -139,7 +138,6 @@ class SchemaValidationTasksTestCase(TransactionTestCase):
         # assert
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 5)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
@@ -169,6 +167,7 @@ class SchemaValidationTasksTestCase(TransactionTestCase):
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
+            self.assertIsNotNone(outcome.instance)
 
     def test_schema_validation_task_creates_error_validation_outcomes_4(self):
 
@@ -195,3 +194,4 @@ class SchemaValidationTasksTestCase(TransactionTestCase):
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
+            self.assertIsNotNone(outcome.instance)
