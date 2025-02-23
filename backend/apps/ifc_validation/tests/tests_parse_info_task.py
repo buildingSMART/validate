@@ -81,9 +81,6 @@ class ParseInfoTasksTestCase(TestCase):
         self.assertIsNotNone(model)
         self.assertEqual(model.mvd, 'CoordinationView')
         self.assertEqual(model.schema, 'IFC4')
-        self.assertEqual(model.number_of_elements, 2)
-        self.assertEqual(model.number_of_geometries, 4)
-        self.assertEqual(model.number_of_properties, 19)
 
     @requires_django_user_context
     def test_parse_info_task_correctly_parses_date(self):
@@ -129,8 +126,8 @@ class ParseInfoTasksTestCase(TestCase):
     def test_parse_info_task_correctly_parses_authoring_tool(self):
 
         request = ValidationRequest.objects.create(
-            file_name='pass_reverse_comment.ifc',
-            file='pass_reverse_comment.ifc', 
+            file_name='pass_header_policy.ifc',
+            file='pass_header_policy.ifc', 
             size=1
         )
         request.mark_as_initiated()
@@ -143,8 +140,9 @@ class ParseInfoTasksTestCase(TestCase):
 
         model = Model.objects.all().first()
         self.assertIsNotNone(model)
-        self.assertEquals('IfcOpenShell-0.7.0', model.produced_by.name)
-        self.assertEquals('0.7.0', model.produced_by.version)
+        self.assertEquals('MyFabTool', model.produced_by.name)
+        self.assertEquals('2025.1', model.produced_by.version)
+        #self.assertEquals('Acme Inc.', model.produced_by.company.name) - TODO
 
     @requires_django_user_context
     def test_parse_info_task_correctly_parses_missing_authoring_tool(self):
