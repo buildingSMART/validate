@@ -100,7 +100,7 @@ jobs:
         run: |
           cd backend
           source venv/bin/activate
-          python3 manage.py test
+          make test
 
   deploy:
     
