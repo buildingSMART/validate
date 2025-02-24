@@ -8,7 +8,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils.translation import ngettext
+from django.utils.html import format_html
 from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
 
@@ -59,7 +61,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_text", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
@@ -81,10 +83,18 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         return queryset
 
     @admin.display(description="Authoring Tool")
-    def authoring_tool_text(self, obj):
+    def authoring_tool_link(self, obj):
         
-        return obj.model.produced_by if obj.model else None
-    authoring_tool_text.admin_order_field = 'model__produced_by'
+        if not obj.model or obj.model.produced_by is None:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_authoringtool_change", args=[obj.model.produced_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.model.produced_by,
+        )
+    authoring_tool_link.admin_order_field = 'model__produced_by'
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -300,7 +310,7 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "authoring_tool_link", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
@@ -326,6 +336,20 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     def size_text(self, obj):
         
         return utils.format_human_readable_file_size(obj.size)
+    
+    @admin.display(description="Authoring Tool")
+    def authoring_tool_link(self, obj):
+        
+        if obj.produced_by is None:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_authoringtool_change", args=[obj.produced_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.produced_by,
+        )
+    authoring_tool_link.admin_order_field = 'produced_by'
 
 
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
@@ -341,11 +365,11 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 class CompanyAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "legal_name", "email_address_pattern" ]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "legal_name", "email_address_pattern", "nbr_of_tools" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "name", "legal_name", "email_address_pattern", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
+    list_display = ["id", "name", "legal_name", "email_address_pattern", "nbr_of_tools", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_tools", "created", "updated"]
     list_filter = [
         "name", 
         ('created', AdvancedDateFilter), 
@@ -353,17 +377,48 @@ class CompanyAdmin(BaseAdmin):
     ]
     search_fields = ("name", "legal_name", "email_address_pattern")
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_tools=Count('company')) # TODO: fix typo in Company model ('company' -> 'tools')
+
+    @admin.display(description="# Tools")
+    def nbr_of_tools(self, obj):
+
+        link = reverse("admin:ifc_validation_models_authoringtool_changelist")
+        query_string = '?company__id__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Authoring Tools for this Company">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_tools
+        )
+    
+    nbr_of_tools.admin_order_field = 'nbr_of_tools'
 
 class AuthoringToolAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company", "name", "version", "nbr_of_requests", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
+
+    @admin.display(description="Company")
+    def company_link(self, obj):
+
+        if not obj.company:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_company_change", args=[obj.company.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.company,
+        )
+    company_link.admin_order_field = 'company'
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -392,7 +447,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
@@ -416,14 +471,24 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         queryset.update(is_active=False)
 
     @admin.display(description="Company")
-    def company(self, obj):
+    def company_link(self, obj):
         
-        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.company
+        if not obj.useradditionalinfo or not obj.useradditionalinfo.company:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_company_change", args=[obj.useradditionalinfo.company.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.useradditionalinfo.company,
+        )
+    company_link.admin_order_field = 'useradditionalinfo__company'
     
     @admin.display(description="Is Vendor?")
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+    is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
 
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
