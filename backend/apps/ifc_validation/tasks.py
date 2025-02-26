@@ -428,20 +428,30 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
         model.mvd = header_validation.get('mvd')
         
         app = header_validation.get('application_name')
+        
         version = header_validation.get('version')
         name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
+        company_name = header_validation.get('company_name')
         logger.debug(f'Detected Authoring Tool in file = {name}')
         if name not in (None, "Not defined"):
             # parsing was successful and model can be considered for scorecards
             model.status_header = Model.Status.VALID
             authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
             if (isinstance(authoring_tool, AuthoringTool)):
+                
+                if authoring_tool.company is None:
+                    company, _ = Company.objects.get_or_create(name=company_name)
+                    authoring_tool.company = company
+                    authoring_tool.save()
+                    logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
 
                 model.produced_by = authoring_tool
                 logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
             elif authoring_tool is None:
+                company, _ = Company.objects.get_or_create(name=company_name)
                 authoring_tool, _ = AuthoringTool.objects.get_or_create(
+                    company=company,
                     name=app,
                     version=version
                 )
