@@ -38,8 +38,10 @@ const statusToIcon = {
   "w": <WarningIcon color="warning" />,
   "p": <HourglassBottomIcon color="disabled" />,
   "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
-  "info":<InfoIcon color="primary"/>
-}
+  "info": <InfoIcon color="primary" />,
+  "info-valid": <InfoIcon sx={{ color: "#2ab672" }}/>, // For passing header validation
+};
+
 
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
@@ -391,13 +393,9 @@ export default function DashboardTable({ models }) {
                   <TableCell align="left">
                   {row.filename}{" "}
                   {wrap_status(
-                      row.header_validation && 
-                      row.header_validation.validation_errors && 
-                      row.header_validation.validation_errors.some(error => 
-                        ['originating_system', 'company_name', 'application_name', 'version'].includes(error)
-                      )
-                        ? "w" 
-                        : "info", 
+                      row.status_header === 'i' ? "w" : 
+                      row.status_header === 'v' ? "info-valid" : 
+                      "info",                      
                       context.sandboxId
                         ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
                         : `/report_file/${row.code}`
@@ -415,20 +413,6 @@ export default function DashboardTable({ models }) {
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}
                   </TableCell>
-                  {/* <TableCell align="center">
-                    {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}
-                  </TableCell> */}
-                
-                  {
-                    // (row.progress == 100) ?
-                    // <TableCell align="left">
-                    //   <Link href={context.sandboxId ? `/sandbox/report/${context.sandboxId}/${row.code}` : `/report/${row.code}`} underline="hover">
-                    //     {'View report'}
-                    //   </Link>
-                    // </TableCell> :
-                    // <TableCell align="left"></TableCell>
-
-                  }
 
                   {
                     (row.progress == 100) ?
