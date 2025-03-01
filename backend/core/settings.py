@@ -34,6 +34,7 @@ DEBUG = os.environ.get("DEBUG", False)
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVELOPMENT')
 STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
+ENVIRONMENT = 'DEVELOPMENT' if DEVELOPMENT else 'STAGING' if STAGING else 'PRODUCTION'
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
 # URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)

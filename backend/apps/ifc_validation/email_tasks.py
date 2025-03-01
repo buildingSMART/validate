@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 from core.utils import log_execution
 from core.utils import send_email
 from core.utils import get_title_from_html
-from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL
+from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL, ENVIRONMENT
 
 from apps.ifc_validation_models.models import ValidationRequest
 
@@ -56,14 +56,14 @@ def send_acknowledgement_admin_email_task(id, file_name):
     merge_data = { 
         'NUMBER_OF_FILES': 1,
         'FILE_NAMES': file_name,
-        # From django docs: Returns the first_name plus the last_name, with a space in between.
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
-        'PUBLIC_URL': PUBLIC_URL
+        'PUBLIC_URL': PUBLIC_URL,
+        'ENVIRONMENT': ENVIRONMENT
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_ack_admin_email.html", merge_data)
-    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s)."
+    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending
@@ -118,11 +118,12 @@ def send_revalidating_admin_email_task(id, file_name):
         'FILE_NAMES': file_name,
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
-        'PUBLIC_URL': PUBLIC_URL
+        'PUBLIC_URL': PUBLIC_URL,
+        'ENVIRONMENT': ENVIRONMENT
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_reval_admin_email.html", merge_data)
-    body_text = f"Revalidating {{merge_data.NUMBER_OF_FILES}} file(s)."
+    body_text = f"Revalidating {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending
