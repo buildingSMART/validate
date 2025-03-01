@@ -433,7 +433,13 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
         name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
         company_name = header_validation.get('company_name')
         logger.debug(f'Detected Authoring Tool in file = {name}')
-        if name not in (None, "Not defined"):
+        
+        validation_errors = header_validation.get('validation_errors', [])
+        invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
+
+        if any(field in validation_errors for field in invalid_marker_fields):
+            model.status_header = Model.Status.INVALID 
+        else:
             # parsing was successful and model can be considered for scorecards
             model.status_header = Model.Status.VALID
             authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
