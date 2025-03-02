@@ -61,7 +61,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_deleted", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
@@ -116,16 +116,14 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
 
-    @admin.display(description="Is Vendor ?")
+    @admin.display(description="Is Vendor ?", boolean=True)
     def is_vendor(self, obj):
-
-        return ("Yes" if obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor else "No")
+        return (obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor)
     is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
 
-    @admin.display(description="Deleted ?")
+    @admin.display(description="Deleted ?", boolean=True)
     def is_deleted(self, obj):
-
-        return ("Yes" if obj.deleted else "No")
+        return obj.deleted
     is_deleted.admin_order_field = 'deleted'
 
     @admin.display(description="File Size", ordering='size')
@@ -325,7 +323,7 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "date", "authoring_tool_link", "schema", "mvd", "header_file_name", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
@@ -341,6 +339,11 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     def header_file_name(self, obj):
         
         return obj.header_validation['name'] if obj.header_validation else None
+    
+    @admin.display(description="Header Timestamp")
+    def timestamp(self, obj):
+        
+        return obj.date
     
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
