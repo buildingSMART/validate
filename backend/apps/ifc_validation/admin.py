@@ -56,12 +56,12 @@ class NonAdminAddable(admin.ModelAdmin):
 class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "deleted"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
         ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_deleted", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
@@ -96,22 +96,35 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         )
     authoring_tool_link.admin_order_field = 'model__produced_by'
 
+    @admin.display(description="Model")
+    def model_link(self, obj):
+        
+        if not obj.model:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_model_change", args=[obj.model.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.model,
+        )
+    model_link.admin_order_field = 'model'
+
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
 
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
 
-    @admin.display(description="Is Vendor ?")
+    @admin.display(description="Is Vendor ?", boolean=True)
     def is_vendor(self, obj):
-
-        return ("Yes" if obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor else "No")
+        return (obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor)
     is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
 
-    @admin.display(description="Deleted ?")
+    @admin.display(description="Deleted ?", boolean=True)
     def is_deleted(self, obj):
-
-        return ("Yes" if obj.deleted else "No")
+        return obj.deleted
+    is_deleted.admin_order_field = 'deleted'
 
     @admin.display(description="File Size", ordering='size')
     def file_size_text(self, obj):
@@ -310,32 +323,27 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "authoring_tool_link", "created", "updated"]
-    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "created", "updated"]
+    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     list_filter = ['schema', 'produced_by', ('date', AdvancedDateFilter), ('created', AdvancedDateFilter)]
     
-    @admin.display(description="# of Elements")
-    def nbr_of_elements(self, obj):
-        
-        return None if obj.number_of_elements is None else f'{obj.number_of_elements:,}'
-    
-    @admin.display(description="# of Geometries")
-    def nbr_of_geometries(self, obj):
-        
-        return None if obj.number_of_geometries is None else f'{obj.number_of_geometries:,}'
-    
-    @admin.display(description="# of Properties")
-    def nbr_of_properties(self, obj):
-        
-        return None if obj.number_of_properties is None else f'{obj.number_of_properties:,}'
-
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
         
         return utils.format_human_readable_file_size(obj.size)
+    
+    @admin.display(description="Header File Name")
+    def header_file_name(self, obj):
+        
+        return obj.header_validation['name'] if obj.header_validation else None
+    
+    @admin.display(description="Header Timestamp")
+    def timestamp(self, obj):
+        
+        return obj.date
     
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
