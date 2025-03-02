@@ -318,6 +318,12 @@ LOGGING = {
             "class": "logging.FileHandler",
             "filename": os.path.join(log_folder, "django.log"),
         },
+        "gherkin_file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(log_folder, "gherkin_rules.log"),
+            "formatter": "simple",
+        },
     },
     "root": {
         "handlers": ["console"],
@@ -347,6 +353,10 @@ LOGGING = {
         #     'level': 'DEBUG',
         #     'propagate': True,
         # },
+        "gherkin_rules": {
+            "handlers": ["gherkin_file"],
+            "level": "DEBUG",
+        },
         "ifcvalidation": {
             "handlers": ["console"],
             "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
