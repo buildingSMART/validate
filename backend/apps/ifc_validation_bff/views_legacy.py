@@ -100,50 +100,48 @@ def file_contains_string(file_name, fragment):
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code, feature_version):
-
-    # TODO - fetch remote/sha based on code/version; for now we point to main repo (configurable)
-
+    # TODO - fetch remote/sha based on code/version; for now we point to main and development repo (configurable)
     file_folder = os.path.dirname(os.path.realpath(__file__))
-    feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
+    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
 
-    for file in os.listdir(feature_folder):
-        file_name = os.fsdecode(file)
-        fq_file_name = os.path.join(feature_folder, file_name)
-        version_tag = f'@version{feature_version}'
-        
-        if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-            return FEATURE_URL + file_name
+    version_tag = f'@version{feature_version}'
+
+    for root, _, files in os.walk(rules_folder):
+        for file in files:
+            file_name = os.fsdecode(file)
+            fq_file_name = os.path.join(root, file_name)
+
+            if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
+                return os.path.join(FEATURE_URL, feature_code[:3] , file_name) 
     
     return None
 
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_description(feature_code, feature_version):
-
-    # TODO - could probably use some of the ifc_gherkin_rules methods here?
-
     file_folder = os.path.dirname(os.path.realpath(__file__))
-    feature_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features')
-    
-    for file in os.listdir(feature_folder):
-        file_name = os.fsdecode(file)
-        fq_file_name = os.path.join(feature_folder, file_name)
-        version_tag = f'@version{feature_version}'
+    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
 
-        if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-            
-            gherkin_desc = ''
-            reading = False
+    version_tag = f'@version{feature_version}'
 
-            with open(os.path.join(feature_folder, file_name), 'r') as input:
+    for root, _, files in os.walk(rules_folder):
+        for file in files:
+            file_name = os.fsdecode(file)
+            fq_file_name = os.path.join(root, file_name)
+
+            if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
                 
-                for line in input:
-                    if 'Feature:' in line:
-                        reading = True
-                    if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
-                        return gherkin_desc
-                    if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line: 
-                        gherkin_desc += '\n' + line.strip()
+                gherkin_desc = ''
+                reading = False
+
+                with open(fq_file_name, 'r', encoding='utf-8') as input_file:
+                    for line in input_file:
+                        if 'Feature:' in line:
+                            reading = True
+                        if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
+                            return gherkin_desc
+                        if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line:
+                            gherkin_desc += '\n' + line.strip()
     
     return None
 
