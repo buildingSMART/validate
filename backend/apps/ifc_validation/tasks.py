@@ -76,10 +76,10 @@ def on_workflow_started(self, *args, **kwargs):
     # queue sending emails
     nbr_of_tasks = request.tasks.count()
     if nbr_of_tasks == 0:
-        send_acknowledgement_user_email_task.delay(id=id, file_name=request.file_name)
+        # send_acknowledgement_user_email_task.delay(id=id, file_name=request.file_name) # disabled
         send_acknowledgement_admin_email_task.delay(id=id, file_name=request.file_name)
     else:
-        send_revalidating_user_email_task.delay(id=id, file_name=request.file_name)
+        # send_revalidating_user_email_task.delay(id=id, file_name=request.file_name) # disabled
         send_revalidating_admin_email_task.delay(id=id, file_name=request.file_name)
 
 
