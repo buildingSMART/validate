@@ -8,6 +8,7 @@ import itertools
 import functools
 import typing
 from collections import defaultdict
+import glob
 
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
@@ -87,62 +88,46 @@ def create_redirect_response(login=True, dashboard=False):
                 "reason": "401 - Unauthorized"
             })
 
-
-@functools.lru_cache(maxsize=256)
-def file_contains_string(file_name, fragment):
-
-    with open(file_name, 'r') as file:
-        for line_no, line in enumerate(file):
-            if fragment in line:
-                return True
-    return False
+@functools.lru_cache(maxsize=1024)
+def get_feature_filename(feature_code):
+    """
+    Retrieve the feature filename based on the feature_code (e.g. 'ALB005')
+    """
+    file_folder = os.path.dirname(os.path.realpath(__file__))
+    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
+    return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
+    
 
 
 @functools.lru_cache(maxsize=1024)
-def get_feature_url(feature_code, feature_version):
-    # TODO - fetch remote/sha based on code/version; for now we point to main and development repo (configurable)
-    file_folder = os.path.dirname(os.path.realpath(__file__))
-    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
+def get_feature_url(feature_code):
+    """
+    Get the URL for the corresponding feature filename
+    In DEV, we return the filename in the 'development' branch of the repository and 'main' for PROD. 
+    """
+    feature_files = get_feature_filename(feature_code)
 
-    version_tag = f'@version{feature_version}'
-
-    for root, _, files in os.walk(rules_folder):
-        for file in files:
-            file_name = os.fsdecode(file)
-            fq_file_name = os.path.join(root, file_name)
-
-            if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-                return os.path.join(FEATURE_URL, feature_code[:3] , file_name) 
-    
+    if feature_files:
+        return os.path.join(FEATURE_URL, feature_code[:3], os.path.basename(feature_files[0]))
     return None
 
-
 @functools.lru_cache(maxsize=1024)
-def get_feature_description(feature_code, feature_version):
-    file_folder = os.path.dirname(os.path.realpath(__file__))
-    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
+def get_feature_description(feature_code):
+    feature_files = get_feature_filename(feature_code)
+    if feature_files: 
 
-    version_tag = f'@version{feature_version}'
+        gherkin_desc = ''
+        reading = False
 
-    for root, _, files in os.walk(rules_folder):
-        for file in files:
-            file_name = os.fsdecode(file)
-            fq_file_name = os.path.join(root, file_name)
+        with open(feature_files[0], 'r', encoding='utf-8') as input_file:
+            for line in input_file:
+                if 'Feature:' in line:
+                    reading = True
+                if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
+                    return gherkin_desc
+                if reading and line.strip() and 'Feature:' not in line and '@' not in line:
+                    gherkin_desc += '\n' + line.strip()
 
-            if file_name.endswith(".feature") and file_name.startswith(feature_code) and file_contains_string(fq_file_name, version_tag):
-                
-                gherkin_desc = ''
-                reading = False
-
-                with open(fq_file_name, 'r', encoding='utf-8') as input_file:
-                    for line in input_file:
-                        if 'Feature:' in line:
-                            reading = True
-                        if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
-                            return gherkin_desc
-                        if reading and len(line.strip()) > 0 and 'Feature:' not in line and '@' not in line:
-                            gherkin_desc += '\n' + line.strip()
-    
     return None
 
 
@@ -488,8 +473,8 @@ def report(request, id: str):
                 "id": outcome.public_id,
                 "feature": outcome.feature,
                 "feature_version": outcome.feature_version,
-                "feature_url": get_feature_url(outcome.feature[0:6], outcome.feature_version),
-                "feature_text": get_feature_description(outcome.feature[0:6], outcome.feature_version),
+                "feature_url": get_feature_url(outcome.feature[0:6]),
+                "feature_text": get_feature_description(outcome.feature[0:6]),
                 "step": outcome.get_severity_display(), # TODO
                 "severity": outcome.severity,
                 "instance_id": outcome.instance_public_id,
