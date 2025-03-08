@@ -37,8 +37,11 @@ PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PR
 ENVIRONMENT = 'DEVELOPMENT' if DEVELOPMENT else 'STAGING' if STAGING else 'PRODUCTION'
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
-# URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)
-FEATURE_URL = os.getenv('FEATURE_URL', 'https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/')
+# URL for rule hyperlinks; determine the branch based on the environment
+FEATURE_BRANCH = "development" if DEVELOPMENT else "main"
+FEATURE_URL = os.getenv(
+    "FEATURE_URL", f"https://github.com/buildingSMART/ifc-gherkin-rules/blob/{FEATURE_BRANCH}/features/rules"
+)
 
 # Max. number of outcomes shown in UI
 MAX_OUTCOMES_PER_RULE = 10
