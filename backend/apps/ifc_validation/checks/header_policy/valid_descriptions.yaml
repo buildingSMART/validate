@@ -1,0 +1,12 @@
+
+IFC2X3:
+    - "CoordinationView_V2.0"
+    - "SpaceBoundaryAddonView"
+    - "BasicFMHandoverView"
+    - "StructuralAnalysisView"
+IFC4:
+    - "ReferenceView_V1.2"
+    - "IFC4Precast"
+IFC4X3_ADD2:
+    - "ReferenceView"
+    - "Alignment-basedView"

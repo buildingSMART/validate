@@ -160,7 +160,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     serial_tasks = chain(
         syntax_validation_subtask.s(id, file_name),
         parse_info_subtask.s(id, file_name),
-        prerequisites_subtask.s(id, file_name)
+        prerequisites_subtask.s(id, file_name),
     )
 
     parallel_tasks = group([
@@ -197,7 +197,7 @@ def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwarg
 
     # increment overall progress
     PROGRESS_INCREMENT = 5
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -335,182 +335,133 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 @log_execution
 @requires_django_user_context
 def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
-    # fetch request info
+    """"
+    Parses and validates the file header
+    """
+    
+    # fetch request info 
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
+    
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PARSE_INFO)
+    
+    task.mark_as_initiated()
+    # check for header policy 
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
+    
+    try:
+        logger.debug(f'before header validation task, path {file_path}, script {check_script} ')
+        proc = subprocess.run(
+            [sys.executable, check_script, file_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=TASK_TIMEOUT_LIMIT  # Add timeout to prevent infinite hangs
+        )
+        
+    except subprocess.TimeoutExpired as err:
+        task.mark_as_failed(err)
+        raise
+    except Exception as err:
+        task.mark_as_failed(err)
+        raise
+    
+    if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
 
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-
-        # try to open IFC file (catches low-level/C++ errors)
+    header_validation = {}
+    stdout_lines = proc.stdout.splitlines()
+    for line in stdout_lines:
         try:
-            code = "import ifcopenshell; ifcopenshell.open('" + file_path + "')"
-            check_program = [sys.executable, '-c', code, file_path]
-            logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-            subprocess.run(check_program, check=True)
+            header_validation = json.loads(line)
+        except json.JSONDecodeError:
+            continue 
+    
+    logger.debug(f'header validation output : {header_validation}')
+    
+    with transaction.atomic():
+        # create or retrieve Model info
+        model = get_or_create_ifc_model(id)
 
-        except subprocess.CalledProcessError as err:
-
-            if err.returncode < 0:
-                logger.debug(f'ifcopenshell.open() return error code {err.returncode} ({err})')
-                task.mark_as_failed(err)
-                raise
-
-        # retrieve IFC info
-        try:
-            task.set_process_details(None, f"(module) ifcopenshell.open() for file '{file_path}')")
-
-            with transaction.atomic():
-                using_purepythonparser = False
+        # update Model info
+        agg_status = task.determine_aggregate_status()
+        model.status_prereq = agg_status
+        
+        # size
+        model.size = os.path.getsize(file_path)
+        logger.debug(f'Detected size = {model.size} bytes')
+        
+        # schema 
+        model.schema = header_validation.get('schema')
+        
+        logger.debug(f'The schema identifier = {header_validation.get("schema")}')
+        
+        # time_stamp 
+        if ifc_file_time_stamp := header_validation.get('time_stamp', False):
+            try:
+                logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
+                date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                date_with_tz = datetime.datetime(
+                    date.year, 
+                    date.month, 
+                    date.day, 
+                    date.hour, 
+                    date.minute, 
+                    date.second, 
+                    tzinfo=datetime.timezone.utc)
+                model.date = date_with_tz
+            except ValueError:
                 try:
-                    ifc_file = ifcopenshell.open(file_path)
-                except:
-                    # @todo rather slow, better use pypy
-                    import ifcopenshell.simple_spf
-                    ifc_file = ifcopenshell.simple_spf.open(file_path)
-                    using_purepythonparser = True
-                logger.info(f'Opened file {file_path} in ifcopenshell; schema = {ifc_file.schema}')
+                    model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                except ValueError:
+                    pass
+                
+        # mvd
+        model.mvd = header_validation.get('mvd')
+        
+        app = header_validation.get('application_name')
+        version = header_validation.get('version')
+        name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
+        logger.debug(f'Detected Authoring Tool in file = {name}')
+        if name not in (None, "Not defined"):
+            # parsing was successful and model can be considered for scorecards
+            model.status_header = Model.Status.VALID
+            authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
+            if (isinstance(authoring_tool, AuthoringTool)):
 
-                # create or retrieve Model info
-                model = get_or_create_ifc_model(id)
+                model.produced_by = authoring_tool
+                logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
-                # size
-                model.size = os.path.getsize(file_path)
-                logger.debug(f'Detected size = {model.size} bytes')
-
-                # schema
-                model.schema = ifc_file.schema_identifier
-                logger.debug(f'Detected schema = {model.schema}')
-
-                # date - format eg. 2024-02-25T10:05:22 - tz defaults to UTC
-                model.date = None
-                if using_purepythonparser:
-                    # ifcopenshell.simple_spf returns instance attributes as tuples,
-                    # also header information.
-                    try:
-                        ifc_file_time_stamp = ifc_file.header.file_name[1]
-                    except IndexError:
-                        ifc_file_time_stamp = None
-                        model.date = None
-                else:
-                    try:
-                        ifc_file_time_stamp = f'{ifc_file.header.file_name.time_stamp}'
-                    except RuntimeError:
-                        ifc_file_time_stamp = None
-                        model.date = None
-
-                if ifc_file_time_stamp:
-                    try:
-                        logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
-                        date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
-                        date_with_tz = datetime.datetime(
-                            date.year, 
-                            date.month, 
-                            date.day, 
-                            date.hour, 
-                            date.minute, 
-                            date.second, 
-                            tzinfo=datetime.timezone.utc)
-                        model.date = date_with_tz
-                    except ValueError:
-                        try:
-                            model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
-                        except ValueError:
-                            pass
-                logger.debug(f'Detected date = {model.date}')
-
-                # MVD
-                try:
-                    if using_purepythonparser:
-                        # ifcopenshell.simple_spf returns instance attributes as tuples,
-                        # also header information.
-                        desc = ifc_file.header.file_description[0][0]
-                    else:
-                        desc = ifc_file.header.file_description.description[0]
-                    # @todo implement based on grammar in header agreement PDF
-                    model.mvd = desc.split(" ", 1)[1][1:-1]
-                except:
-                    model.mvd = None
-                logger.debug(f'Detected MVD = {model.mvd}')
-
-                # authoring app
-                try:
-                    # IfcApplication
-                    #---------------
-                    # 0. ApplicationDeveloper: <entity IfcOrganization>
-                    # 1. Version: <type IfcLabel: <string>>
-                    # 2. ApplicationFullName: <type IfcLabel: <string>>
-                    # 3. ApplicationIdentifier: <type IfcIdentifier: <string>>
-                    app = ifc_file.by_type("IfcApplication")[0][2] if len(ifc_file.by_type("IfcApplication")) > 0 else None
-                except RuntimeError:
-                    app = None
-                try:
-                    version = ifc_file.by_type("IfcApplication")[0][1] if len(ifc_file.by_type("IfcApplication")) > 0 else None
-                except RuntimeError:
-                    version = None
-                name = None if None in (app, version) else app + ' ' + version
-                logger.debug(f'Detected Authoring Tool in file = {name}')
-
-                if name is not None:
-                    authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
-                    if (isinstance(authoring_tool, AuthoringTool)):
-
-                        model.produced_by = authoring_tool
-                        logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
-
-                    elif authoring_tool is None:
-                        authoring_tool, _ = AuthoringTool.objects.get_or_create(
-                            name=app,
-                            version=version
-                        )
-                        model.produced_by = authoring_tool
-                        logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
-                    else:
-                        model.produced_by = None
-                        logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')
-
-                # number of elements/geometries/properties
-                if not using_purepythonparser:
-                    # No attempts at writing these using the pure python parser because it doens't have understand inheritance (yet?)
-                    try:
-                        model.number_of_elements = len(ifc_file.by_type("IfcBuildingElement"))
-                    except:
-                        model.number_of_elements = len(ifc_file.by_type("IfcBuiltElement"))
-                    model.number_of_geometries = len(ifc_file.by_type("IfcShapeRepresentation"))
-                    model.number_of_properties = len(ifc_file.by_type("IfcProperty"))
-                    logger.debug(f'Found {model.number_of_elements} elements, {model.number_of_geometries} geometries and {model.number_of_properties} properties')
-
-                # save all changes
-                model.save()
-
-                reason = f'IFC info parsed and stored in Model #{model.id}.'
-                task.mark_as_completed(reason)
-                return {'is_valid': True, 'reason': reason}
-
-        except ifcopenshell.Error as err:
-            reason = str(err)
-            task.mark_as_completed(reason)
-            return {'is_valid': False, 'reason': reason}
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+            elif authoring_tool is None:
+                authoring_tool, _ = AuthoringTool.objects.get_or_create(
+                    name=app,
+                    version=version
+                )
+                model.produced_by = authoring_tool
+                logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
+            else:
+                model.produced_by = None
+                logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')  
+                        
+        # update header validation
+        model.header_validation = header_validation
+        model.save(update_fields=['status_header', 'header_validation'])
+        model.save()
+        
+        
+        # update Task info and return
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
 
 
 @shared_task(bind=True)
@@ -524,7 +475,7 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -539,6 +490,8 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
         check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
         check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL', "--purepythonparser"]
         logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+        logger.debug(f"gherkin log path : {os.path.join(os.getenv('Django_LOG_FOLDER', 'logs'), 'gherkin_rules.log')}")
+        logger.debug(f"Log folder exists and writable: {os.access(os.getenv('Django_LOG_FOLDER', 'logs'), os.W_OK)}")
 
         # check Gherkin IP
         try:
@@ -608,7 +561,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -743,7 +696,7 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -847,7 +800,7 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -925,7 +878,7 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
 
     # increment overall progress
     PROGRESS_INCREMENT = 15
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
@@ -1001,7 +954,7 @@ def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs
 
     # increment overall progress
     PROGRESS_INCREMENT = 10
-    request.progress += PROGRESS_INCREMENT
+    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
     request.save()
 
     # add task
