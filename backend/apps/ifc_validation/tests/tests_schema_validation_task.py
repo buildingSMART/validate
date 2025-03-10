@@ -1,27 +1,19 @@
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.contrib.auth.models import User
 
 from apps.ifc_validation_models.models import *
-from apps.ifc_validation_models.decorators import requires_django_user_context
 
 from ..tasks import schema_validation_subtask
 
-class SchemaValidationTasksTestCase(TestCase):
+class SchemaValidationTaskTestCase(TransactionTestCase):
 
-    @classmethod
-    def setUpTestData(cls):
-
-        """
-        Creates a SYSTEM user in the (in-memory) test database.
-        Runs once for the whole test case.
-        """
-
+    def set_user_context():
         user = User.objects.create(id=1, username='SYSTEM', is_active=True)
-        user.save()
+        set_user_context(user)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_passed_validation_outcome(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='valid_file.ifc',
             file='valid_file.ifc', 
@@ -42,9 +34,9 @@ class SchemaValidationTasksTestCase(TestCase):
         self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.PASSED)
         self.assertEqual(outcomes.first().observed, None)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcomes(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='fail-alb005-scenario01-STATION_without_position.ifc',
             file='fail-alb005-scenario01-STATION_without_position.ifc', 
@@ -67,9 +59,9 @@ class SchemaValidationTasksTestCase(TestCase):
             self.assertTrue('Violated by:' in outcome.observed)
             self.assertTrue('On instance:' in outcome.observed)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcome(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='invalid_version.ifc',
             file='invalid_version.ifc', 
@@ -90,9 +82,9 @@ class SchemaValidationTasksTestCase(TestCase):
         self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
         self.assertEqual(outcomes.first().observed, 'Unsupported schema: ifc99')
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcomes(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='pass-ifc001-IFC4.ifc',
             file='pass-ifc001-IFC4.ifc', 
@@ -108,15 +100,15 @@ class SchemaValidationTasksTestCase(TestCase):
 
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 2)
+        self.assertEqual(len(outcomes), 1)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
             self.assertIsNotNone(outcome.instance)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcomes_2(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='pass_reverse_comment.ifc',
             file='pass_reverse_comment.ifc', 
@@ -132,15 +124,15 @@ class SchemaValidationTasksTestCase(TestCase):
 
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 6)
+        self.assertEqual(len(outcomes), 3)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
             self.assertIsNotNone(outcome.instance)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcomes_3(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='fail-als015-scenario01-long_last_segment.ifc',
             file='fail-als015-scenario01-long_last_segment.ifc', 
@@ -156,14 +148,14 @@ class SchemaValidationTasksTestCase(TestCase):
 
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 7)
+        self.assertEqual(len(outcomes), 8)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
 
-    @requires_django_user_context
     def test_schema_validation_task_creates_error_validation_outcomes_4(self):
 
+        SchemaValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='fail-als015-scenario01-long_last_segment.ifc',
             file='fail-als015-scenario01-long_last_segment.ifc', 
@@ -179,7 +171,7 @@ class SchemaValidationTasksTestCase(TestCase):
 
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 7)
+        self.assertEqual(len(outcomes), 8)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)

@@ -4,7 +4,10 @@ FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]', 'ExchangeRequirement [A
 FILE_NAME('pass_header_policy.ifc','2025-02-13T15:58:45',('jdoe'),('Acme Inc.'),'ABC rel. 0.1.2','Acme Inc. - MyFabTool - 2025.1','IFC4 model');
 FILE_SCHEMA(('IFC4'));
 ENDSEC;
+
 DATA;
-#1=IFCPERSON($,$,'',$,$,$,$,$);
-ENDSEC;
-END-ISO-10303-21;
+#1= IFCPERSON('jdoe','Unknown',$,$,$,$,$,$);
+#2= IFCORGANIZATION($,'Acme Inc.',$,$,$);
+#3= IFCPERSONANDORGANIZATION(#1,#2,$);
+#4= IFCAPPLICATION(#2,'2025.0','Acme Inc. - MyFabTool - 2025.1','MyFabTool');
+#5= IFCOWNERHISTORY(#3,#4,$,.NOCHANGE.,$,$,$,1739458800);
