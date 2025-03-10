@@ -18,7 +18,6 @@ services:
         volumes:
             - ./docker/frontend/letsencrypt:/etc/letsencrypt
             - static_data:/app/backend/django_static
-            - gherkin_rules_log_data:/gherkin_logs
         depends_on:
             - backend
 
