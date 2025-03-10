@@ -7,7 +7,9 @@ mvd_grammar = r'''
     start: entry+
 
     entry: "ViewDefinition" "[" simple_value_list "]"   -> view_definition
-         | "Comment" "[" comment_text "]" -> comment
+         | "Comment" "[" other_keyword "]" -> comment
+         | "ExchangeRequirement" "[" other_keyword "]" -> exchangerequirement
+         | "Option" "[" other_keyword "]" -> option
          | GENERIC_KEYWORD "[" value_list_set "]" -> dynamic_option
 
     %declare COMMENT_TEXT  // Ensure Lark treats it with higher priority
@@ -24,12 +26,11 @@ mvd_grammar = r'''
     
     value: /[A-Za-z0-9 _\.-]+/
     
-    comment_text: /[^\[\]]+/  
+    other_keyword: /[^\[\]]+/  
 
     %import common.WS
     %ignore WS
 '''
-
 
 parser = Lark(mvd_grammar, parser='lalr')
 class DescriptionTransform(Transformer):
@@ -37,14 +38,28 @@ class DescriptionTransform(Transformer):
         self.mvd = []
         self.keywords = set()
         self.comments = ""
-        self.exchangerequirement = ""
-        self.option = ''
-
+        self.exchangerequirements = ""
+        self.options = ""
 
     def view_definition(self, args):
         self.keywords.add('mvd')  
         self.mvd.extend(args[0])  
 
+    def store_text_attribute(self, args, keyword, attr_name):
+        """
+        Generic method to store text attributes (Comment, ExchangeRequirement, Option)
+        """
+        self.keywords.add(keyword)
+        setattr(self, attr_name, " ".join(str(child) for child in args[0].children).strip())
+
+    def comment(self, args):
+        self.store_text_attribute(args, "comment", "comments")
+
+    def exchangerequirement(self, args):
+        self.store_text_attribute(args, "exchangerequirements", "exchangerequirements")
+
+    def option(self, args):
+        self.store_text_attribute(args, "options", "options")
 
     def dynamic_option(self, args):
         """
@@ -61,11 +76,6 @@ class DescriptionTransform(Transformer):
             set_name, *values = value_set
             dynamic_dict[set_name] = values if len(values) > 1 else values[0]
 
-
-    def comment(self, args):
-        self.keywords.add('comment')
-        self.comments = " ".join(str(child) for child in args[0].children).strip()
-
     def simple_value_list(self, args):
         return [str(arg) for arg in args]
 
@@ -80,12 +90,12 @@ class DescriptionTransform(Transformer):
 
     def set_name(self, args):
         return str(args[0])
-    
+
     @property 
     def other_keywords(self):
         """"
         The predefined keywords are 'ViewDefinition', 'Option', 'Comment', 'ExchangeRequirement'
-        Keywords in the description not from this lists are returned
+        Keywords in the description not from this list are returned
         """
         return {k for k in self.keywords if k not in {'mvd', 'comment', 'exchangerequirement', 'option'}}
 
