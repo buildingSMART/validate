@@ -24,17 +24,13 @@ services:
     # Backend - Django
     backend:
         image: buildingsmart/validationsvc-backend
-        build:
-            context: .
-            dockerfile: ./docker/backend/Dockerfile
-            target: run
         entrypoint: /app/backend/server-entrypoint.sh
         restart: unless-stopped
         container_name: backend
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
-            - /data/logs/rule_runtime_logs:/app/backend/.logs/rule_runtime_logs
+            - gherkin_rules_log_data:/app/backend/.logs/rule_runtime_logs
         ports:
             - 8000:8000
         environment:
@@ -71,7 +67,11 @@ services:
         container_name: worker
         volumes:
             - files_data:/files_storage
-            - /data/logs/rule_runtime_logs:/app/backend/.logs/rule_runtime_logs
+            - gherkin_rules_log_data:/gherkin_logs
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
         environment:
             PUBLIC_URL: ${PUBLIC_URL} # for email links
             ENV: ${ENV}
@@ -113,3 +113,4 @@ volumes:
     static_data:
     files_data:
     redis_data:
+    gherkin_rules_log_data:

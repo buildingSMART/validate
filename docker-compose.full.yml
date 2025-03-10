@@ -185,3 +185,4 @@ volumes:
     otel_data:
     prometheus_data:
     grafana_data:
+    gherkin_rules_log_data: 
