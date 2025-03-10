@@ -18,6 +18,7 @@ services:
         volumes:
             - ./docker/frontend/letsencrypt:/etc/letsencrypt
             - static_data:/app/backend/django_static
+            - gherkin_rules_log_data:/gherkin_logs
         depends_on:
             - backend
 
@@ -30,7 +31,7 @@ services:
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
-            - gherkin_rules_log_data:/app/backend/.logs/rule_runtime_logs
+            - gherkin_rules_log_data:/gherkin_logs
         ports:
             - 8000:8000
         environment:

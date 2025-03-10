@@ -34,7 +34,7 @@ services:
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
-            - /data/logs/rule_runtime_logs:/app/backend/.logs/rule_runtime_logs
+            - gherkin_rules_log_data:/gherkin_logs
         ports:
             - 8000:8000
         environment:
@@ -76,7 +76,7 @@ services:
         container_name: worker
         volumes:
             - files_data:/files_storage
-            - /data/logs/rule_runtime_logs:/app/backend/.logs/rule_runtime_logs
+            - gherkin_rules_log_data:/gherkin_logs
         environment:
             PUBLIC_URL: ${PUBLIC_URL} # for email links
             ENV: ${ENV}
