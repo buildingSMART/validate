@@ -68,19 +68,25 @@ start-worker-scheduler:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	celery --app=core worker --loglevel=DEBUG --concurrency 5 --task-events --beat
 
+test: test-models test-bsdd-task test-parse-info-task test-syntax-task test-schema-task
+
 test-models:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
 
-test-tasks:
+test-bsdd-task:
 	. $(VIRTUAL_ENV)/bin/activate && \
-	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests_tasks --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_bsdd_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
-test-parse-info-tasks:
+test-parse-info-task:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_parse_info_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
-test-schema-tasks:
+test-syntax-task:
+	. $(VIRTUAL_ENV)/bin/activate && \
+	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-schema-task:
 	. $(VIRTUAL_ENV)/bin/activate && \
 	MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 

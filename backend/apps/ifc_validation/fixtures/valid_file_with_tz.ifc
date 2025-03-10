@@ -1,7 +1,7 @@
 ISO-10303-21;
 HEADER;
-FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
-FILE_NAME('valid_file_with_tz.ifc','2023-12-16T18:20:00+02:00',(''),(''),'IfcOpenShell-0.7.0','IfcOpenShell-0.7.0','');
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]', 'ExchangeRequirement [Any]'),'2;1');
+FILE_NAME('pass_header_policy.ifc','2025-02-13T15:58:45+02:00',('jdoe'),('Acme Inc.'),'ABC rel. 0.1.2','Acme Inc. - MyFabTool - 2025.1','IFC4 model');
 FILE_SCHEMA(('IFC4'));
 ENDSEC;
 DATA;
