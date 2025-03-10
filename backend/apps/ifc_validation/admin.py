@@ -385,6 +385,8 @@ class CompanyAdmin(BaseAdmin):
     ]
     search_fields = ("name", "legal_name", "email_address_pattern")
 
+    actions = ["assign_users_action"]
+
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.annotate(nbr_of_tools=Count('company')) # TODO: fix typo in Company model ('company' -> 'tools')
@@ -400,8 +402,70 @@ class CompanyAdmin(BaseAdmin):
             query_string,
             obj.nbr_of_tools
         )
-    
     nbr_of_tools.admin_order_field = 'nbr_of_tools'
+
+    @admin.action(
+        description="Assign Users to Company by email address pattern(s)",
+        permissions=["assign_users"]
+    )
+    def assign_users_action(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        detected_users_count = 0
+        detected_users = {}
+        detected_companies = []
+        for company in queryset:
+            if company.email_address_pattern:
+                matching_users = User.objects.filter(email__iregex=company.email_address_pattern)
+                matching_users = matching_users.exclude(useradditionalinfo__company=company)
+                if matching_users.exists():
+                    detected_companies.append(company)
+                    detected_users[company.id] = matching_users
+                    detected_users_count += detected_users[company.id].count()
+
+        if 'apply' in request.POST or detected_users_count == 0:
+
+            updated_user_count = 0
+            for company in queryset:
+                if company.email_address_pattern:
+                    for user in detected_users[company.id]:
+                        if 'user_' + str(user.id) in request.POST:
+                            uai = UserAdditionalInfo.objects.filter(user=user)
+                            if uai.exists():
+                                uai.update(company=company, is_vendor=True)
+                            else:
+                                UserAdditionalInfo.objects.create(user=user, company=company, is_vendor=True)
+                            updated_user_count += 1
+                            logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+
+            if detected_users_count == 0:
+                self.message_user(request, "No eligible users were found.", messages.WARNING)
+            elif updated_user_count == 0:
+                self.message_user(request, "No users were assigned.", messages.WARNING)
+            else:
+                self.message_user(
+                    request,
+                    ngettext(
+                        "%d User was successfully assigned.",
+                        "%d Users were successfully assigned.",
+                        updated_user_count
+                    )
+                    % updated_user_count,
+                    messages.SUCCESS,
+                )
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return render(request, 'admin/assign_company_intermediate.html', context={'companies': detected_companies, 'detected_users': detected_users})
+
+    def has_assign_users_permission(self, request):
+
+        opts = self.opts
+        codename = get_permission_codename("change_user", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
 class AuthoringToolAdmin(BaseAdmin):
 
@@ -459,23 +523,19 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
-    actions = ["activate", "deactivate"]
+    actions = ["activate_action", "deactivate_action", "remove_company_and_is_vendor_action"]
     actions_on_top = True
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
 
-    @admin.action(
-        description="Activate selected user(s)"
-    )
-    def activate(self, request, queryset):
+    @admin.action(description="Activate selected users")
+    def activate_action(self, request, queryset):
         queryset.update(is_active=True)
 
-    @admin.action(
-        description="Deactivate selected user(s)"
-    )
-    def deactivate(self, request, queryset):
+    @admin.action(description="Deactivate selected users")
+    def deactivate_action(self, request, queryset):
         queryset.update(is_active=False)
 
     @admin.display(description="Company")
@@ -503,6 +563,43 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         return obj.nbr_of_requests
     nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
+    @admin.action(
+        description="Remove Company & is_vendor status from selected users",
+        permissions=["assign_users"]
+    )
+    def remove_company_and_is_vendor_action(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        count = 0
+        for user in queryset:
+            uai = UserAdditionalInfo.objects.filter(user=user)
+            if uai.exists():
+                prev_company = uai.first().company
+                uai.update(company=None, is_vendor=None)
+                count = count + 1
+                logger.info(f"User with id={user.id} and email={user.email} had Company '{prev_company}' and 'is_vendor' status removed.")
+
+        self.message_user(
+            request,
+            ngettext(
+                "%d User was successfully updated.",
+                "%d Users were successfully updated.",
+                count
+            )
+            % count,
+            messages.SUCCESS,
+        )
+
+    def has_assign_users_permission(self, request):
+
+        opts = self.opts
+        codename = get_permission_codename("change_user", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+    
 
 class VersionAdmin(BaseAdmin):
 
