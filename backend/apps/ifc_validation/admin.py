@@ -427,7 +427,11 @@ class CompanyAdmin(BaseAdmin):
                     detected_users[company.id] = matching_users
                     detected_users_count += detected_users[company.id].count()
 
-        if 'apply' in request.POST or detected_users_count == 0:
+        if detected_users_count == 0:
+            self.message_user(request, "No eligible users were found.", messages.WARNING)
+            return HttpResponseRedirect(request.get_full_path())
+
+        if 'apply' in request.POST:
 
             updated_user_count = 0
             for company in queryset:
@@ -442,9 +446,7 @@ class CompanyAdmin(BaseAdmin):
                             updated_user_count += 1
                             logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
 
-            if detected_users_count == 0:
-                self.message_user(request, "No eligible users were found.", messages.WARNING)
-            elif updated_user_count == 0:
+            if updated_user_count == 0:
                 self.message_user(request, "No users were assigned.", messages.WARNING)
             else:
                 self.message_user(
