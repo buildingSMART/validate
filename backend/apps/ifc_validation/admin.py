@@ -524,6 +524,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
+    ordering = ('-date_joined',)
 
     actions = ["activate_action", "deactivate_action", "remove_company_and_is_vendor_action"]
     actions_on_top = True
