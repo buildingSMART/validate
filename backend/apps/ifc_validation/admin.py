@@ -468,6 +468,7 @@ class CompanyAdmin(BaseAdmin):
         codename = get_permission_codename("change_user", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
+
 class AuthoringToolAdmin(BaseAdmin):
 
     fieldsets = [

@@ -76,8 +76,6 @@ def get_current_user(request):
             )
             logger.info(f"Created local DEV user, user = {user.id}")
 
-        
-
         logger.info(f"Authenticated as local DEV, user = {user.id}")
         return user
     
