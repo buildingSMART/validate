@@ -419,13 +419,11 @@ class CompanyAdmin(BaseAdmin):
         detected_users = {}
         detected_companies = []
         for company in queryset:
-            if company.email_address_pattern:
-                matching_users = User.objects.filter(email__iregex=company.email_address_pattern)
-                matching_users = matching_users.exclude(useradditionalinfo__company=company)
-                if matching_users.exists():
-                    detected_companies.append(company)
-                    detected_users[company.id] = matching_users
-                    detected_users_count += detected_users[company.id].count()
+            matching_users = company.find_users_by_email_pattern(only_new=True)
+            if matching_users:
+                detected_companies.append(company)
+                detected_users[company.id] = matching_users
+                detected_users_count += detected_users[company.id].count()
 
         if detected_users_count == 0:
             self.message_user(request, "No eligible users were found.", messages.WARNING)
@@ -438,13 +436,14 @@ class CompanyAdmin(BaseAdmin):
                 if company.email_address_pattern:
                     for user in detected_users[company.id]:
                         if 'user_' + str(user.id) in request.POST:
-                            uai = UserAdditionalInfo.objects.filter(user=user)
-                            if uai.exists():
-                                uai.update(company=company, is_vendor=True)
-                            else:
-                                UserAdditionalInfo.objects.create(user=user, company=company, is_vendor=True)
-                            updated_user_count += 1
-                            logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+                            uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
+                            if company and (uai.company != company or not uai.is_vendor):
+                                logger.info(f"User with id={user.id} and email={user.email} matches email address pattern '{company.email_address_pattern}' of Company with id={company.id} ({company.name}).")
+                                uai.company = company
+                                uai.is_vendor = True
+                                uai.save()
+                                logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+                                updated_user_count += 1                                
 
             if updated_user_count == 0:
                 self.message_user(request, "No users were assigned.", messages.WARNING)
