@@ -148,18 +148,20 @@ class HeaderStructure(ConfiguredBaseModel):
         https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
         For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         """
-        header_description_text = ' '.join(v)
-        parsed_description = parse_mvd(header_description_text)
-        view_definitions = parsed_description.mvd
-        values.data['mvd'] = view_definitions
+        if v:
+            header_description_text = ' '.join(v)
+            parsed_description = parse_mvd(header_description_text)
+            view_definitions = parsed_description.mvd
+            values.data['mvd'] = view_definitions
 
-        
-        # comments is a free textfield, but constrainted to 256 characters
-        if len(parsed_description.comments) > 256:
-            values.data.get('validation_errors').append(values.field_name)
+            
+            # comments is a free textfield, but constrainted to 256 characters
+            if len(parsed_description.comments) > 256:
+                values.data.get('validation_errors').append(values.field_name)
+                return v if type(v) == tuple else v
+            
             return v if type(v) == tuple else v
-        
-        return v if type(v) == tuple else v
+        return v
 
 
     @field_validator('mvd', mode='after')
