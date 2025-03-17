@@ -43,7 +43,7 @@ def get_current_user(request):
         
         username = sso_user['email'].lower()
         user = User.objects.filter(username=username).first()
-        
+       
         set_user_context(user)
         with transaction.atomic():
             uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
@@ -62,7 +62,7 @@ def get_current_user(request):
     elif DEVELOPMENT and not USE_WHITELIST:
 
         username = 'development'
-        user = User.objects.all().filter(username=username).first()
+        user = User.objects.filter(username=username).first()
         if not user:
             user = User.objects.create(
                 username = username,
@@ -75,6 +75,10 @@ def get_current_user(request):
                 last_name = 'User'
             )
             logger.info(f"Created local DEV user, user = {user.id}")
+
+        set_user_context(user)
+        UserAdditionalInfo.objects.get_or_create(user=user)
+        user = User.objects.filter(username=username).first()
 
         logger.info(f"Authenticated as local DEV, user = {user.id}")
         return user
@@ -109,7 +113,6 @@ def get_feature_filename(feature_code):
     file_folder = os.path.dirname(os.path.realpath(__file__))
     rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
     return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
-    
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code):
@@ -193,7 +196,19 @@ def me(request):
     # return user or redirect response
     user = get_current_user(request)
     if user:
-        json = {
+
+        # process self-declaration of vendor affiliation
+        if request.method == "POST":
+
+            data = json.loads(request.body)
+            set_user_context(user)
+            with transaction.atomic():
+                uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
+                uai.is_vendor_self_declared = data['is_vendor_self_declared']
+                uai.save()
+            user = get_current_user(request)
+
+        json_response = {
             "user_data":
             {
                 'sub': user.username,
@@ -201,7 +216,8 @@ def me(request):
                 'family_name': user.last_name,
                 'given_name': user.first_name,
                 'name': ' '.join([user.first_name, user.last_name]).strip(),
-                'is_active': user.is_active
+                'is_active': user.is_active,
+                'is_vendor_self_declared': user.useradditionalinfo.is_vendor_self_declared if user.useradditionalinfo else None
             },
             "sandbox_info":
             {
@@ -210,7 +226,7 @@ def me(request):
             },
             "redirect": None if user.is_active else '/waiting_zone'
         }
-        return JsonResponse(json)
+        return JsonResponse(json_response)
     
     else:
     

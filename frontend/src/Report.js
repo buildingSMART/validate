@@ -11,6 +11,8 @@ import BsddTreeView from './BsddTreeView';
 import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
 import FeedbackWidget from './FeedbackWidget';
+import SelfDeclarationDialog from './SelfDeclarationDialog';
+
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
 
 import { useEffect, useState, useContext } from 'react';
@@ -196,6 +198,7 @@ function Report({ kind }) {
           </Grid>
 
           <FeedbackWidget user={user} />
+          <SelfDeclarationDialog user={user} />
           
         </Grid>
       </div>

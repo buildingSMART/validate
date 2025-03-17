@@ -510,19 +510,27 @@ class UserAdditionalInfoInlineAdmin(admin.StackedInline):
     fk_name = "user"
 
     fieldsets = [
-        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor"]}),
+        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor", "is_vendor_self_declared"]}),
         ('Auditing Information', {"classes": ("wide"), "fields":  [("created", "created_by"), ("updated", "updated_by")]})
     ]
     ordering = ("company", "is_vendor", "created", "created_by", "updated", "updated_by")
-    readonly_fields = ["created", "created_by", "updated", "updated_by"]
+    readonly_fields = ["is_vendor_self_declared", "created", "created_by", "updated", "updated_by"]
 
 
 class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
-    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests", "date_joined", "last_login"]
+    list_filter = [
+        'is_staff', 
+        'is_superuser', 
+        'is_active', 
+        'useradditionalinfo__company', 
+        'useradditionalinfo__is_vendor',
+        'useradditionalinfo__is_vendor_self_declared', 
+        ('date_joined', AdvancedDateFilter), 
+        ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
     ordering = ('-date_joined',)
 
@@ -560,6 +568,12 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
     is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
+
+    @admin.display(description="Is Vendor (self-declared)?")
+    def is_vendor_self_declared(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor_self_declared
+    is_vendor_self_declared.admin_order_field = 'useradditionalinfo__is_vendor_self_declared'
 
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
