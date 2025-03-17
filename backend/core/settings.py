@@ -299,7 +299,10 @@ except Exception as err:
 # LOGGING
 
 log_folder = os.getenv("DJANGO_LOG_FOLDER", "logs")
-os.makedirs(log_folder, exist_ok=True)
+os.makedirs(log_folder, exist_ok=True)\
+    
+gherkin_log_folder = os.getenv("GHERKIN_LOG_FOLDER", "/gherkin_logs")
+os.makedirs(gherkin_log_folder, exist_ok=True)
 
 LOGGING = {
 
@@ -321,6 +324,12 @@ LOGGING = {
             "level": "DEBUG",
             "class": "logging.FileHandler",
             "filename": os.path.join(log_folder, "django.log"),
+        },
+        "gherkin_file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(gherkin_log_folder, "gherkin_rules.log"),
+            "formatter": "simple",
         },
     },
     "root": {
@@ -351,6 +360,10 @@ LOGGING = {
         #     'level': 'DEBUG',
         #     'propagate': True,
         # },
+        "gherkin_rules": {
+            "handlers": ["gherkin_file"],
+            "level": "DEBUG",
+        },
         "ifcvalidation": {
             "handlers": ["console"],
             "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),

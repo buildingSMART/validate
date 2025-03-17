@@ -33,6 +33,7 @@ services:
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
         expose:
             - 8000
         environment:
@@ -76,6 +77,7 @@ services:
         restart: unless-stopped
         volumes:
             - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
         environment:
             PUBLIC_URL: ${PUBLIC_URL} # for email links
             ENV: ${ENV}
@@ -121,3 +123,4 @@ volumes:
     static_data:
     files_data:
     redis_data:
+    gherkin_rules_log_data:

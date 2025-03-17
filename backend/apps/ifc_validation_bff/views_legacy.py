@@ -43,10 +43,17 @@ def get_current_user(request):
         
         username = sso_user['email'].lower()
         user = User.objects.filter(username=username).first()
-
+       
         set_user_context(user)
-        UserAdditionalInfo.objects.get_or_create(user=user)
-        user = User.objects.filter(username=username).first()   
+        with transaction.atomic():
+            uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
+            company = UserAdditionalInfo.find_company_by_email_pattern(user)
+            if company and (uai.company != company or not uai.is_vendor):
+                logger.info(f"User with id={user.id} and email={user.email} matches email address pattern '{company.email_address_pattern}' of Company with id={company.id} ({company.name}).")
+                uai.company = company
+                uai.is_vendor = True
+                uai.save()
+                logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
 
         logger.info(f"Authenticated user with username = '{username}' via OAuth, user.id = {user.id}")
         return user
@@ -106,7 +113,6 @@ def get_feature_filename(feature_code):
     file_folder = os.path.dirname(os.path.realpath(__file__))
     rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
     return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
-
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code):
