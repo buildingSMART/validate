@@ -19,6 +19,7 @@ from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, s
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
+from apps.ifc_validation_models.models import UserAdditionalInfo
 
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
@@ -41,7 +42,18 @@ def get_current_user(request):
     if sso_user:
         
         username = sso_user['email'].lower()
-        user = User.objects.all().filter(username=username).first()
+        user = User.objects.filter(username=username).first()
+        
+        set_user_context(user)
+        with transaction.atomic():
+            uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
+            company = UserAdditionalInfo.find_company_by_email_pattern(user)
+            if company and (uai.company != company or not uai.is_vendor):
+                logger.info(f"User with id={user.id} and email={user.email} matches email address pattern '{company.email_address_pattern}' of Company with id={company.id} ({company.name}).")
+                uai.company = company
+                uai.is_vendor = True
+                uai.save()
+                logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
 
         logger.info(f"Authenticated user with username = '{username}' via OAuth, user.id = {user.id}")
         return user
@@ -88,6 +100,7 @@ def create_redirect_response(login=True, dashboard=False):
                 "reason": "401 - Unauthorized"
             })
 
+
 @functools.lru_cache(maxsize=1024)
 def get_feature_filename(feature_code):
     """
@@ -97,7 +110,6 @@ def get_feature_filename(feature_code):
     rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
     return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
     
-
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code):
@@ -110,6 +122,7 @@ def get_feature_url(feature_code):
     if feature_files:
         return os.path.join(FEATURE_URL, feature_code[:3], os.path.basename(feature_files[0]))
     return None
+
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_description(feature_code):
