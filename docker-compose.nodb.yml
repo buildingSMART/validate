@@ -24,6 +24,10 @@ services:
     # Backend - Django
     backend:
         image: buildingsmart/validationsvc-backend
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
         entrypoint: /app/backend/server-entrypoint.sh
         restart: unless-stopped
         container_name: backend
@@ -46,6 +50,7 @@ services:
             DJANGO_TRUSTED_ORIGINS: ${DJANGO_TRUSTED_ORIGINS}
             DJANGO_GUNICORN_WORKERS: ${DJANGO_GUNICORN_WORKERS}
             DJANGO_GUNICORN_THREADS_PER_WORKER: ${DJANGO_GUNICORN_THREADS_PER_WORKER}
+            GHERKIN_LOG_FOLDER: ${GHERKIN_LOG_FOLDER}
             POSTGRES_HOST: ${POSTGRES_HOST}
             POSTGRES_PORT: ${POSTGRES_PORT}
             POSTGRES_NAME: ${POSTGRES_NAME}
@@ -68,10 +73,6 @@ services:
         volumes:
             - files_data:/files_storage
             - gherkin_rules_log_data:/gherkin_logs
-        build:
-            context: .
-            dockerfile: ./docker/backend/Dockerfile
-            target: run
         environment:
             PUBLIC_URL: ${PUBLIC_URL} # for email links
             ENV: ${ENV}
@@ -85,6 +86,7 @@ services:
             CELERY_CONCURRENCY: ${CELERY_CONCURRENCY}
             DJANGO_DB: ${DJANGO_DB}
             DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+            GHERKIN_LOG_FOLDER: ${GHERKIN_LOG_FOLDER}
             POSTGRES_HOST: ${POSTGRES_HOST}
             POSTGRES_PORT: ${POSTGRES_PORT}
             POSTGRES_NAME: ${POSTGRES_NAME}
