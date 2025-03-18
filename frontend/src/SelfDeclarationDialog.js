@@ -25,7 +25,8 @@ function SelfDeclarationDialog({ user }) {
     const [selectedOption, setSelectedOption] = useState(null);
 
     useEffect(() => {
-        setOpen(user['is_vendor_self_declared'] === null);
+        // TEMPORARY - IVS-433: don't show this dialog just yet
+        //setOpen(user['is_vendor_self_declared'] === null);
     }, []);
 
     const handleRadioChange = (event) => {
@@ -33,7 +34,7 @@ function SelfDeclarationDialog({ user }) {
     };
 
     const handleSubmit = () => {
-        //console.log('selected option = ', selectedOption);
+
         fetch(`${FETCH_PATH}/api/me`, {
                 method: 'POST',
                 body: JSON.stringify({ is_vendor_self_declared: selectedOption }),
@@ -46,7 +47,6 @@ function SelfDeclarationDialog({ user }) {
             .then((response) => response.json())
             .then((json) => {
                 // setSelected([])
-                // setDeleted([])
             });
         handleClose();
     };
