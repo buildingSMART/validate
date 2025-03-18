@@ -76,10 +76,10 @@ def on_workflow_started(self, *args, **kwargs):
     # queue sending emails
     nbr_of_tasks = request.tasks.count()
     if nbr_of_tasks == 0:
-        send_acknowledgement_user_email_task.delay(id=id, file_name=request.file_name)
+        # send_acknowledgement_user_email_task.delay(id=id, file_name=request.file_name) # disabled
         send_acknowledgement_admin_email_task.delay(id=id, file_name=request.file_name)
     else:
-        send_revalidating_user_email_task.delay(id=id, file_name=request.file_name)
+        # send_revalidating_user_email_task.delay(id=id, file_name=request.file_name) # disabled
         send_revalidating_admin_email_task.delay(id=id, file_name=request.file_name)
 
 
@@ -400,7 +400,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
         logger.debug(f'Detected size = {model.size} bytes')
         
         # schema 
-        model.schema = header_validation.get('schema')
+        model.schema = header_validation.get('schema_identifier')
         
         logger.debug(f'The schema identifier = {header_validation.get("schema")}')
         
@@ -428,20 +428,36 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
         model.mvd = header_validation.get('mvd')
         
         app = header_validation.get('application_name')
+        
         version = header_validation.get('version')
         name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
+        company_name = header_validation.get('company_name')
         logger.debug(f'Detected Authoring Tool in file = {name}')
-        if name not in (None, "Not defined"):
+        
+        validation_errors = header_validation.get('validation_errors', [])
+        invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
+
+        if any(field in validation_errors for field in invalid_marker_fields):
+            model.status_header = Model.Status.INVALID 
+        else:
             # parsing was successful and model can be considered for scorecards
             model.status_header = Model.Status.VALID
             authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
             if (isinstance(authoring_tool, AuthoringTool)):
+                
+                if authoring_tool.company is None:
+                    company, _ = Company.objects.get_or_create(name=company_name)
+                    authoring_tool.company = company
+                    authoring_tool.save()
+                    logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
 
                 model.produced_by = authoring_tool
                 logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
             elif authoring_tool is None:
+                company, _ = Company.objects.get_or_create(name=company_name)
                 authoring_tool, _ = AuthoringTool.objects.get_or_create(
+                    company=company,
                     name=app,
                     version=version
                 )

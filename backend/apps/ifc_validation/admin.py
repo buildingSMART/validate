@@ -8,7 +8,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
+from django.urls import reverse
 from django.utils.translation import ngettext
+from django.utils.html import format_html
 from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
 
@@ -54,12 +56,12 @@ class NonAdminAddable(admin.ModelAdmin):
 class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "deleted"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
         ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_text", "status", "progress", "duration_text", "created", "created_by", "is_vendor", "updated", "updated_by", "is_deleted"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_deleted", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
@@ -81,10 +83,32 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         return queryset
 
     @admin.display(description="Authoring Tool")
-    def authoring_tool_text(self, obj):
+    def authoring_tool_link(self, obj):
         
-        return obj.model.produced_by if obj.model else None
-    authoring_tool_text.admin_order_field = 'model__produced_by'
+        if not obj.model or obj.model.produced_by is None:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_authoringtool_change", args=[obj.model.produced_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.model.produced_by,
+        )
+    authoring_tool_link.admin_order_field = 'model__produced_by'
+
+    @admin.display(description="Model")
+    def model_link(self, obj):
+        
+        if not obj.model:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_model_change", args=[obj.model.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.model,
+        )
+    model_link.admin_order_field = 'model'
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
@@ -92,16 +116,15 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
 
-    @admin.display(description="Is Vendor ?")
+    @admin.display(description="Is Vendor ?", boolean=True)
     def is_vendor(self, obj):
-
-        return ("Yes" if obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor else "No")
+        return (obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor)
     is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
 
-    @admin.display(description="Deleted ?")
+    @admin.display(description="Deleted ?", boolean=True)
     def is_deleted(self, obj):
-
-        return ("Yes" if obj.deleted else "No")
+        return obj.deleted
+    is_deleted.admin_order_field = 'deleted'
 
     @admin.display(description="File Size", ordering='size')
     def file_size_text(self, obj):
@@ -300,32 +323,41 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "date", "schema", "mvd", "nbr_of_elements", "nbr_of_geometries", "nbr_of_properties", "produced_by", "created", "updated"]
-    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "number_of_elements", "number_of_geometries", "number_of_properties", "produced_by", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "created", "updated"]
+    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     list_filter = ['schema', 'produced_by', ('date', AdvancedDateFilter), ('created', AdvancedDateFilter)]
     
-    @admin.display(description="# of Elements")
-    def nbr_of_elements(self, obj):
-        
-        return None if obj.number_of_elements is None else f'{obj.number_of_elements:,}'
-    
-    @admin.display(description="# of Geometries")
-    def nbr_of_geometries(self, obj):
-        
-        return None if obj.number_of_geometries is None else f'{obj.number_of_geometries:,}'
-    
-    @admin.display(description="# of Properties")
-    def nbr_of_properties(self, obj):
-        
-        return None if obj.number_of_properties is None else f'{obj.number_of_properties:,}'
-
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
         
         return utils.format_human_readable_file_size(obj.size)
+    
+    @admin.display(description="Header File Name")
+    def header_file_name(self, obj):
+        
+        return obj.header_validation['name'] if obj.header_validation else None
+    
+    @admin.display(description="Header Timestamp")
+    def timestamp(self, obj):
+        
+        return obj.date
+    
+    @admin.display(description="Authoring Tool")
+    def authoring_tool_link(self, obj):
+        
+        if obj.produced_by is None:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_authoringtool_change", args=[obj.produced_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.produced_by,
+        )
+    authoring_tool_link.admin_order_field = 'produced_by'
 
 
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
@@ -341,25 +373,133 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 class CompanyAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "name" ]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "name", "legal_name", "email_address_pattern", "nbr_of_tools" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "name", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
-    list_filter = ["name", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
-    search_fields = ("name",)
+    list_display = ["id", "name", "legal_name", "email_address_pattern", "nbr_of_tools", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_tools", "created", "updated"]
+    list_filter = [
+        "name", 
+        ('created', AdvancedDateFilter), 
+        ('updated', AdvancedDateFilter)
+    ]
+    search_fields = ("name", "legal_name", "email_address_pattern")
 
+    actions = ["assign_users_action"]
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_tools=Count('company')) # TODO: fix typo in Company model ('company' -> 'tools')
+
+    @admin.display(description="# Tools")
+    def nbr_of_tools(self, obj):
+
+        link = reverse("admin:ifc_validation_models_authoringtool_changelist")
+        query_string = '?company__id__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Authoring Tools for this Company">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_tools
+        )
+    nbr_of_tools.admin_order_field = 'nbr_of_tools'
+
+    @admin.action(
+        description="Assign Users to Company by email address pattern(s)",
+        permissions=["assign_users"]
+    )
+    def assign_users_action(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        detected_users_count = 0
+        detected_users = {}
+        detected_companies = []
+        for company in queryset:
+            if company.email_address_pattern:
+                matching_users = User.objects.filter(email__iregex=company.email_address_pattern)
+                matching_users = matching_users.exclude(useradditionalinfo__company=company)
+                if matching_users.exists():
+                    detected_companies.append(company)
+                    detected_users[company.id] = matching_users
+                    detected_users_count += detected_users[company.id].count()
+
+        if 'apply' in request.POST or detected_users_count == 0:
+
+            updated_user_count = 0
+            for company in queryset:
+                if company.email_address_pattern:
+                    for user in detected_users[company.id]:
+                        if 'user_' + str(user.id) in request.POST:
+                            uai = UserAdditionalInfo.objects.filter(user=user)
+                            if uai.exists():
+                                uai.update(company=company, is_vendor=True)
+                            else:
+                                UserAdditionalInfo.objects.create(user=user, company=company, is_vendor=True)
+                            updated_user_count += 1
+                            logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+
+            if detected_users_count == 0:
+                self.message_user(request, "No eligible users were found.", messages.WARNING)
+            elif updated_user_count == 0:
+                self.message_user(request, "No users were assigned.", messages.WARNING)
+            else:
+                self.message_user(
+                    request,
+                    ngettext(
+                        "%d User was successfully assigned.",
+                        "%d Users were successfully assigned.",
+                        updated_user_count
+                    )
+                    % updated_user_count,
+                    messages.SUCCESS,
+                )
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return render(request, 'admin/assign_company_intermediate.html', context={'companies': detected_companies, 'detected_users': detected_users})
+
+    def has_assign_users_permission(self, request):
+
+        opts = self.opts
+        codename = get_permission_codename("change_user", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
 
 class AuthoringToolAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company", "name", "version", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
+
+    @admin.display(description="Company")
+    def company_link(self, obj):
+
+        if not obj.company:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_company_change", args=[obj.company.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.company,
+        )
+    company_link.admin_order_field = 'company'
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
+
+    @admin.display(description="# Requests")
+    def nbr_of_requests(self, obj):
+        return obj.nbr_of_requests
+    nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
 class UserAdditionalInfoInlineAdmin(admin.StackedInline):
@@ -379,44 +519,87 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
     list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
 
-    actions = ["activate", "deactivate"]
+    actions = ["activate_action", "deactivate_action", "remove_company_and_is_vendor_action"]
     actions_on_top = True
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
 
-    @admin.action(
-        description="Activate selected user(s)"
-    )
-    def activate(self, request, queryset):
+    @admin.action(description="Activate selected users")
+    def activate_action(self, request, queryset):
         queryset.update(is_active=True)
 
-    @admin.action(
-        description="Deactivate selected user(s)"
-    )
-    def deactivate(self, request, queryset):
+    @admin.action(description="Deactivate selected users")
+    def deactivate_action(self, request, queryset):
         queryset.update(is_active=False)
 
     @admin.display(description="Company")
-    def company(self, obj):
+    def company_link(self, obj):
         
-        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.company
+        if not obj.useradditionalinfo or not obj.useradditionalinfo.company:
+            return None
+        
+        link = reverse("admin:ifc_validation_models_company_change", args=[obj.useradditionalinfo.company.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.useradditionalinfo.company,
+        )
+    company_link.admin_order_field = 'useradditionalinfo__company'
     
     @admin.display(description="Is Vendor?")
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
+    is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
 
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
         return obj.nbr_of_requests
     nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
+    @admin.action(
+        description="Remove Company & is_vendor status from selected users",
+        permissions=["assign_users"]
+    )
+    def remove_company_and_is_vendor_action(self, request, queryset):
+
+        # TODO: move to middleware component?
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user.id = {request.user.id}")
+            set_user_context(request.user)
+
+        count = 0
+        for user in queryset:
+            uai = UserAdditionalInfo.objects.filter(user=user)
+            if uai.exists():
+                prev_company = uai.first().company
+                uai.update(company=None, is_vendor=None)
+                count = count + 1
+                logger.info(f"User with id={user.id} and email={user.email} had Company '{prev_company}' and 'is_vendor' status removed.")
+
+        self.message_user(
+            request,
+            ngettext(
+                "%d User was successfully updated.",
+                "%d Users were successfully updated.",
+                count
+            )
+            % count,
+            messages.SUCCESS,
+        )
+
+    def has_assign_users_permission(self, request):
+
+        opts = self.opts
+        codename = get_permission_codename("change_user", opts)
+        return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+    
 
 class VersionAdmin(BaseAdmin):
 
