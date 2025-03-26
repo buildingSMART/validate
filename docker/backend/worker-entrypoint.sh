@@ -17,6 +17,13 @@ do
 done
 echo "DB is ready."
 
+python manage.py makemigrations
+python manage.py migrate
+if [ $? -ne 0 ]; then  
+    echo "Error: Failed to run Django Migrations."
+    exit 1
+fi
+
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
 

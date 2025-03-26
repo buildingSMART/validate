@@ -19,6 +19,11 @@ echo "DB is ready."
 
 python manage.py makemigrations
 python manage.py migrate
+if [ $? -ne 0 ]; then  
+    echo "Error: Failed to run Django Migrations."
+    exit 1
+fi
+
 python manage.py collectstatic --noinput
 
 DJANGO_GUNICORN_WORKERS=${DJANGO_GUNICORN_WORKERS:-4} # default 4 workers
