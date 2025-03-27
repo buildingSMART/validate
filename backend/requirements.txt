@@ -40,6 +40,7 @@ rtree
 networkx
 pyyaml
 mpmath
+shapely
 
 # dev
 django-debug-toolbar
