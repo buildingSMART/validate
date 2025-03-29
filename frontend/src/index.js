@@ -8,6 +8,7 @@ import Callback from './Callback';
 import Logout from './Logout';
 import Report from './Report';
 import Page from './Page';
+import Scorecards from './Scorecards';
 
 import { FETCH_PATH, VERSION, COMMIT_HASH, PUBLIC_URL, NODE_ENV } from './environment';
 
@@ -48,7 +49,8 @@ root.render(
       
       <Route path="/callback" element={<Callback />} />
       <Route path="/logout" element={<Logout />} />
-      <Route path="/waiting_zone" element={<Page pageTitle="waiting_zone"><App/></Page>} />      
+      <Route path="/waiting_zone" element={<Page pageTitle="waiting_zone"><App/></Page>} />
+      <Route path="/scorecards" element={<Page pageTitle="scorecards"><Scorecards/></Page>} />   
     </Routes>
   </BrowserRouter>
   
