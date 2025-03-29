@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e # exit if any command fails
 
 until cd /files_storage
 do
