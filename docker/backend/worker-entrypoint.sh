@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e # exit if any command fails
 
 until cd /files_storage
 do
@@ -19,10 +20,6 @@ echo "DB is ready."
 
 python manage.py makemigrations
 python manage.py migrate
-if [ $? -ne 0 ]; then  
-    echo "Error: Failed to run Django Migrations."
-    exit 1
-fi
 
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
