@@ -202,3 +202,34 @@ def send_failure_email_task(id, file_name):
         return f'Warning - unable to send failure email to {user.email}: {warn}'
     except Exception as err:
         return f'Error - unable to send failure email to {user.email}: {err}'
+
+
+@shared_task
+@log_execution
+def send_failure_admin_email_task(id, file_name):
+
+    # fetch request and user info
+    request = ValidationRequest.objects.get(pk=id)
+    user = request.created_by
+
+    # load and merge email template
+    merge_data = { 
+        'NUMBER_OF_FILES': 1,
+        'FILE_NAMES': file_name,
+        'USER_FULL_NAME': user.get_full_name(),
+        'USER_EMAIL': user.email,
+        'ENVIRONMENT': ENVIRONMENT
+    }
+    to = ADMIN_EMAIL
+    body_html = render_to_string("validation_failed_admin_email.html", merge_data)
+    body_text = f'Unable to complete validation of file: {file_name}.'
+    subject = get_title_from_html(body_html)
+
+    # queue for sending
+    try:
+        send_email(to, subject, body_text, body_html)
+        return f'Sent failure admin email to {to}'
+    except Warning as warn:
+        return f'Warning - unable to send failure admin email to {to}: {warn}'
+    except Exception as err:
+        return f'Error - unable to send failure admin email to {to}: {err}'

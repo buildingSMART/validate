@@ -113,6 +113,7 @@ def on_workflow_failed(self, *args, **kwargs):
 
     # queue sending email
     send_failure_email_task.delay(id=id, file_name=request.file_name)
+    send_failure_admin_email_task.delay(id=id, file_name=request.file_name)
 
 
 @log_execution

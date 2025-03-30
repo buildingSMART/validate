@@ -419,32 +419,33 @@ class CompanyAdmin(BaseAdmin):
         detected_users = {}
         detected_companies = []
         for company in queryset:
-            if company.email_address_pattern:
-                matching_users = User.objects.filter(email__iregex=company.email_address_pattern)
-                matching_users = matching_users.exclude(useradditionalinfo__company=company)
-                if matching_users.exists():
-                    detected_companies.append(company)
-                    detected_users[company.id] = matching_users
-                    detected_users_count += detected_users[company.id].count()
+            matching_users = company.find_users_by_email_pattern(only_new=True)
+            if matching_users:
+                detected_companies.append(company)
+                detected_users[company.id] = matching_users
+                detected_users_count += detected_users[company.id].count()
 
-        if 'apply' in request.POST or detected_users_count == 0:
+        if detected_users_count == 0:
+            self.message_user(request, "No eligible users were found.", messages.WARNING)
+            return HttpResponseRedirect(request.get_full_path())
+
+        if 'apply' in request.POST:
 
             updated_user_count = 0
             for company in queryset:
                 if company.email_address_pattern:
                     for user in detected_users[company.id]:
                         if 'user_' + str(user.id) in request.POST:
-                            uai = UserAdditionalInfo.objects.filter(user=user)
-                            if uai.exists():
-                                uai.update(company=company, is_vendor=True)
-                            else:
-                                UserAdditionalInfo.objects.create(user=user, company=company, is_vendor=True)
-                            updated_user_count += 1
-                            logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+                            uai, _ = UserAdditionalInfo.objects.get_or_create(user=user)
+                            if company and (uai.company != company or not uai.is_vendor):
+                                logger.info(f"User with id={user.id} and email={user.email} matches email address pattern '{company.email_address_pattern}' of Company with id={company.id} ({company.name}).")
+                                uai.company = company
+                                uai.is_vendor = True
+                                uai.save()
+                                logger.info(f"User with id={user.id} and email={user.email} was assigned to Company with id={company.id} ({company.name}) and marked as 'is_vendor'.")
+                                updated_user_count += 1                                
 
-            if detected_users_count == 0:
-                self.message_user(request, "No eligible users were found.", messages.WARNING)
-            elif updated_user_count == 0:
+            if updated_user_count == 0:
                 self.message_user(request, "No users were assigned.", messages.WARNING)
             else:
                 self.message_user(
@@ -466,6 +467,7 @@ class CompanyAdmin(BaseAdmin):
         opts = self.opts
         codename = get_permission_codename("change_user", opts)
         return request.user.has_perm("%s.%s" % (opts.app_label, codename))
+
 
 class AuthoringToolAdmin(BaseAdmin):
 
@@ -508,20 +510,29 @@ class UserAdditionalInfoInlineAdmin(admin.StackedInline):
     fk_name = "user"
 
     fieldsets = [
-        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor"]}),
+        ('Vendor Information',  {"classes": ("wide"), "fields": ["id", "company", "is_vendor", "is_vendor_self_declared"]}),
         ('Auditing Information', {"classes": ("wide"), "fields":  [("created", "created_by"), ("updated", "updated_by")]})
     ]
     ordering = ("company", "is_vendor", "created", "created_by", "updated", "updated_by")
-    readonly_fields = ["created", "created_by", "updated", "updated_by"]
+    readonly_fields = ["is_vendor_self_declared", "created", "created_by", "updated", "updated_by"]
 
 
 class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "nbr_of_requests", "date_joined", "last_login"]
-    list_filter = ['is_staff', 'is_superuser', 'is_active', 'useradditionalinfo__company', 'useradditionalinfo__is_vendor', ('date_joined', AdvancedDateFilter), ('last_login', AdvancedDateFilter)]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests", "date_joined", "last_login"]
+    list_filter = [
+        'is_staff', 
+        'is_superuser', 
+        'is_active', 
+        'useradditionalinfo__company', 
+        'useradditionalinfo__is_vendor',
+        'useradditionalinfo__is_vendor_self_declared', 
+        ('date_joined', AdvancedDateFilter), 
+        ('last_login', AdvancedDateFilter)]
     search_fields = ('username', 'email', 'first_name', 'last_name', 'useradditionalinfo__company__name', "date_joined", "last_login")
+    ordering = ('-date_joined',)
 
     actions = ["activate_action", "deactivate_action", "remove_company_and_is_vendor_action"]
     actions_on_top = True
@@ -557,6 +568,12 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
     is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
+
+    @admin.display(description="Is Vendor (self-declared)?")
+    def is_vendor_self_declared(self, obj):
+        
+        return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor_self_declared
+    is_vendor_self_declared.admin_order_field = 'useradditionalinfo__is_vendor_self_declared'
 
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
