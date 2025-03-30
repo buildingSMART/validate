@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e # exit if any command fails
 
 until cd /files_storage
 do
@@ -16,6 +17,9 @@ do
     sleep 3
 done
 echo "DB is ready."
+
+python manage.py makemigrations
+python manage.py migrate
 
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
