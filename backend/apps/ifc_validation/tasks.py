@@ -9,6 +9,8 @@ import ifcopenshell
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
 from django.db import transaction
+from django.db.utils import IntegrityError
+
 
 from core.utils import log_execution
 
@@ -352,133 +354,141 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PARSE_INFO)
     
-    task.mark_as_initiated()
-    # check for header policy 
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
-    
-    try:
-        logger.debug(f'before header validation task, path {file_path}, script {check_script} ')
-        proc = subprocess.run(
-            [sys.executable, check_script, file_path],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=TASK_TIMEOUT_LIMIT  # Add timeout to prevent infinite hangs
-        )
+    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
+    if prev_result_succeeded:
+        task.mark_as_initiated()
+        # check for header policy 
+        check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
         
-    except subprocess.TimeoutExpired as err:
-        task.mark_as_failed(err)
-        raise
-    except Exception as err:
-        task.mark_as_failed(err)
-        raise
-    
-    if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-        task.mark_as_failed(error_message)
-        raise RuntimeError(error_message)
-
-    header_validation = {}
-    stdout_lines = proc.stdout.splitlines()
-    for line in stdout_lines:
         try:
-            header_validation = json.loads(line)
-        except json.JSONDecodeError:
-            continue 
-    
-    logger.debug(f'header validation output : {header_validation}')
-    
-    with transaction.atomic():
-        # create or retrieve Model info
-        model = get_or_create_ifc_model(id)
+            logger.debug(f'before header validation task, path {file_path}, script {check_script} ')
+            proc = subprocess.run(
+                [sys.executable, check_script, file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=TASK_TIMEOUT_LIMIT  # Add timeout to prevent infinite hangs
+            )
+            
+            
+            if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
+                error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+                task.mark_as_failed(error_message)
+                raise RuntimeError(error_message)
 
-        # update Model info
-        agg_status = task.determine_aggregate_status()
-        model.status_prereq = agg_status
-        
-        # size
-        model.size = os.path.getsize(file_path)
-        logger.debug(f'Detected size = {model.size} bytes')
-        
-        # schema 
-        model.schema = header_validation.get('schema_identifier')
-        
-        logger.debug(f'The schema identifier = {header_validation.get("schema")}')
-        
-        # time_stamp 
-        if ifc_file_time_stamp := header_validation.get('time_stamp', False):
-            try:
-                logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
-                date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
-                date_with_tz = datetime.datetime(
-                    date.year, 
-                    date.month, 
-                    date.day, 
-                    date.hour, 
-                    date.minute, 
-                    date.second, 
-                    tzinfo=datetime.timezone.utc)
-                model.date = date_with_tz
-            except ValueError:
+            header_validation = {}
+            stdout_lines = proc.stdout.splitlines()
+            for line in stdout_lines:
                 try:
-                    model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
-                except ValueError:
-                    pass
+                    header_validation = json.loads(line)
+                except json.JSONDecodeError:
+                    continue 
+            
+            logger.debug(f'header validation output : {header_validation}')
+            
+            with transaction.atomic():
+                # create or retrieve Model info
+                model = get_or_create_ifc_model(id)
+
+                # update Model info
+                agg_status = task.determine_aggregate_status()
+                model.status_prereq = agg_status
                 
-        # mvd
-        model.mvd = header_validation.get('mvd')
-        
-        app = header_validation.get('application_name')
-        
-        version = header_validation.get('version')
-        name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
-        company_name = header_validation.get('company_name')
-        logger.debug(f'Detected Authoring Tool in file = {name}')
-        
-        validation_errors = header_validation.get('validation_errors', [])
-        invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
-
-        if any(field in validation_errors for field in invalid_marker_fields):
-            model.status_header = Model.Status.INVALID 
-        else:
-            # parsing was successful and model can be considered for scorecards
-            model.status_header = Model.Status.VALID
-            authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
-            if (isinstance(authoring_tool, AuthoringTool)):
+                # size
+                model.size = os.path.getsize(file_path)
+                logger.debug(f'Detected size = {model.size} bytes')
                 
-                if authoring_tool.company is None:
-                    company, _ = Company.objects.get_or_create(name=company_name)
-                    authoring_tool.company = company
-                    authoring_tool.save()
-                    logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
-
-                model.produced_by = authoring_tool
-                logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
-
-            elif authoring_tool is None:
-                company, _ = Company.objects.get_or_create(name=company_name)
-                authoring_tool, _ = AuthoringTool.objects.get_or_create(
-                    company=company,
-                    name=app,
-                    version=version
-                )
-                model.produced_by = authoring_tool
-                logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
-            else:
-                model.produced_by = None
-                logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')  
+                # schema 
+                model.schema = header_validation.get('schema_identifier')
+                
+                logger.debug(f'The schema identifier = {header_validation.get("schema")}')
+                # time_stamp 
+                if ifc_file_time_stamp := header_validation.get('time_stamp', False):
+                    try:
+                        logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
+                        date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                        date_with_tz = datetime.datetime(
+                            date.year, 
+                            date.month, 
+                            date.day, 
+                            date.hour, 
+                            date.minute, 
+                            date.second, 
+                            tzinfo=datetime.timezone.utc)
+                        model.date = date_with_tz
+                    except ValueError:
+                        try:
+                            model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                        except ValueError:
+                            pass
                         
-        # update header validation
-        model.header_validation = header_validation
-        model.save(update_fields=['status_header', 'header_validation'])
-        model.save()
-        
-        
-        # update Task info and return
-        is_valid = agg_status != Model.Status.INVALID
-        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
-        task.mark_as_completed(reason)
-        return {'is_valid': is_valid, 'reason': reason}
+                # mvd
+                model.mvd = header_validation.get('mvd')
+                
+                app = header_validation.get('application_name')
+                
+                version = header_validation.get('version')
+                name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
+                company_name = header_validation.get('company_name')
+                logger.debug(f'Detected Authoring Tool in file = {name}')
+                
+                validation_errors = header_validation.get('validation_errors', [])
+                invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
+                if any(field in validation_errors for field in invalid_marker_fields):
+                    model.status_header = Model.Status.INVALID
+                else:
+                    # parsing was successful and model can be considered for scorecards
+                    model.status_header = Model.Status.VALID
+                    authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
+                    if (isinstance(authoring_tool, AuthoringTool)):
+                        
+                        if authoring_tool.company is None:
+                            company, _ = Company.objects.get_or_create(name=company_name)
+                            authoring_tool.company = company
+                            authoring_tool.save()
+                            logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
+
+                        model.produced_by = authoring_tool
+                        logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
+
+                    elif authoring_tool is None:
+                        company, _ = Company.objects.get_or_create(name=company_name)
+                        authoring_tool, _ = AuthoringTool.objects.get_or_create(
+                            company=company,
+                            name=app,
+                            version=version
+                        )
+                        model.produced_by = authoring_tool
+                        logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
+                    else:
+                        model.produced_by = None
+                        logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')  
+                                
+                # update header validation
+                model.header_validation = header_validation
+                model.save(update_fields=['status_header', 'header_validation'])
+                model.save()
+                
+                
+                # update Task info and return
+                is_valid = agg_status != Model.Status.INVALID
+                reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
+                task.mark_as_completed(reason)
+                return {'is_valid': is_valid, 'reason': reason}
+            
+        except subprocess.TimeoutExpired as err:
+            task.mark_as_failed(err)
+            raise
+        except IntegrityError as err:
+            task.mark_as_failed(err)
+            raise
+        except Exception as err:
+            task.mark_as_failed(err)
+            raise
+    else: 
+        reason = f'Skipped as prev_result = {prev_result}.'
+        task.mark_as_skipped(reason)
+        return {'is_valid': None, 'reason': reason}
 
 
 @shared_task(bind=True)
