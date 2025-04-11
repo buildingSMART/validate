@@ -30,7 +30,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", False)
+DEBUG = ast.literal_eval(os.environ.get("DEBUG", 'False'))
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVELOPMENT')
 STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
