@@ -204,6 +204,9 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "OPTIONS": {
+            "pool": True,
+        },
     },
 }
 

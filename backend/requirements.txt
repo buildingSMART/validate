@@ -16,6 +16,7 @@ celery[redis]
 # servers + utils
 redis
 psycopg2-binary
+psycopg[pool]
 sqlalchemy
 sqlalchemy-utils
 gunicorn
