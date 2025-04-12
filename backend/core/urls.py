@@ -22,6 +22,9 @@ urlpatterns = [
     path('api/',             include('apps.ifc_validation.urls')),      # API
     path('bff/',             include('apps.ifc_validation_bff.urls')),  # BFF
 
+    # SQL Explorer
+    path('sqlexplorer/',     include('explorer.urls')),
+
     # OAuth
     path('whoami/',          whoami, name='whoami'),
     path('login/',           login, name='login'),
