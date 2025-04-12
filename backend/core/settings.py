@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "drf_spectacular",                   # OpenAPI/Swagger
     "drf_spectacular_sidecar",           # required for Django collectstatic discovery
+    "explorer",                          # Django SQL Explorer
     
     "django_celery_results",             # Celery result backend
     "django_celery_beat",                # Celery scheduled tasks
@@ -209,7 +210,10 @@ DATABASES_ALL = {
 
 DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
 
-
+# SQL Explorer configuration (default)
+EXPLORER_CONNECTIONS = { 'Default': 'default' }
+EXPLORER_DEFAULT_CONNECTION = 'default'
+EXPLORER_TASKS_ENABLED = True
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
