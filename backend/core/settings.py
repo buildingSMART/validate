@@ -209,6 +209,7 @@ DATABASES_ALL = {
 }
 
 DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
+DJANGO_DB_BULK_CREATE_BATCH_SIZE = int(os.environ.get("DJANGO_DB_BULK_CREATE_BATCH_SIZE", 1000))
 
 # SQL Explorer configuration (default)
 EXPLORER_CONNECTIONS = { 'Default': 'default' }
