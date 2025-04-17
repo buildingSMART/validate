@@ -56,9 +56,9 @@ class NonAdminAddable(admin.ModelAdmin):
 class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
-        ('General Information',   {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
-        ('Status Information',    {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
-        ('Auditing Information',  {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "created", "created_by", "updated", "updated_by"]
@@ -81,6 +81,19 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
             )
         )
         return queryset
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        
+        # attempt to filter by public_id by converting the search term into a private_id
+        # note: only works for full public_id, not partial
+        try:
+            decoded_id = ValidationRequest.to_private_id(search_term)
+            queryset |= self.model.objects.filter(id=decoded_id)            
+        except Exception:
+            pass
+
+        return queryset, may_have_duplicates
 
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
@@ -295,6 +308,23 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
             )
         )
         return queryset
+    
+    def get_search_results(self, request, queryset, search_term):
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        
+        # attempt to filter by public_id by converting the search term into a private_id
+        # note: only works for full public_id, not partial
+        try:
+            decoded_id = ValidationTask.to_private_id(search_term)
+            if ValidationTask.to_public_id(decoded_id) == search_term:
+                queryset |= self.model.objects.filter(id=decoded_id)
+            decoded_id2 = ValidationRequest.to_private_id(search_term)
+            if ValidationRequest.to_public_id(decoded_id2) == search_term:
+                queryset |= self.model.objects.filter(request_id=decoded_id2)
+        except Exception:
+            pass
+
+        return queryset, may_have_duplicates
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
