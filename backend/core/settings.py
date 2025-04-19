@@ -30,7 +30,7 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", False)
+DEBUG = ast.literal_eval(os.environ.get("DEBUG", 'False'))
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVELOPMENT')
 STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "drf_spectacular",                   # OpenAPI/Swagger
     "drf_spectacular_sidecar",           # required for Django collectstatic discovery
+    "explorer",                          # Django SQL Explorer
     
     "django_celery_results",             # Celery result backend
     "django_celery_beat",                # Celery scheduled tasks
@@ -204,12 +205,19 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "OPTIONS": {
+            "pool": True,
+        },
     },
 }
 
 DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
+DJANGO_DB_BULK_CREATE_BATCH_SIZE = int(os.environ.get("DJANGO_DB_BULK_CREATE_BATCH_SIZE", 1000))
 
-
+# SQL Explorer configuration (default)
+EXPLORER_CONNECTIONS = { 'Default': 'default' }
+EXPLORER_DEFAULT_CONNECTION = 'default'
+EXPLORER_TASKS_ENABLED = True
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

@@ -61,11 +61,11 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_deleted", "created", "created_by", "updated", "updated_by"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", ('created', AdvancedDateFilter)]
+    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created_by__useradditionalinfo__is_vendor_self_declared", ('created', AdvancedDateFilter)]
     search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
@@ -81,6 +81,19 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
             )
         )
         return queryset
+
+    def get_search_results(self, request, queryset, search_term):
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        
+        # attempt to filter by public_id by converting the search term into a private_id
+        # note: only works for full public_id, not partial
+        try:
+            decoded_id = ValidationRequest.to_private_id(search_term)
+            queryset |= self.model.objects.filter(id=decoded_id)            
+        except Exception:
+            pass
+
+        return queryset, may_have_duplicates
 
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
@@ -120,6 +133,11 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     def is_vendor(self, obj):
         return (obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor)
     is_vendor.admin_order_field = 'created_by__useradditionalinfo__is_vendor'
+
+    @admin.display(description="Is Vendor (self) ?", boolean=True)
+    def is_vendor_self_declared(self, obj):
+        return (obj.created_by.useradditionalinfo and obj.created_by.useradditionalinfo.is_vendor_self_declared)
+    is_vendor_self_declared.admin_order_field = 'created_by__useradditionalinfo__is_vendor_self_declared'
 
     @admin.display(description="Deleted ?", boolean=True)
     def is_deleted(self, obj):
@@ -290,6 +308,23 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
             )
         )
         return queryset
+    
+    def get_search_results(self, request, queryset, search_term):
+        queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
+        
+        # attempt to filter by public_id by converting the search term into a private_id
+        # note: only works for full public_id, not partial
+        try:
+            decoded_id = ValidationTask.to_private_id(search_term)
+            if ValidationTask.to_public_id(decoded_id) == search_term:
+                queryset |= self.model.objects.filter(id=decoded_id)
+            decoded_id2 = ValidationRequest.to_private_id(search_term)
+            if ValidationRequest.to_public_id(decoded_id2) == search_term:
+                queryset |= self.model.objects.filter(request_id=decoded_id2)
+        except Exception:
+            pass
+
+        return queryset, may_have_duplicates
 
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):

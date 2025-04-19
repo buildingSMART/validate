@@ -11,6 +11,7 @@ from celery.utils.log import get_task_logger
 from django.db import transaction
 
 from core.utils import log_execution
+from core.settings import DJANGO_DB_BULK_CREATE_BATCH_SIZE
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
@@ -673,7 +674,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                         outcome.instance_id = instance.stepfile_id # store for later reference (not persisted)
                         outcomes_instances_to_save.append(instance)
                 
-                ModelInstance.objects.bulk_create(outcomes_instances_to_save, ignore_conflicts=True) # ignore existing
+                ModelInstance.objects.bulk_create(outcomes_instances_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE, ignore_conflicts=True) # ignore existing
                 model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
 
                 for outcome in outcomes_to_save:
@@ -682,7 +683,7 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                         if instance_id:
                             outcome.instance_id = instance_id
 
-                ValidationOutcome.objects.bulk_create(outcomes_to_save)
+                ValidationOutcome.objects.bulk_create(outcomes_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
             model.save(update_fields=['status_schema'])
 

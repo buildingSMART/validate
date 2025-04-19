@@ -58,8 +58,14 @@ function unsafe_format(obj) {
   } else if (typeof obj == 'object' && 'num_digits' in obj) {
     // Custom formatting for calculated alignment consistency
     let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
-    let value = obj.expected || obj.observed;
-    let display_value = value.toExponential(obj.num_digits);
+
+    let reported_value = obj.expected || obj.observed;
+    let display_value;
+    if ( Array.isArray(reported_value) ) {
+      display_value = reported_value;
+    } else {
+      display_value = reported_value.toExponential(obj.num_digits);
+    }
 
     let directionLabel;
     if (ctx.includes('direction')) {
@@ -90,8 +96,14 @@ function unsafe_format(obj) {
         </div>
       );
     } else {
-      return <div>{ctx} {display_value}</div>;
+      if (ctx === 'Position :') {
+        let msg = `${ctx} (${display_value[0]}, ${display_value[1]})`;
+        return <div>{msg}</div>;
+      } else {
+        return <div>{ctx} {display_value}</div>;
+      }
     }
+  
   } else {
     return JSON.stringify(obj);
   }
