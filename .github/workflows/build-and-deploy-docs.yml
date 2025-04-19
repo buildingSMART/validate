@@ -1,0 +1,31 @@
+name: "Build docs with Sphinx and deploy to Github Pages"
+
+on: 
+  push:
+    branches: docs/gh-pages
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      pages: write
+    env:
+      INPUT_DOCS-FOLDER: docs
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build HTML
+      uses: civilx64/sphinx-action@master
+      with:
+        docs-folder: docs/
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        # Upload html docs
+        path: './docs/_build/html'
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
