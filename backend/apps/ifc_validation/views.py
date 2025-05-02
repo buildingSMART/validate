@@ -16,11 +16,12 @@ from rest_framework.authentication import SessionAuthentication, BasicAuthentica
 from drf_spectacular.utils import extend_schema
 
 from apps.ifc_validation_models.models import set_user_context
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome
+from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome, Model
 
 from .serializers import ValidationRequestSerializer
 from .serializers import ValidationTaskSerializer
 from .serializers import ValidationOutcomeSerializer
+from .serializers import ModelSerializer
 from .tasks import ifc_file_validation_task
 
 logger = logging.getLogger(__name__)
@@ -262,3 +263,57 @@ class ValidationOutcomeListAPIView(APIView):
         serializer = self.serializer_class(user_outcomes, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+class ModelDetailAPIView(APIView):
+
+    queryset = Model.objects.all()
+    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = ModelSerializer
+
+    @extend_schema(operation_id='model_get')
+    def get(self, request, id, *args, **kwargs):
+
+        """
+        Retrieves a single Model by public_id.
+        """
+
+        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        
+        instance = Model.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=Model.to_private_id(id)).first()
+        if instance:
+            serializer = self.serializer_class(instance)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            data = {'message': f"Model with public_id={id} does not exist for user with id={request.user.id}."}
+            return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+
+class ModelListAPIView(APIView):
+
+    queryset = Model.objects.all()
+    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = ModelSerializer
+
+    @extend_schema(operation_id='model_list')
+    def get(self, request, *args, **kwargs):
+
+        """
+        Returns a list of all Models, optionally filtered by request_public_id.
+        """
+
+        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        
+        user_models = Model.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
+        
+        # parse query arguments
+        request_public_id = self.request.query_params.get('request_public_id', '').lower()
+        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
+        
+        # apply filter(s)
+        if request_public_ids:
+            user_models = [m for m in user_models if m.request.public_id in request_public_ids]
+
+        serializer = self.serializer_class(user_models, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
