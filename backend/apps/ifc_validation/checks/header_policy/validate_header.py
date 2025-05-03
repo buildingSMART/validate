@@ -1,6 +1,6 @@
 import sys
 from pydantic import Field, field_validator, model_validator
-from typing import Tuple, Union, Optional
+from typing import Tuple, Any, Optional
 import ifcopenshell
 from ifcopenshell import validate, SchemaError, simple_spf
 import re
@@ -96,8 +96,8 @@ class HeaderStructure(ConfiguredBaseModel):
     application_name: Optional[str] = Field(default=None)
     schema_identifier: Optional[str] = Field(default=None)
     version: Optional[str] = Field(default=None)
-    mvd: Optional[ifcopenshell.util.mvd_info.AutoCommitList] = Field(default=None)
-    comments: Optional[ifcopenshell.util.mvd_info.AutoCommitList] = Field(default=None)
+    mvd: Optional[Any] = Field(default=None)  # Expected: ifcopenshell.util.mvd_info.AutoCommitList
+    comments: Optional[Any] = Field(default=None)  # Expected: ifcopenshell.util.mvd_info.AutoCommitList
     
     
     @model_validator(mode='before')
