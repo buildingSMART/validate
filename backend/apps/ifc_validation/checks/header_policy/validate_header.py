@@ -12,7 +12,6 @@ import io
 import yaml
 import os
 from config import ConfiguredBaseModel
-from mvd_parser import parse_mvd
 
 
 def ifcopenshell_pre_validation(file):
@@ -81,7 +80,6 @@ def validate_and_split_originating_system(attributes):
 
 class HeaderStructure(ConfiguredBaseModel):
     file: Union[ifcopenshell.file, simple_spf.file]
-    purepythonparser : bool = False
     validation_errors : list = Field(default_factory=list)  
     
     description: Optional[Tuple[str, ...]] = Field(default=None)
@@ -98,20 +96,19 @@ class HeaderStructure(ConfiguredBaseModel):
     application_name: Optional[str] = Field(default=None)
     schema_identifier: Optional[str] = Field(default=None)
     version: Optional[str] = Field(default=None)
-    mvd: Optional[str] = Field(default=None)
+    mvd: Optional[ifcopenshell.util.mvd_info.AutoCommitList] = Field(default=None)
+    comments: Optional[ifcopenshell.util.mvd_info.AutoCommitList] = Field(default=None)
     
     
     @model_validator(mode='before')
     def populate_header(cls, values):
         if (file := values.get('file')):
 
-            purepythonparser = values.get('purepythonparser')
             header = file.header
             file_description = header.file_description
             file_name = header.file_name
             
             fields = [
-                (file_description, 'description', 0),
                 (file_description, 'implementation_level', 1),
                 (file_name, 'name', 0),
                 (file_name, 'time_stamp', 1),
@@ -122,41 +119,35 @@ class HeaderStructure(ConfiguredBaseModel):
                 (file_name, 'authorization', 6)
             ]
 
-            attributes = {field: getattr(obj, field) if not purepythonparser else obj[index]
-                for obj, field, index in fields
-            }
+            attributes = {field: getattr(obj, field) for obj, field, index in fields}
             
             attributes['validation_errors'] = []
-            attributes['mvd'] = ''
+            attributes['mvd'] = file.mvd.view_definitions
+            attributes['comments'] = file.mvd.comments
             attributes['schema_identifier'] = ''
             
             attributes = validate_and_split_originating_system(attributes)
             
-            errors_from_pre_validation = ifcopenshell_pre_validation(file) if not purepythonparser else []
-            for error in errors_from_pre_validation:
-                attributes['validation_errors'].append(error)
-                attributes[error] = None
+            if file.mvd.description:
+                errors_from_pre_validation = ifcopenshell_pre_validation(file)
+                for error in errors_from_pre_validation:
+                    attributes['validation_errors'].append(error)
+                    attributes[error] = None
 
-            values.update(attributes)            
+            values.update(attributes)         
         
         return values
 
-
-    @field_validator('description')
+    
+    @field_validator('comments', mode='after')
     def validate_description(cls, v, values):
         """
         https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
         For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         """
-        if v:
-            header_description_text = ' '.join(v)
-            parsed_description = parse_mvd(header_description_text)
-            view_definitions = parsed_description.mvd
-            values.data['mvd'] = view_definitions
-
-            
+        if v:            
             # comments is a free textfield, but constrainted to 256 characters
-            if len(parsed_description.comments) > 256:
+            if len(v) > 256:
                 values.data.get('validation_errors').append(values.field_name)
                 return v if type(v) == tuple else v
             
@@ -167,30 +158,30 @@ class HeaderStructure(ConfiguredBaseModel):
     @field_validator('mvd', mode='after')
     def validate_and_set_mvd(cls, v, values):
         """
+        https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
+        For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         This function runs after the other fields. It validates the mvd based on the grammar done in  
         the 'description' field. The function checks the constraints on the mvds and returns 
         the comma separated list into a single string.
         """
-        view_definitions = values.data.get('mvd')
-        if not view_definitions:
+        if not v:
             values.data.get('validation_errors').append('description')
             return v
 
         allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
         schema_identifier = values.data.get('file').schema_identifier
         
-        view_definitions_set = {view for view in view_definitions} 
+        view_definitions_set = {view for view in v} 
 
         if any("AddOnView" in view for view in view_definitions_set):
             if not any("CoordinationView" in view for view in view_definitions_set):
                 values.data.get('validation_errors').append('description')  # AddOnView MVD without CoordinationView        
         
-        for mvd in view_definitions:
+        for mvd in v:
             if mvd not in allowed_descriptions.get(schema_identifier, [False]) and not 'AddOnView' in mvd:
                 values.data.get('validation_errors').append('description')
    
-        return ', '.join(view_definitions)
-        
+        return ', '.join(v)
     
     
     @field_validator('time_stamp')
@@ -238,11 +229,8 @@ def main():
 
     filename = sys.argv[1] 
     try:
-        file = ifcopenshell.open(filename)
-        header = HeaderStructure(file=file, purepythonparser=False)
-    except SchemaError as e:
-        file = ifcopenshell.simple_spf.open(filename)
-        header = HeaderStructure(file=file, purepythonparser=True)
+        file = ifcopenshell.simple_spf.open(filename, only_header=True)
+        header = HeaderStructure(file=file)
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
         sys.exit(1)
