@@ -79,7 +79,7 @@ def validate_and_split_originating_system(attributes):
 
 
 class HeaderStructure(ConfiguredBaseModel):
-    file: Union[ifcopenshell.file, simple_spf.file]
+    file: Optional[simple_spf.file] = None
     validation_errors : list = Field(default_factory=list)  
     
     description: Optional[Tuple[str, ...]] = Field(default=None)
@@ -231,6 +231,8 @@ def main():
     try:
         file = ifcopenshell.simple_spf.open(filename, only_header=True)
         header = HeaderStructure(file=file)
+    except ifcopenshell.simple_spf.SyntaxError:
+        header = HeaderStructure(file=None, validation_errors=["syntax_error"])
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
         sys.exit(1)
