@@ -41,7 +41,7 @@ openssl cms -sign \
   -in  "$TMPDATA" \
   -signer "$CERT" \
   -inkey  "$KEY" \
-  -outform DER | openssl base64 > $TMPSIG
+  -outform DER | openssl base64 > "$TMPSIG"
 
 # Append the signature
 cat "$TMPSIG" >> "$OUTFILE"
@@ -50,6 +50,6 @@ cat "$TMPSIG" >> "$OUTFILE"
 printf "ENDSEC;*/\n" >> "$OUTFILE"
 
 # Clean up
-rm -f "$TMPSIG"
+rm -f "$TMPSIG" "$TMPDATA"
 
 echo "Wrote signed file: $OUTFILE"
