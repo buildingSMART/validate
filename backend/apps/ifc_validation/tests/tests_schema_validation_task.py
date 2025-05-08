@@ -123,7 +123,7 @@ class SchemaValidationTaskTestCase(TransactionTestCase):
 
         outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
         self.assertIsNotNone(outcomes)
-        self.assertEqual(len(outcomes), 3)
+        self.assertEqual(len(outcomes), 5)
         for outcome in outcomes:
             self.assertEqual(outcome.severity, ValidationOutcome.OutcomeSeverity.ERROR)
             self.assertEqual(outcome.outcome_code, ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR)
