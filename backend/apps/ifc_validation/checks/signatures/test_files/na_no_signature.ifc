@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]', 'ExchangeRequirement [Any]'),'2;1');
+FILE_NAME('na_no_signature.ifc','2025-02-13T15:58:45',('jdoe'),('Acme Inc.'),'ABC rel. 0.1.2','Acme Inc. - MyFabTool - 2025.1','IFC4 model');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#23515=IFCPROJECT('0pYKP47wH3MwYXYFzgmYrB',$,'My_Project',$,$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;

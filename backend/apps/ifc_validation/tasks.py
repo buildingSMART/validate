@@ -23,6 +23,39 @@ from .email_tasks import *
 
 logger = get_task_logger(__name__)
 
+PROGRESS_INCREMENTS = {
+    'instance_completion_subtask': 5,
+    'syntax_validation_subtask': 10,
+    'parse_info_subtask': 10,
+    'prerequisites_subtask': 10,
+    'schema_validation_subtask': 10,
+    'digital_signatures_subtask': 5,
+    'bsdd_validation_subtask': 0,
+    'normative_rules_ia_validation_subtask': 20,
+    'normative_rules_ip_validation_subtask': 20,
+    'industry_practices_subtask': 10
+}
+
+assert sum(PROGRESS_INCREMENTS.values()) == 100
+
+
+def update_progress(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        return_value = func(self, *args, **kwargs)
+        try:
+            request_id = args[1]
+            # @nb not the most efficient because we fetch the ValidationRequest anew, but
+            # assuming django will cache this efficiently enough for us to keep the code clean
+            request = ValidationRequest.objects.get(pk=request_id)
+            increment = PROGRESS_INCREMENTS.get(func.__name__, 0)
+            request.progress = min(request.progress + increment, 100)
+            request.save()
+        except Exception as e:
+            print(f"Error updating progress for {func.__name__}: {e}")
+        return return_value        
+    return wrapper
+
 
 @functools.lru_cache(maxsize=1024)
 def get_absolute_file_path(file_name):
@@ -168,6 +201,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     )
 
     parallel_tasks = group([
+        digital_signatures_subtask.s(id, file_name),
         schema_validation_subtask.s(id, file_name),
         #bsdd_validation_subtask.s(id, file_name), # disabled
         normative_rules_ia_validation_subtask.s(id, file_name),
@@ -193,16 +227,11 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 5
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INSTANCE_COMPLETION)
@@ -246,16 +275,11 @@ def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwarg
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # set overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = PROGRESS_INCREMENT
-    request.save()
 
     # determine program/script to run
     check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", '--json', file_path]
@@ -338,6 +362,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     """"
     Parses and validates the file header
@@ -346,11 +371,6 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     # fetch request info 
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-    
-    # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PARSE_INFO)
@@ -495,16 +515,12 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PREREQUISITES)
@@ -581,16 +597,12 @@ def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SCHEMA)
@@ -716,16 +728,91 @@ def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
-def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+@update_progress
+def digital_signatures_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
 
-    # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
+    # add task
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.DIGITAL_SIGNATURES)
+
+    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
+    if prev_result_succeeded:
+
+        task.mark_as_initiated()
+
+        # determine program/script to run
+        check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
+        check_program = [sys.executable, check_script, file_path]
+        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+
+        # check schema
+        try:
+            # note: use run instead of Popen b/c PIPE output can be very big...
+            proc = subprocess.run(
+                check_program,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                timeout=TASK_TIMEOUT_LIMIT
+            )
+            task.set_process_details(None, check_program)  # run() has no pid...
+        except subprocess.TimeoutExpired as err:
+            task.mark_as_failed(err)
+            raise
+        except Exception as err:
+            task.mark_as_failed(err)
+            raise
+        
+        output = list(map(json.loads, filter(None, map(lambda s: s.strip(), proc.stdout.split("\n")))))
+        success = proc.returncode >= 0
+        valid = all(m['signature'] != "invalid" for m in output)
+
+        with transaction.atomic():
+
+            # create or retrieve Model info
+            model = get_or_create_ifc_model(id)
+            model.status_signatures = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID 
+
+            def create_outcome(di):
+                return ValidationOutcome(
+                    severity=ValidationOutcome.OutcomeSeverity.ERROR if di.get("signature") == "invalid" else ValidationOutcome.OutcomeSeverity.PASSED,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.VALUE_ERROR if di.get("signature") == "invalid" else ValidationOutcome.ValidationOutcomeCode.PASSED,
+                    observed=di,
+                    feature=json.dumps({'digital_signature': 1}),
+                    validation_task = task
+                )
+
+            ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
+
+            model.save(update_fields=['status_signatures'])
+
+            if success:
+                reason = 'Digital signature check completed'
+                task.mark_as_completed(reason)
+                return {'is_valid': True, 'reason': reason}
+            else:
+                reason = f"Script returned exit code {proc.returncode} and {proc.stderr}"
+                task.mark_as_completed(reason)
+                return {'is_valid': False, 'reason': reason}
+
+    else:
+        reason = f'Skipped as prev_result = {prev_result}.'
+        task.mark_as_skipped(reason)
+        return {'is_valid': None, 'reason': reason}
+
+
+@shared_task(bind=True)
+@log_execution
+@requires_django_user_context
+@update_progress
+def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+
+    # fetch request info
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.BSDD)
@@ -820,16 +907,12 @@ def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 15
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.NORMATIVE_IA)
@@ -898,16 +981,12 @@ def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *arg
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 15
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.NORMATIVE_IP)
@@ -974,16 +1053,12 @@ def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *arg
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
+@update_progress
 def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs):
 
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
-
-    # increment overall progress
-    PROGRESS_INCREMENT = 10
-    request.progress = min(request.progress + PROGRESS_INCREMENT, 100)
-    request.save()
 
     # add task
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INDUSTRY_PRACTICES)
