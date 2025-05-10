@@ -43,6 +43,7 @@ networkx
 pyyaml
 mpmath
 shapely
+python-ranges
 
 # dev
 django-debug-toolbar

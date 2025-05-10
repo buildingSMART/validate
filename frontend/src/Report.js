@@ -14,6 +14,12 @@ import FeedbackWidget from './FeedbackWidget';
 import SelfDeclarationDialog from './SelfDeclarationDialog';
 
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
 
 import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment'
@@ -85,6 +91,15 @@ function Report({ kind }) {
 
   if (isLoggedIn) {
     console.log("Report data ", reportData);
+    const toTitle = s =>
+      s.replace(/(^|_)([a-z])/g, (_, p1, p2) => (p1 ? ' ' : '') + p2.toUpperCase());
+    function formatSignatureValue(v) {
+      if (typeof v === 'string' && v.length > 64) {
+        return v.substring(0, 61) + '...';
+      } else {
+        return v;
+      }
+    }
     return (
       <div>
         <Grid direction="column"
@@ -191,6 +206,26 @@ function Report({ kind }) {
                       <SearchOffOutlinedIcon color="disabled" fontSize='large' />                      
                     </div>
                   }
+                  {(kind === "file" && reportData && reportData.results && reportData.results.signatures) && 
+                    <>
+                      <h2 id="signatures">Digital signatures</h2>
+                      {reportData.results.signatures.map((sig, sigIndex) => (
+                        <TableContainer sx={{ maxWidth: 850, border: `solid 2px ${sig.signature === 'invalid' ? 'red' : sig.signature === 'valid_unknown_cert' ? 'gray' : 'green'}` }} component={Paper}>
+                          <Table aria-label="simple table">
+                            <TableBody>
+                              {["issuer", "subject", "signature_hash_algorithm_name", "rsa_key_size", "not_valid_after", "not_valid_before", "fingerprint_hex", "payload", "start", "end"].filter(x => sig[x]).map((item, itemIndex) =>
+                                <TableRow key={`sig-${sigIndex}-${itemIndex}-key`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                  <TableCell sx={{ width: '33%' }}>
+                                    <b>{toTitle(item).replace('Rsa', 'RSA')}</b>
+                                  </TableCell>
+                                  <TableCell align="left">{formatSignatureValue(sig[item])}</TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ))}
+                    </>}
                   <Footer />
                 </Grid>
               </div>

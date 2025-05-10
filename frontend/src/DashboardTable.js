@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
+import MailLockIcon from '@mui/icons-material/MailLock';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 //import ReplayIcon from '@mui/icons-material/Replay';
@@ -400,6 +401,13 @@ export default function DashboardTable({ models }) {
                         ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
                         : `/report_file/${row.code}`
                     )}
+                    &nbsp;
+                    {row.status_signatures === 'v' && <IconButton component={Link} href={`/report_file/${row.code}#signatures`}>
+                      <MailLockIcon sx={{ color: "#2ab672" }} />
+                    </IconButton>}
+                    {row.status_signatures === 'i' && <IconButton component={Link} href={`/report_file/${row.code}#signatures`}>
+                      <MailLockIcon color="error" />
+                    </IconButton>}
                 </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}
