@@ -46,7 +46,7 @@ function preprocessData(data, type) {
 
   function warningIconWithLink(field, path) {
     const file_info_mapping = {
-      "description": "Specifies the version of this part of ISO 10303 used to create the exchange structure as well as its contents.",
+      "description": "One or more model view definitions used in the context of this data exchange.",
       "file_name": "The string of graphic characters used to name this particular instance of an exchange structure",
       "time_stamp": "The date and time specifying when the exchange structure was created, formatted in ISO 8601",
       "originating_system": "The software from which the model originated, also known as the authoring tool.",
