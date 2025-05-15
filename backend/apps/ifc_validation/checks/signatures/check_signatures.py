@@ -30,7 +30,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.x509.oid import ExtensionOID
 
 
-class VerificationResult(Enum):
+class SignatureVerificationResult(Enum):
     invalid = auto()
     valid_unknown_cert = auto()
     valid_known_cert = auto()
@@ -51,7 +51,7 @@ class signature_data:
 
     def verify_pkcs7_openssl(
         self, ca: "ca_bundle", data: bytes
-    ) -> "Tuple[VerificationResult, Optional[certificate_data]]":
+    ) -> "Tuple[SignatureVerificationResult, Optional[certificate_data]]":
         sig_fd, sig_path = tempfile.mkstemp(suffix=".p7s")
         data_fd, data_path = tempfile.mkstemp(suffix=".dat")
         certout = tempfile.NamedTemporaryFile(delete=False).name
@@ -87,11 +87,11 @@ class signature_data:
                 result = subprocess.run(cmd, capture_output=True, text=False)
                 if result.returncode != 0:
                     return (
-                        VerificationResult.valid_unknown_cert if verify_chain else VerificationResult.invalid,
+                        SignatureVerificationResult.valid_unknown_cert if verify_chain else SignatureVerificationResult.invalid,
                         cert_data,
                     )
                 cert_data = certificate_data.from_file(certout, verify=False)
-            return VerificationResult.valid_known_cert, cert_data
+            return SignatureVerificationResult.valid_known_cert, cert_data
 
         finally:
             # always clean up
