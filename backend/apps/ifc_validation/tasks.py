@@ -748,7 +748,7 @@ def digital_signatures_subtask(self, prev_result, id, file_name, *args, **kwargs
         check_program = [sys.executable, check_script, file_path]
         logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
-        # check schema
+        # check signatures
         try:
             # note: use run instead of Popen b/c PIPE output can be very big...
             proc = subprocess.run(
