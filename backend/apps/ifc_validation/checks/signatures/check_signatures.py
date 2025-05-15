@@ -182,6 +182,8 @@ class CertificateData:
         """
         @nb this is wrong, but leaving it in here in case we do need to do more forensics on the
         CMS structure later on.
+
+        Use: SignatureData.verify_pkcs7_openssl()
         """
         raise NotImplementedError()
         ci = cms.ContentInfo.load(signature.signature)
@@ -224,6 +226,12 @@ class CertificateData:
             return False
 
     def verify_pkcs1(self, signature, content) -> bool:
+        """
+        Functional, but currently not in use.
+
+        Use: SignatureData.verify_pkcs7_openssl()
+        """
+
         expected_size = self.certificate.public_key().key_size // 8
         if len(signature.signature) != expected_size:
             return False
