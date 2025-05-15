@@ -37,7 +37,7 @@ class SignatureVerificationResult(Enum):
 
 
 @dataclass
-class signature_data:
+class SignatureData:
     payload: str
     start: int  # start position of the signature block, the beginning of /* within the file
     end: int  # end position of the signature block, the character after */ within the file
@@ -50,8 +50,8 @@ class signature_data:
         return {k: format(getattr(self, k)) for k in (f.name for f in fields(self))}
 
     def verify_pkcs7_openssl(
-        self, ca: "ca_bundle", data: bytes
-    ) -> "Tuple[SignatureVerificationResult, Optional[certificate_data]]":
+        self, ca: "CertAuthorityBundle", data: bytes
+    ) -> "Tuple[SignatureVerificationResult, Optional[CertificateData]]":
         sig_fd, sig_path = tempfile.mkstemp(suffix=".p7s")
         data_fd, data_path = tempfile.mkstemp(suffix=".dat")
         certout = tempfile.NamedTemporaryFile(delete=False).name
@@ -90,7 +90,7 @@ class signature_data:
                         SignatureVerificationResult.valid_unknown_cert if verify_chain else SignatureVerificationResult.invalid,
                         cert_data,
                     )
-                cert_data = certificate_data.from_file(certout, verify=False)
+                cert_data = CertificateData.from_file(certout, verify=False)
             return SignatureVerificationResult.valid_known_cert, cert_data
 
         finally:
@@ -110,7 +110,7 @@ class signature_data:
 
 
 @dataclass
-class certificate_data:
+class CertificateData:
     certificate: Any
     not_valid_before: datetime
     not_valid_after: datetime
@@ -166,7 +166,7 @@ class certificate_data:
         fh = fingerprint.hex().upper()
         fingerprint_hex = ":".join(fh[i : i + 2] for i in range(0, len(fh), 2))
 
-        return certificate_data(
+        return CertificateData(
             cert,
             cert.not_valid_before_utc,
             cert.not_valid_after_utc,
@@ -178,7 +178,7 @@ class certificate_data:
             cert.serial_number,
         )
 
-    def verify_pkcs7_python(self, signature: signature_data, content: str) -> bool:
+    def verify_pkcs7_python(self, signature: SignatureData, content: str) -> bool:
         """
         @nb this is wrong, but leaving it in here in case we do need to do more forensics on the
         CMS structure later on.
@@ -263,7 +263,7 @@ class certificate_data:
         }
 
 
-class ca_bundle:
+class CertAuthorityBundle:
     def __init__(self, filepath: str):
         self.filepath = filepath
 
@@ -274,7 +274,7 @@ class ca_bundle:
             for pem_path in glob.glob(os.path.join(dirpath, "*.pem")):
                 with open(pem_path, "rb") as f:
                     cabundle.write(f.read())
-        return ca_bundle(ca_bundle_path)
+        return CertAuthorityBundle(ca_bundle_path)
 
     def __del__(self):
         try:
@@ -286,7 +286,7 @@ class ca_bundle:
 def get_signatures(data: str):
     pattern = r"/\*\s*SIGNATURE;(.+?)ENDSEC;\s*\*/"
     matches = re.finditer(pattern, data, re.DOTALL)
-    yield from (signature_data(m.group(1).strip(), *m.span()) for m in matches)
+    yield from (SignatureData(m.group(1).strip(), *m.span()) for m in matches)
 
 
 def strip_content(data: str) -> str:
@@ -299,10 +299,10 @@ def run(fn):
     # we need to revisit this or fallback to PKCS#1
 
     store = crypto.X509Store()
-    certificate_store: List[certificate_data] = []
+    certificate_store: List[CertificateData] = []
 
     for fn in glob.glob(os.path.join(os.path.dirname(__file__), "store/*.pem")):
-        certificate_store.append(certificate_data.from_file(fn))
+        certificate_store.append(CertificateData.from_file(fn))
 
     for certdata in certificate_store:
         # `certdata.certificate` is a cryptography.X509Certificate;
@@ -311,7 +311,7 @@ def run(fn):
         store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, pem))
     """
 
-    ca = ca_bundle.from_path(os.path.join(os.path.dirname(__file__), "store"))
+    ca = CertAuthorityBundle.from_path(os.path.join(os.path.dirname(__file__), "store"))
 
     with open(fn, "r", encoding="ascii") as f:
         ifc_file = strip_content(f.read())
