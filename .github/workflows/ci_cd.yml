@@ -57,10 +57,10 @@ jobs:
 
       - name: Fetch submodules
         run: |
+          git clean -fdx -e ${{ vars.ENV_FILE }}
+          git submodule foreach --recursive 'git clean -fdx'
           cd backend
           cd apps
-          git clean -fdx
-          git submodule foreach --recursive 'git clean -fdx'
           git submodule update --init --recursive
           git submodule update --remote
 
@@ -139,7 +139,7 @@ jobs:
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
           cd ${{ vars.REPO_CLONE_PATH }}
           git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          git clean -fdx
+          git clean -fdx -e ${{ vars.ENV_FILE }}
           git submodule foreach --recursive 'git clean -fdx'
           sudo make fetch-modules
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
