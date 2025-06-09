@@ -44,6 +44,7 @@ pyyaml
 mpmath
 shapely
 python-ranges
+pyproj==3.7.1
 
 # dev
 django-debug-toolbar
