@@ -86,7 +86,7 @@ The version number gets incremented whenever meaningful changes are made to the 
 
 This tag ensures that a passing result does not activate the functional part. Instead, it will be marked as not applicable.
 
-For example, in GRF003, which is a georeferencing rule, it is validated whether every IfcFacility is linked to an IfcCoordinateReferenceSystem. However, the presence of an IfcFacility does not necessarily imply that the file is intended to include georeferencing. Therefore, if georeferencing is not required, the rule should not trigger a "pass" status that marks the part green.
+For example, GRF003, which is a georeferencing rule, validates whether every IfcFacility is linked to an IfcCoordinateReferenceSystem. However, the presence of an IfcFacility does not necessarily imply that the file is intended to include georeferencing. Therefore, if georeferencing is not required, the rule should not trigger a "pass" status that marks that functional part green on the software certification scorecards.
 
 By tagging the rule with @no-activation, no validation outcome with severity "Executed" and result "Passed" is recorded in the database, and the rule is not marked as passed. 
 
