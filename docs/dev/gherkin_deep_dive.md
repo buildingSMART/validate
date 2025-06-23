@@ -45,7 +45,7 @@ Feature tags in Behave are used to categorize and control the execution of Gherk
 
 ### `@informal_propositions` and `@implementer-agreement`
 
-These tags mark **normative IFC rules**, which result in either **passes** or **errors** in the validation service UI.
+These tags mark **normative IFC rules**, which result in either a **passing**, **failing** or **not applicable** result in the validation service.
 
 > **Note:** These tags are planned to be merged into a single tag: `@normative-rule`.
 
