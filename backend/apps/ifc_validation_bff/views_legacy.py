@@ -184,6 +184,7 @@ def format_request(request):
             "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
         ),
         "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
+        "status_signatures": "p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures,
         "deleted": 0, # TODO
         "commit_id": None #  TODO
     }
@@ -571,6 +572,11 @@ def report(request, id: str):
 
         logger.info('Fetching and mapping bSDD done.')
 
+    signatures = []
+    if report_type == "file":
+        task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.DIGITAL_SIGNATURES).last()
+        signatures = [t.observed for t in task.outcomes.iterator()]
+        
     response_data = {
         'instances': instances,
         'model': model,
@@ -592,7 +598,8 @@ def report(request, id: str):
             "prereq_rules": {
                 "counts": [grouped_gherkin_outcomes_counts["prerequisites"]],
                 "results": grouped_gherkin_outcomes["prerequisites"]
-            }
+            },
+            "signatures": signatures
         }
     }
 
