@@ -80,6 +80,10 @@ This tag identifies the **functional part** (`AAA`) and the **rule number** (`00
 
 This tag indicates the version of the `.feature` file.
 The version number gets incremented whenever meaningful changes are made to the rule after its release.
+A 'meaningul' change is one that could result in different outcomes for the same IFC model.
+
+Minor changes such as fixing typos or adding control characters to a step implementation
+are not considered a 'meaningful' change as they do not affect the end results of the validation process.
 
 
 ### `@no-activation`
