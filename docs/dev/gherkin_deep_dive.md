@@ -73,7 +73,7 @@ To explicitly **exclude** a rule, use the same --tags variable and a hyphen:
 
 This tag identifies the **functional part** (`AAA`) and the **rule number** (`000`). For example:
 
-- The third rule in the georeferencing set would be tagged as `@GRF003`.
+- The fourth rule in the georeferencing functional part (accounting for `@GRF000`) would be tagged as `@GRF003`.
 
 
 ### `@versionX`
