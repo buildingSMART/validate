@@ -55,7 +55,7 @@ To run only these rules via command line:
 
 ### `@industry-practice`
 
-This tag indicates **best-practice rules**. These result in **passes**, **warnings**, or **not-applicable** outcomes.
+This tag indicates **best practice rules**. These result in **passing**, **warning**, or **not applicable** outcomes.
 
 To execute these locally:
 > python3 -m behave --no-capture -v --tags=@industry-practice --define input=/path/to/your.ifc
