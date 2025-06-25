@@ -25,8 +25,9 @@ logger = get_task_logger(__name__)
 
 PROGRESS_INCREMENTS = {
     'instance_completion_subtask': 5,
-    'syntax_validation_subtask': 10,
-    'parse_info_subtask': 10,
+    'syntax_validation_subtask': 5,
+    'syntax_header_validation_subtask': 5,
+    'header_validation_subtask': 10,
     'prerequisites_subtask': 10,
     'schema_validation_subtask': 10,
     'digital_signatures_subtask': 5,
@@ -195,8 +196,9 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow_completed = on_workflow_completed.s(id, file_name)
 
     serial_tasks = chain(
+        syntax_header_validation_subtask.s(id, file_name),
+        header_validation_subtask.s(id, file_name),
         syntax_validation_subtask.s(id, file_name),
-        parse_info_subtask.s(id, file_name),
         prerequisites_subtask.s(id, file_name),
     )
 
@@ -289,7 +291,96 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
     task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SYNTAX)
     task.mark_as_initiated()
 
+    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
+    if prev_result_succeeded:
     # check syntax
+        try:
+
+            # note: use run instead of Popen b/c PIPE output can be very big...
+            task.set_process_details(None, check_program)  # run() has no pid...
+            proc = subprocess.run(
+                check_program,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+                timeout=TASK_TIMEOUT_LIMIT
+            )
+
+            # parse output
+            output = proc.stdout
+            error_output = proc.stderr
+            success = (len(list(filter(None, output.split("\n")))) == 0) and len(proc.stderr) == 0
+
+            with transaction.atomic():
+
+                # create or retrieve Model info
+                model = get_or_create_ifc_model(id)
+
+                # update Model info
+                if success:
+                    model.status_syntax = Model.Status.VALID
+                    task.outcomes.create(
+                        severity=ValidationOutcome.OutcomeSeverity.PASSED,
+                        outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
+                        observed=output if output != '' else None
+                    )
+
+                elif len(error_output) != 0:
+                    model.status_syntax = Model.Status.INVALID
+                    task.outcomes.create(
+                        severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                        outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                        observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
+                    )
+
+                else:
+                    messages = json.loads(output)
+                    model.status_syntax = Model.Status.INVALID
+                    task.outcomes.create(
+                        severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                        outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                        observed=messages['message'] if 'message' in messages else None
+                    )
+
+                model.save(update_fields=['status_syntax'])
+
+                # store and return
+                if success:
+                    reason = "No IFC syntax error(s)."
+                    task.mark_as_completed(reason)
+                    return {'is_valid': True, 'reason': task.status_reason}
+                else:
+                    reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
+                    task.mark_as_completed(reason)
+                    return {'is_valid': False, 'reason': reason}
+
+        except subprocess.TimeoutExpired as err:
+            task.mark_as_failed(err)
+            raise
+
+        except Exception as err:
+            task.mark_as_failed(err)
+            raise
+
+
+@shared_task(bind=True)
+@log_execution
+@requires_django_user_context
+@update_progress
+def syntax_header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+    # fetch request info
+    request = ValidationRequest.objects.get(pk=id)
+    file_path = get_absolute_file_path(request.file.name)
+
+    # determine program/script to run
+    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", '--json', '--only-header', file_path]
+    logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+
+    # add task
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SYNTAX_HEADER)
+    task.mark_as_initiated()
+
+    # check header syntax
     try:
 
         # note: use run instead of Popen b/c PIPE output can be very big...
@@ -314,7 +405,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 
             # update Model info
             if success:
-                model.status_syntax = Model.Status.VALID
+                model.status_syntax_header = Model.Status.VALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.PASSED,
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
@@ -322,23 +413,23 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                 )
 
             elif len(error_output) != 0:
-                model.status_syntax = Model.Status.INVALID
+                model.status_syntax_header = Model.Status.INVALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_HEADER_ERROR,
                     observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
                 )
 
             else:
                 messages = json.loads(output)
-                model.status_syntax = Model.Status.INVALID
+                model.status_syntax_header = Model.Status.INVALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_HEADER_ERROR,
                     observed=messages['message'] if 'message' in messages else None
                 )
 
-            model.save(update_fields=['status_syntax'])
+            model.save(update_fields=['status_syntax_header'])
 
             # store and return
             if success:
@@ -346,7 +437,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
                 task.mark_as_completed(reason)
                 return {'is_valid': True, 'reason': task.status_reason}
             else:
-                reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
+                reason = f"Found IFC syntax errors in header:\n\nConsole: \n{output}\n\nError: {error_output}"
                 task.mark_as_completed(reason)
                 return {'is_valid': False, 'reason': reason}
 
@@ -363,7 +454,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 @log_execution
 @requires_django_user_context
 @update_progress
-def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
+def header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
     """"
     Parses and validates the file header
     """
@@ -373,7 +464,7 @@ def parse_info_subtask(self, prev_result, id, file_name, *args, **kwargs):
     file_path = get_absolute_file_path(request.file.name)
 
     # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PARSE_INFO)
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.HEADER)
     
     prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
     if prev_result_succeeded:
