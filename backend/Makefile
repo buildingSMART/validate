@@ -70,7 +70,7 @@ test-bsdd-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_bsdd_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-syntax-header-validation-task:
-	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_syntax_header_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-header-validation-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_header_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3

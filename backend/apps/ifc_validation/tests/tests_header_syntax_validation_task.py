@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 from apps.ifc_validation_models.models import *
 
-from ..tasks import syntax_header_validation_subtask
+from ..tasks import header_syntax_validation_subtask
 
 class SyntaxValidationTaskTestCase(TransactionTestCase):
 
@@ -11,7 +11,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         user = User.objects.create(id=1, username='SYSTEM', is_active=True)
         set_user_context(user)
 
-    def test_syntax_header_validation_task_creates_passed_validation_outcome(self):
+    def test_header_syntax_validation_task_creates_passed_validation_outcome(self):
 
         SyntaxValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
@@ -21,7 +21,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         )
         request.mark_as_initiated()
 
-        syntax_header_validation_subtask(
+        header_syntax_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -34,7 +34,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.PASSED)
         self.assertEqual(outcomes.first().observed, None)
 
-    def test_syntax_header_validation_task_creates_error_validation_outcome(self):
+    def test_header_syntax_validation_task_creates_error_validation_outcome(self):
 
         SyntaxValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
@@ -44,7 +44,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         )
         request.mark_as_initiated()
 
-        syntax_header_validation_subtask(
+        header_syntax_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -54,7 +54,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(outcomes)
         self.assertEqual(len(outcomes), 1)
         self.assertEqual(outcomes.first().severity, ValidationOutcome.OutcomeSeverity.ERROR)
-        self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.SYNTAX_HEADER_ERROR)
+        self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR)
         self.assertTrue('On line 5 column 1' in outcomes.first().observed, outcomes.first().observed)
 
     def test_determine_aggregate_status_for_multiple_outcomes(self):
@@ -122,7 +122,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
             # assert
             self.assertEqual(final_status, test_case['output'])
     
-    def test_syntax_error_in_data_section_does_not_create_syntax_header_validation_error(self):
+    def test_syntax_error_in_data_section_does_not_create_header_syntax_validation_error(self):
         SyntaxValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='fail_double_comma.ifc',
@@ -131,7 +131,7 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         )
         request.mark_as_initiated()
 
-        syntax_header_validation_subtask(
+        header_syntax_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name

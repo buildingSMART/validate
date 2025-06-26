@@ -26,7 +26,7 @@ logger = get_task_logger(__name__)
 PROGRESS_INCREMENTS = {
     'instance_completion_subtask': 5,
     'syntax_validation_subtask': 5,
-    'syntax_header_validation_subtask': 5,
+    'header_syntax_validation_subtask': 5,
     'header_validation_subtask': 10,
     'prerequisites_subtask': 10,
     'schema_validation_subtask': 10,
@@ -196,7 +196,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow_completed = on_workflow_completed.s(id, file_name)
 
     serial_tasks = chain(
-        syntax_header_validation_subtask.s(id, file_name),
+        header_syntax_validation_subtask.s(id, file_name),
         header_validation_subtask.s(id, file_name),
         syntax_validation_subtask.s(id, file_name),
         prerequisites_subtask.s(id, file_name),
@@ -367,7 +367,7 @@ def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs)
 @log_execution
 @requires_django_user_context
 @update_progress
-def syntax_header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+def header_syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
     # fetch request info
     request = ValidationRequest.objects.get(pk=id)
     file_path = get_absolute_file_path(request.file.name)
@@ -377,7 +377,7 @@ def syntax_header_validation_subtask(self, prev_result, id, file_name, *args, **
     logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
     # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SYNTAX_HEADER)
+    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.HEADER_SYNTAX)
     task.mark_as_initiated()
 
     # check header syntax
@@ -405,7 +405,7 @@ def syntax_header_validation_subtask(self, prev_result, id, file_name, *args, **
 
             # update Model info
             if success:
-                model.status_syntax_header = Model.Status.VALID
+                model.status_header_syntax = Model.Status.VALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.PASSED,
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
@@ -413,23 +413,23 @@ def syntax_header_validation_subtask(self, prev_result, id, file_name, *args, **
                 )
 
             elif len(error_output) != 0:
-                model.status_syntax_header = Model.Status.INVALID
+                model.status_header_syntax = Model.Status.INVALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_HEADER_ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
                     observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
                 )
 
             else:
                 messages = json.loads(output)
-                model.status_syntax_header = Model.Status.INVALID
+                model.status_header_syntax = Model.Status.INVALID
                 task.outcomes.create(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_HEADER_ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
                     observed=messages['message'] if 'message' in messages else None
                 )
 
-            model.save(update_fields=['status_syntax_header'])
+            model.save(update_fields=['status_header_syntax'])
 
             # store and return
             if success:

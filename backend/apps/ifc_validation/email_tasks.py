@@ -150,7 +150,7 @@ def send_completion_email_task(id, file_name):
         'ID': request.public_id,
         "STATUS_SYNTAX": status_combine(
             "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
-            "p" if (request.model is None or request.model.status_syntax_header is None) else request.model.status_syntax_header
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
         ) in ['v', 'w', 'i'],
         "STATUS_SCHEMA": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,

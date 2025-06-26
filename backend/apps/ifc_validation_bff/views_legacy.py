@@ -172,7 +172,7 @@ def format_request(request):
         "mvd": '-' if (request.model is None or request.model.mvd is None) else request.model.mvd, # TODO - formatting is actually a UI concern...
         "status_syntax": status_combine(
             "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
-            "p" if (request.model is None or request.model.status_syntax_header is None) else request.model.status_syntax_header
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
         ),
         "status_schema": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
@@ -417,8 +417,8 @@ def report(request, id: str):
     syntax_results = []
     
     if report_type == "syntax" and request.model:
-        if request.model.status_syntax_header == Model.Status.INVALID:
-            failed_type = ValidationTask.Type.SYNTAX_HEADER
+        if request.model.status_header_syntax == Model.Status.INVALID:
+            failed_type = ValidationTask.Type.HEADER_SYNTAX
         elif request.model.status_syntax == Model.Status.INVALID:
             failed_type = ValidationTask.Type.SYNTAX
         else:
