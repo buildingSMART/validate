@@ -148,7 +148,10 @@ def send_completion_email_task(id, file_name):
     merge_data = { 
         'FILE_NAME': file_name,
         'ID': request.public_id,
-        'STATUS_SYNTAX': ("p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax) in ['v', 'w', 'i'],
+        "STATUS_SYNTAX": status_combine(
+            "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
+        ) in ['v', 'w', 'i'],
         "STATUS_SCHEMA": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq

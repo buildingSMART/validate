@@ -12,7 +12,6 @@ related to tracking and evaluating instances in the IFC model.
 
 This is a small new decorator for registering enumeration types in a simpler way.
 
----
 ## Step handling
 
 ### `execute_step()`
@@ -27,7 +26,6 @@ Handles a `Given` step.
 
 Handles a `Then` step.
 
----
 ## Context stacking
 
 As steps are processed, they are captured in a persistent object of type `behave.runner.Context`.
