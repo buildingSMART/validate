@@ -5,18 +5,18 @@ from django.contrib.auth.models import User
 
 from apps.ifc_validation_models.models import *
 
-from ..tasks import parse_info_subtask
+from ..tasks import header_validation_subtask
 
-class ParseInfoTaskTestCase(TransactionTestCase):
+class HeaderValidationTaskTestCase(TransactionTestCase):
 
     def set_user_context():
         user = User.objects.create(id=1, username='SYSTEM', is_active=True)
         set_user_context(user)
 
-    def test_parse_info_task_valid_file_does_not_create_validation_outcome(self):
+    def test_header_validation_task_valid_file_does_not_create_validation_outcome(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='valid_file.ifc',
             file='valid_file.ifc', 
@@ -25,7 +25,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -36,10 +36,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(outcomes)
         self.assertEqual(len(outcomes), 0)
     
-    def test_parse_info_task_invalid_version_does_not_create_validation_outcome(self):
+    def test_header_validation_task_invalid_version_does_not_create_validation_outcome(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='invalid_version.ifc',
             file='invalid_version.ifc', 
@@ -48,7 +48,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -59,10 +59,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(outcomes)
         self.assertEqual(len(outcomes), 0)
 
-    def test_parse_info_task_correctly_parses_properties(self):
+    def test_header_validation_task_correctly_parses_properties(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='wall-with-opening-and-window.ifc',
             file='wall-with-opening-and-window.ifc', 
@@ -71,7 +71,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -83,10 +83,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertEqual(model.mvd, 'CoordinationView')
         self.assertEqual(model.schema, 'IFC4')
 
-    def test_parse_info_task_correctly_parses_date(self):
+    def test_header_validation_task_correctly_parses_date(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='pass_reverse_comment.ifc',
             file='pass_reverse_comment.ifc', 
@@ -95,7 +95,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -106,10 +106,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(model)
         self.assertEqual(model.date, datetime.datetime(2022, 5, 4, 8, 8, 30, tzinfo=datetime.timezone.utc))
 
-    def test_parse_info_task_correctly_parses_date_with_timezone(self):
+    def test_header_validation_task_correctly_parses_date_with_timezone(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='valid_file_with_tz.ifc',
             file='valid_file_with_tz.ifc', 
@@ -118,7 +118,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -129,10 +129,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(model)
         self.assertEqual(model.date, datetime.datetime(2025, 2, 13, 13, 58, 45, tzinfo=datetime.timezone.utc))
 
-    def test_parse_info_task_correctly_parses_authoring_tool(self):
+    def test_header_validation_task_correctly_parses_authoring_tool(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         request = ValidationRequest.objects.create(
             file_name='pass_header_policy.ifc',
             file='pass_header_policy.ifc', 
@@ -141,7 +141,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -154,10 +154,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertEquals('2025.1', model.produced_by.version)
         self.assertEquals('Acme Inc.', model.produced_by.company.name)
 
-    def test_parse_info_task_correctly_parses_existing_authoring_tool(self):
+    def test_header_validation_task_correctly_parses_existing_authoring_tool(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         company, _ = Company.objects.get_or_create(name='Acme Inc.')
         request = ValidationRequest.objects.create(
             file_name='pass_header_policy.ifc',
@@ -167,7 +167,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name
@@ -181,10 +181,10 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         self.assertEquals('Acme Inc.', model.produced_by.company.name)
         self.assertEquals(company.id, model.produced_by.id)
 
-    def test_parse_info_task_correctly_parses_existing_authoring_tool2(self):
+    def test_header_validation_task_correctly_parses_existing_authoring_tool2(self):
 
         # arrange
-        ParseInfoTaskTestCase.set_user_context()
+        HeaderValidationTaskTestCase.set_user_context()
         company, _ = Company.objects.get_or_create(name='ACME, Inc.') # NOTE: different company name, test file has 'Acme Inc.'!
         AuthoringTool.objects.get_or_create(name='MyFabTool', version='2025.1', company=company)
         request = ValidationRequest.objects.create(
@@ -195,7 +195,7 @@ class ParseInfoTaskTestCase(TransactionTestCase):
         request.mark_as_initiated()
 
         # act
-        parse_info_subtask(
+        header_validation_subtask(
             prev_result={'is_valid': True, 'reason': 'test'}, 
             id=request.id, 
             file_name=request.file_name

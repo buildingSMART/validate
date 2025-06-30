@@ -170,7 +170,10 @@ def format_request(request):
         "schema": '-' if (request.model is None or request.model.schema is None) else request.model.schema,
         "size": request.size,
         "mvd": '-' if (request.model is None or request.model.mvd is None) else request.model.mvd, # TODO - formatting is actually a UI concern...
-        "status_syntax": "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
+        "status_syntax": status_combine(
+            "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
+        ),
         "status_schema": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
@@ -412,26 +415,38 @@ def report(request, id: str):
     
     # retrieve and map syntax outcome(s)
     syntax_results = []
-    if report_type == 'syntax' and request.model and request.model.status_syntax != Model.Status.VALID:
-        
-        logger.info('Fetching and mapping syntax results...')    
-        
-        task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SYNTAX).last()
-        if task.outcomes:
-            for outcome in task.outcomes.iterator():
-                # TODO - should we not do this in the model?
-                match = re.search('^On line ([0-9])+ column ([0-9])+(.)*', outcome.observed)                
-                mapped = {
-                    "id": outcome.public_id,
-                    "lineno": match.groups()[0] if match and len(match.groups()) > 0 else None,
-                    "column": match.groups()[1] if match and len(match.groups()) > 1 else None,
-                    "severity": outcome.severity,
-                    "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
-                    "task_id": outcome.validation_task_public_id
-                }
-                syntax_results.append(mapped)
     
-        logger.info('Fetching and mapping syntax done.')
+    if report_type == "syntax" and request.model:
+        if request.model.status_header_syntax == Model.Status.INVALID:
+            failed_type = ValidationTask.Type.HEADER_SYNTAX
+        elif request.model.status_syntax == Model.Status.INVALID:
+            failed_type = ValidationTask.Type.SYNTAX
+        else:
+            failed_type = None                        
+
+        if failed_type:
+            logger.info('Fetching and mapping syntax results...')
+            task = (ValidationTask.objects
+                    .filter(request_id=request.id, type=failed_type)
+                    .order_by("-id")   
+                    .prefetch_related("outcomes")
+                    .first())
+
+            if task and task.outcomes:
+                line_re = re.compile(r"^On line (\d+) column (\d+).*")
+                for outcome in task.outcomes.all():
+                    m = line_re.match(outcome.observed or "")
+                    syntax_results.append({
+                        "id": outcome.public_id,
+                        "lineno": m.group(1) if m else None,
+                        "column": m.group(2) if m else None,
+                        "severity": outcome.severity,
+                        "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
+                        "task_id": outcome.validation_task_public_id,
+                    })
+            logger.info('Fetching and mapping syntax done.')
+    
+    
 
     # retrieve and map schema outcome(s) + instances
     schema_results_count = defaultdict(int)

@@ -14,7 +14,7 @@ venv:
 install: venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-ec13294-linux64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-260bc80-linux64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
@@ -22,7 +22,7 @@ install: venv
 install-macos: venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-ec13294-macos64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-260bc80-macos64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	rm /tmp/ifcopenshell_python.zip
@@ -30,7 +30,7 @@ install-macos: venv
 install-macos-m1: venv
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-ec13294-macosm164.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-260bc80-macosm164.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	rm /tmp/ifcopenshell_python.zip
@@ -61,7 +61,7 @@ start-worker4:
 start-worker-scheduler:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 5 --task-events --beat
 
-test: test-models test-bsdd-task test-parse-info-task test-syntax-task test-schema-task
+test: test-models test-bsdd-task test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -69,11 +69,14 @@ test-models:
 test-bsdd-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_bsdd_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
-test-parse-info-task:
-	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_parse_info_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+test-syntax-header-validation-task:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-header-validation-task:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_header_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-syntax-task:
-	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_header_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-schema-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
