@@ -1,0 +1,138 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+{% block bodyclass %}{{ block.super }} app-{{ app_label }}{% endblock %}
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo;
+  {% for app in app_list %}
+  {{ app.name }}
+  {% endfor %}
+</div>
+{% endblock %}
+{% endif %}
+{% block content %}
+<div style="float: left">
+  <div id="content-main">
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  </div>
+  <div id="content-statistics">
+    <h1>Statistics</h1>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.2.1/dist/chart.umd.min.js"></script>
+    <script
+      src="https://code.jquery.com/jquery-3.6.4.min.js"
+      integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8="
+      crossorigin="anonymous">
+    </script>
+    <form id="filterForm">
+      <label for="year">Choose a year:</label>
+      <select name="year" id="year"></select>
+      <input type="submit" value="Load" name="_load">
+    </form>
+    <script>
+      $(document).ready(function () {
+        $.ajax({
+          url: "/api/chart/filter-options/",
+          type: "GET",
+          dataType: "json",
+          success: (jsonResponse) => {
+            jsonResponse.options.forEach(option => {
+              $("#year").append(new Option(option, option));
+            });
+            loadAllCharts($("#year").children().first().val());
+          },
+          error: () => console.log("Failed to fetch chart filter options!")
+        });
+      });
+
+      $("#filterForm").on("submit", (event) => {
+        event.preventDefault();
+
+        const year = $("#year").val();
+        loadAllCharts(year)
+      });
+
+      function loadChart(chart, endpoint) {
+        $.ajax({
+          url: endpoint,
+          type: "GET",
+          dataType: "json",
+          success: (jsonResponse) => {
+            // Extract data from the response
+            const title = jsonResponse.title;
+            const labels = jsonResponse.data.labels;
+            const datasets = jsonResponse.data.datasets;
+
+            // Reset the current chart
+            chart.data.datasets = [];
+            chart.data.labels = [];
+
+            // Load new data into the chart
+            chart.options.title.text = title;
+            chart.options.title.display = true;
+            chart.data.labels = labels;
+            datasets.forEach(dataset => {
+              chart.data.datasets.push(dataset);
+            });
+            chart.update();
+          },
+          error: () => console.log("Failed to fetch chart data from " + endpoint + "!")
+        });
+      }
+
+      function loadAllCharts(year) {
+        loadChart(requestsChart, `/api/chart/requests/${year}/`);
+        loadChart(durationPerRequestChart, `/api/chart/duration-per-request/${year}/`);
+        loadChart(processingStatusChart, `/api/chart/processing-status/${year}/`);
+      }
+    </script>
+    <canvas id="requestsChart"></canvas>
+    <canvas id="durationPerRequestChart"></canvas>
+    <canvas id="processingStatusChart"></canvas>
+    <script>
+      let requestsCtx = document.getElementById("requestsChart").getContext("2d");
+      let requestsChart = new Chart(requestsCtx, {
+        type: "bar",
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+            text: ""
+          },
+        }
+      });
+      let durationPerRequestCtx = document.getElementById("durationPerRequestChart").getContext("2d");
+      let durationPerRequestChart = new Chart(durationPerRequestCtx, {
+        type: "line",
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+            text: ""
+          },
+        }
+      });
+      let processingStatusCtx = document.getElementById("processingStatusChart").getContext("2d");
+      let processingStatusChart = new Chart(processingStatusCtx, {
+        type: "pie",
+        options: {
+          responsive: true,
+          title: {
+            display: false,
+            text: ""
+          },
+          layout: {
+            padding: {
+              left: 0,
+              right: 0,
+              top: 0,
+              bottom: 25
+            }
+          }
+        }
+      });      
+    </script>
+  </div>
+</div>
+{% endblock %}
