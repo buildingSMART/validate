@@ -84,15 +84,15 @@ function unsafe_format(obj) {
       return (
         <div>
           <div>{ctx} {display_value}</div>
-          <div>at end of {dts.previous_segment}</div>
-          <ul>Coords: ({dts.preceding_end_point[0]}, {dts.preceding_end_point[1]})</ul>
+          <div>at end of {dts.segment_to_analyze}</div>
+          <ul>Coords: ({dts.current_end_point[0]}, {dts.current_end_point[1]})</ul>
           { directionLabel !== 'suppress' && (
-            <ul>{directionLabel}: {dts.preceding_end_direction}</ul>) }
+            <ul>{directionLabel}: {dts.current_end_direction}</ul>) }
           <br />
-          <div>and start of {dts.segment_to_analyze}</div>
-          <ul>Coords: ({dts.current_start_point[0]}, {dts.current_start_point[1]})</ul>
+          <div>and start of {dts.following_segment}</div>
+          <ul>Coords: ({dts.following_start_point[0]}, {dts.following_start_point[1]})</ul>
           { directionLabel !== 'suppress' && (
-          <ul>{directionLabel}: {dts.current_start_direction}</ul> )}
+          <ul>{directionLabel}: {dts.following_start_direction}</ul> )}
         </div>
       );
     } else {
