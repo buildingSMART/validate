@@ -46,17 +46,7 @@ def generate_color_palette(amount):
     return palette
 
 
-# REFACTOR REQUIRED
-def get_filter_options(request):
-    validation_requests = ValidationRequest.objects.all()
-    validation_requests = validation_requests.annotate(year=ExtractYear("created")).values("year").order_by("-year").distinct()
-    options = [val_request["year"] for val_request in validation_requests]
-
-    return JsonResponse({
-        "options": options,
-    })
-
-# REFACTOR REQUIRED
+@staff_member_required
 def get_filter_options(request):
     validation_requests = ValidationRequest.objects.all()
     validation_requests = validation_requests.annotate(year=ExtractYear("created")).values("year").order_by("-year").distinct()
@@ -69,7 +59,7 @@ def get_filter_options(request):
 
 @staff_member_required
 def get_requests_chart(request, year):
-    validation_requests = ValidationRequest.objects.filter(created__year=year)
+    validation_requests = ValidationRequest.objects.filter(created__year=year, status='COMPLETED')
     grouped = validation_requests.annotate(price=F("size")).annotate(month=ExtractMonth("created"))\
         .values("month").annotate(average=Count("size")).values("month", "average").order_by("month")
 
