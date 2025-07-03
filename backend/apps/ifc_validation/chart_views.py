@@ -21,8 +21,7 @@ months = [
     "November", 
     "December"
 ]
-colorPalette = ["#55efc4", "#81ecec", "#a29bfe", "#ffeaa7", "#fab1a0", "#ff7675", "#fd79a8"]
-colorPrimary, colorSuccess, colorDanger = "#79aec8", colorPalette[0], colorPalette[5]
+colorPrimary, colorSuccess, colorDanger = "#79aec8", "#55efc4", "#ff7675"
 
 def get_year_dict():
     year_dict = dict()
@@ -31,19 +30,6 @@ def get_year_dict():
         year_dict[month] = 0
 
     return year_dict
-
-
-def generate_color_palette(amount):
-    palette = []
-
-    i = 0
-    while i < len(colorPalette) and len(palette) < amount:
-        palette.append(colorPalette[i])
-        i += 1
-        if i == len(colorPalette) and len(palette) < amount:
-            i = 0
-
-    return palette
 
 
 @staff_member_required
@@ -59,24 +45,41 @@ def get_filter_options(request):
 
 @staff_member_required
 def get_requests_chart(request, year):
+
+    # successful validation requests
     validation_requests = ValidationRequest.objects.filter(created__year=year, status='COMPLETED')
     grouped = validation_requests.annotate(price=F("size")).annotate(month=ExtractMonth("created"))\
         .values("month").annotate(average=Count("size")).values("month", "average").order_by("month")
+    
+    # failed validation requests
+    failed_validation_requests = ValidationRequest.objects.filter(created__year=year, status='FAILED')
+    failed_grouped = failed_validation_requests.annotate(price=F("size")).annotate(month=ExtractMonth("created"))\
+        .values("month").annotate(average=Count("size")).values("month", "average").order_by("month")
 
-    sales_dict = get_year_dict()
+    val_req_dict = get_year_dict()
+    val_req_dict2 = get_year_dict()
 
     for group in grouped:
-        sales_dict[months[group["month"]-1]] = round(group["average"], 2)
+        val_req_dict[months[group["month"]-1]] = round(group["average"], 2)
+
+    for group in failed_grouped:
+        val_req_dict2[months[group["month"]-1]] = round(group["average"], 2)
 
     return JsonResponse({
         "title": f"Requests in {year}",
         "data": {
-            "labels": list(sales_dict.keys()),
+            "labels": list(val_req_dict.keys()),
             "datasets": [{
-                "label": "Count",
-                "backgroundColor": colorPrimary,
+                "label": "Success",
+                "backgroundColor": colorSuccess,
                 "borderColor": colorPrimary,
-                "data": list(sales_dict.values()),
+                "data": list(val_req_dict.values())
+            },
+            {
+                "label": "Failed",
+                "backgroundColor": colorDanger,
+                "borderColor": colorPrimary,
+                "data": list(val_req_dict2.values())
             }]
         },
     })
