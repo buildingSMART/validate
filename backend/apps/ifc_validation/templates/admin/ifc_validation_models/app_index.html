@@ -69,8 +69,8 @@
             chart.data.labels = [];
 
             // Load new data into the chart
-            chart.options.title.text = title;
-            chart.options.title.display = true;
+            chart.options.plugins.title.text = title;
+            chart.options.plugins.title.display = true;
             chart.data.labels = labels;
             datasets.forEach(dataset => {
               chart.data.datasets.push(dataset);
@@ -96,9 +96,11 @@
         type: "bar",
         options: {
           responsive: true,
-          title: {
-            display: false,
-            text: ""
+          plugins: {
+              title: {
+                display: false,
+                text: ''
+              }
           },
           scales: {
             x: {
@@ -115,9 +117,11 @@
         type: "line",
         options: {
           responsive: true,
-          title: {
-            display: false,
-            text: ""
+          plugins: {
+              title: {
+                display: false,
+                text: ''
+              }
           },
         }
       });
@@ -126,9 +130,11 @@
         type: "pie",
         options: {
           responsive: true,
-          title: {
-            display: false,
-            text: ""
+          plugins: {
+              title: {
+                display: false,
+                text: ''
+              }
           },
           layout: {
             padding: {
