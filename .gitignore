@@ -9,6 +9,7 @@
 redeploy.*
 .VERSION
 tmp*
+django_static
 
 ### VisualStudioCode ###
 .vscode/*
