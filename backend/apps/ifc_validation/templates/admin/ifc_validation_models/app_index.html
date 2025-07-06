@@ -84,11 +84,13 @@
       function loadAllCharts(year) {
         loadChart(requestsChart, `/api/chart/requests/${year}/`);
         loadChart(durationPerRequestChart, `/api/chart/duration-per-request/${year}/`);
+        loadChart(durationPerTaskChart, `/api/chart/duration-per-task/${year}/`);
         loadChart(processingStatusChart, `/api/chart/processing-status/${year}/`);
       }
     </script>
     <canvas id="requestsChart"></canvas>
     <canvas id="durationPerRequestChart"></canvas>
+    <canvas id="durationPerTaskChart"></canvas>
     <canvas id="processingStatusChart"></canvas>
     <script>
       let requestsCtx = document.getElementById("requestsChart").getContext("2d");
@@ -123,6 +125,27 @@
                 text: ''
               }
           },
+        }
+      });
+      let durationPerTaskCtx = document.getElementById("durationPerTaskChart").getContext("2d");
+      let durationPerTaskChart = new Chart(durationPerTaskCtx, {
+        type: "bar",
+        options: {
+          responsive: true,
+          plugins: {
+              title: {
+                display: false,
+                text: ''
+              }
+          },
+          scales: {
+            x: {
+              stacked: true,
+            },
+            y: {
+              stacked: true
+            }
+          }
         }
       });
       let processingStatusCtx = document.getElementById("processingStatusChart").getContext("2d");

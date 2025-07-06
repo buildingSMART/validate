@@ -9,6 +9,7 @@ from .chart_views import get_filter_options
 from .chart_views import get_requests_chart
 from .chart_views import get_duration_per_request_chart
 from .chart_views import get_processing_status_chart
+from .chart_views import get_duration_per_task_chart
 
 urlpatterns = [
 
@@ -26,5 +27,6 @@ urlpatterns = [
     path("chart/filter-options/", get_filter_options),
     path("chart/requests/<int:year>/", get_requests_chart),
     path("chart/duration-per-request/<int:year>/", get_duration_per_request_chart),
+    path("chart/duration-per-task/<int:year>/", get_duration_per_task_chart),
     path("chart/processing-status/<int:year>/", get_processing_status_chart),
 ]
