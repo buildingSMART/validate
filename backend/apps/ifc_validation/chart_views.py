@@ -1,8 +1,10 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
 from django.db.models import Count, F, Avg, When, Case, DurationField
-from django.db.models.functions import ExtractMonth, ExtractYear, Now
+from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek
 from django.http import JsonResponse
+import calendar
+import datetime
 
 from apps.ifc_validation_models.models import (
     ValidationRequest,
@@ -12,10 +14,25 @@ from apps.ifc_validation_models.models import (
     AuthoringTool,
 )
 
-months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-]
+months = list(calendar.month_name)[1:] 
+
+PERIODS = {
+    "month": {
+        "annotate": lambda qs: qs.annotate(period=ExtractMonth("created")),
+        "label":   lambda row: months[row["period"] - 1],         
+        "full_set": months,
+    },
+    "week": {
+        "annotate": lambda qs: qs.annotate(period=ExtractWeek("created")),
+        "label":   lambda row: f"W{int(row['period']):02d}",       # 1 → “W01”
+        "full_set": [f"W{w:02d}" for w in range(1, 54)], # W01 - W53
+    },
+    "day": {
+        "annotate": lambda qs: qs.annotate(period=TruncDate("created")),
+        "label":   lambda row: row["period"].strftime("%Y-%m-%d"),
+        "full_set": None,  
+    },
+}
 
 COLORS = {
     "primary": "#79aec8",
@@ -23,17 +40,23 @@ COLORS = {
     "danger": "#ff7675",
     "schema": "#25619e",
     "info": "#73d0d8",
+    "header": "#88888",
     "norm_ia": "#efe255",
     "norm_ip": "#ff9f43",
     "industry": "#d373d8",
     "prereq": "#b4acb4",
+    "digital_signatures": "#73d0d8",
     "inst_completion": "#e76565",
 }
 
 TASK_TYPES = {
     "SYNTAX": ("Syntax", COLORS["success"]),
+    "HEADER_SYNTAX": ("Syntax", COLORS["success"]),
+    "SYNTAX_HEADER": ("Syntax", COLORS["success"]),
     "SCHEMA": ("Schema", COLORS["schema"]),
     "INFO": ("Info", COLORS["info"]),
+    "HEADER": ("Header", COLORS["header"]),
+    "DIGITAL_SIGNATURES": ("Digital Signatures", COLORS["digital_signatures"]),
     "NORMATIVE_IA": ("Normative IA", COLORS["norm_ia"]),
     "NORMATIVE_IP": ("Normative IP", COLORS["norm_ip"]),
     "INDUSTRY": ("Industry", COLORS["industry"]),
@@ -44,10 +67,23 @@ TASK_TYPES = {
 SECONDS_PER_MINUTE = 60
 BYTES_PER_MB = 1024 * 1024
 
-
-def get_year_dict():
-    """Return a template dict with month names as keys and 0 as default value."""
-    return {m: 0 for m in months}
+def dict_for_period(period, year=None):
+    """
+    Return {label: 0} for every period slot so charts always get
+    12/53/N bars even if no data.
+    """
+    cfg = PERIODS[period]
+    if cfg["full_set"] is not None:          # month / week
+        return {lbl: 0 for lbl in cfg["full_set"]}
+    first = datetime.date(year, 1, 1)
+    last  = datetime.date(year, 12, 31)
+    delta = datetime.timedelta(days=1)
+    out = {}
+    d = first
+    while d <= last:
+        out[d.strftime("%Y-%m-%d")] = 0
+        d += delta
+    return out
 
 
 def chart_response(title, labels, datasets):
@@ -59,26 +95,28 @@ def chart_response(title, labels, datasets):
             "datasets": datasets,
         },
     })
+    
+def group_by_period(qs, period, agg_key, agg_expression):
+    cfg = PERIODS[period]
+    qs = cfg["annotate"](qs)
+    return (
+        qs.values("period")
+          .annotate(**{agg_key: agg_expression})
+          .order_by("period")
+    )
 
-
-def fill_monthly_dict(grouped_qs, key="value", transform=lambda x: x):
-    """Convert an aggregated queryset (with month + <key>) into a {month: value} dict."""
-    data = get_year_dict()
+def fill_period_dict(grouped_qs, period, year, key, transform=lambda x: x):
+    data = dict_for_period(period, year)
+    cfg = PERIODS[period]
     for row in grouped_qs:
-        month_name = months[row["month"] - 1]
-        val = transform(row[key]) if row[key] is not None else 0
-        data[month_name] = round(val, 2)
+        label = cfg["label"](row)
+        val   = transform(row[key]) if row[key] is not None else 0
+        data[label] = round(val, 2)
     return data
 
+def get_period(request):
+    return request.GET.get("period", "month").lower()
 
-def group_by_month(qs, agg_key, agg_expression):
-    """Annotate queryset with month & aggregate using *agg_expression* -> returns list of dicts."""
-    return (
-        qs.annotate(month=ExtractMonth("created"))
-          .values("month")
-          .annotate(**{agg_key: agg_expression})
-          .order_by("month")
-    )
 
 @staff_member_required
 def get_filter_options(request):
@@ -95,17 +133,19 @@ def get_filter_options(request):
 
 @staff_member_required
 def get_requests_chart(request, year):
+    period = get_period(request) 
     qs = ValidationRequest.objects.filter(created__year=year)
 
-    success = group_by_month(qs.filter(status="COMPLETED"), "count", Count("id"))
-    failed  = group_by_month(qs.filter(status="FAILED"),    "count", Count("id"))
+    success = group_by_period(qs.filter(status="COMPLETED"), period, "count", Count("id"))
+    failed  = group_by_period(qs.filter(status="FAILED"), period,"count", Count("id"))
 
-    success_dict = fill_monthly_dict(success, key="count")
-    failed_dict  = fill_monthly_dict(failed,  key="count")
+    
+    success_dict = fill_period_dict(success, period, year, key="count", transform=int)
+    failed_dict  = fill_period_dict(failed, period, year,  key="count", transform=int)
 
     return chart_response(
         title=f"Requests in {year}",
-        labels=months,
+        labels=list(success_dict.keys()),
         datasets=[
             {
                 "label": "Success",
@@ -133,16 +173,18 @@ def get_duration_per_request_chart(request, year):
         )
     )
 
-    grouped = group_by_month(qs, "avg_duration", Avg("_duration"))
-    minutes_dict = fill_monthly_dict(
+    grouped = group_by_period(qs, get_period(request), "avg_duration", Avg("_duration"))
+    minutes_dict = fill_period_dict(
         grouped,
+        get_period(request),
+        year,
         key="avg_duration",
         transform=lambda d: (d.total_seconds() / SECONDS_PER_MINUTE) if d else 0,
     )
 
     return chart_response(
         title=f"Duration per request in {year}",
-        labels=months,
+        labels=list(minutes_dict.keys()),
         datasets=[{
             "label": "Duration (avg, min)",
             "backgroundColor": COLORS["primary"],
@@ -154,6 +196,11 @@ def get_duration_per_request_chart(request, year):
 
 @staff_member_required
 def get_duration_per_task_chart(request, year):
+    """
+    Avg duration per task type, grouped by period (month/week/day).
+    """
+    period = get_period(request)
+
     qs = ValidationTask.objects.filter(created__year=year, status="COMPLETED").annotate(
         _duration=Case(
             When(ended__isnull=True, then=Now() - F("started")),
@@ -162,20 +209,23 @@ def get_duration_per_task_chart(request, year):
         )
     )
 
+    qs = PERIODS[period]["annotate"](qs)
+
     grouped = (
-        qs.annotate(month=ExtractMonth("created"))
-          .values("month", "type")
+        qs.values("period", "type")
           .annotate(avg_duration=Avg("_duration"))
-          .order_by("month", "type")
+          .order_by("period", "type")
     )
 
-    task_data = {t: get_year_dict() for t in TASK_TYPES}
+    task_data = {t: dict_for_period(period, year) for t in TASK_TYPES}
 
     for row in grouped:
         task_type = row["type"]
-        month_name = months[row["month"] - 1]
+        period_label = PERIODS[period]["label"](row)
         seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
-        task_data[task_type][month_name] = round(seconds, 2)
+        task_data[task_type][period_label] = round(seconds, 2)
+
+    labels = list(task_data[next(iter(task_data))].keys())  # labels from any type
 
     datasets = []
     for t, (label, color) in TASK_TYPES.items():
@@ -183,14 +233,15 @@ def get_duration_per_task_chart(request, year):
             "label": label,
             "backgroundColor": color,
             "borderColor": COLORS["primary"],
-            "data": list(task_data[t].values()),
+            "data": [task_data[t][lbl] for lbl in labels],
         })
 
     return chart_response(
         title=f"Tasks in {year}",
-        labels=months,
+        labels=labels,
         datasets=datasets,
     )
+
 
 
 @staff_member_required
@@ -214,16 +265,18 @@ def get_processing_status_chart(request, year):
 @staff_member_required
 def get_avg_size_chart(request, year):
     qs = ValidationRequest.objects.filter(created__year=year)
-    grouped = group_by_month(qs, "avg_size", Avg("size"))
-    size_dict = fill_monthly_dict(
+    grouped = group_by_period(qs, get_period(request), "avg_size", Avg("size"))
+    size_dict = fill_period_dict(
         grouped,
+        get_period(request),
+        year,
         key="avg_size",
         transform=lambda s: (s or 0) / BYTES_PER_MB,
     )
 
     return chart_response(
         title=f"Avg. Request Size in {year}",
-        labels=months,
+        labels=list(size_dict.keys()),
         datasets=[{
             "label": "Avg. Size (MB)",
             "backgroundColor": COLORS["primary"],
@@ -236,12 +289,12 @@ def get_avg_size_chart(request, year):
 @staff_member_required
 def get_user_registrations_chart(request, year):
     users_qs = UserAdditionalInfo.objects.filter(created__year=year)
-    grouped = group_by_month(users_qs, "registrations", Count("id"))
-    regs_dict = fill_monthly_dict(grouped, key="registrations", transform=int)
+    grouped = group_by_period(users_qs, get_period(request), "registrations", Count("id"))
+    regs_dict = fill_period_dict(grouped, get_period(request), year, key="registrations", transform=int)
 
     return chart_response(
         title=f"New user registrations in {year}",
-        labels=months,
+        labels=list(regs_dict.keys()),
         datasets=[{
             "label": "Registrations",
             "backgroundColor": COLORS["primary"],
@@ -260,86 +313,105 @@ def _vendor_flag_map(user_ids):
 
 @staff_member_required
 def get_usage_by_vendor_chart(request, year):
+    """
+    Distinct uploaders per period, split into end-users vs vendors.
+    """
+    period = get_period(request)                     
+
     qs = ValidationRequest.objects.filter(created__year=year)
 
-    total_dict   = get_year_dict()
-    vendor_dict  = get_year_dict()
-    enduser_dict = get_year_dict()
+    total_qs = group_by_period(
+        qs,
+        period,
+        "total",
+        Count("created_by", distinct=True),
+    )
 
-    for m in range(1, 13):
-        user_ids = qs.filter(created__month=m).values_list("created_by", flat=True).distinct()
-        total = user_ids.count()
+    vendor_qs = group_by_period(
+        qs.filter(created_by__useradditionalinfo__is_vendor=True),
+        period,
+        "vendors",
+        Count("created_by", distinct=True),
+    )
 
-        vendor_flags = _vendor_flag_map(user_ids)
-        vendors = sum(1 for uid in user_ids if vendor_flags.get(uid))
+    total_dict  = fill_period_dict(total_qs,  period, year, key="total",  transform=int)
+    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int)
 
-        label = months[m - 1]
-        total_dict[label]   = total
-        vendor_dict[label]  = vendors
-        enduser_dict[label] = total - vendors
+    enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0)
+                    for lbl in total_dict}
+
+    labels = list(total_dict.keys())
 
     return chart_response(
-        title=f"Uploaders (end‑users vs vendors) in {year}",
-        labels=months,
+        title=f"Uploaders (end-users vs vendors) in {year}",
+        labels=labels,
         datasets=[
             {
                 "label": "End users",
                 "backgroundColor": COLORS["primary"],
                 "borderColor": COLORS["primary"],
-                "data": list(enduser_dict.values()),
+                "data": [enduser_dict[lbl] for lbl in labels],
                 "stack": "stack1",
             },
             {
                 "label": "Vendors",
                 "backgroundColor": COLORS["success"],
                 "borderColor": COLORS["success"],
-                "data": list(vendor_dict.values()),
+                "data": [vendor_dict[lbl] for lbl in labels],
                 "stack": "stack1",
             },
         ],
     )
 
-
 @staff_member_required
 def get_models_by_vendor_chart(request, year):
-    models_qs = Model.objects.filter(created__year=year).annotate(
-        month=ExtractMonth("created"),
-        uploader_id=F("uploaded_by_id"),
+    """
+    Count models uploaded per period, split by vendor vs end-user.
+    """
+    period = get_period(request)
+
+    qs = Model.objects.filter(created__year=year).annotate(
+        uploader_id=F("uploaded_by_id")
     )
 
-    vendor_flags = _vendor_flag_map(models_qs.values_list("uploader_id", flat=True))
+    vendor_flags = _vendor_flag_map(
+        qs.values_list("uploader_id", flat=True).distinct()
+    )
 
-    vendor_counts  = get_year_dict()
-    enduser_counts = get_year_dict()
+    qs = PERIODS[period]["annotate"](qs)
 
-    for m in range(1, 13):
-        month_models = models_qs.filter(month=m)
-        v = e = 0
-        for mdl in month_models:
-            if vendor_flags.get(mdl.uploader_id):
-                v += 1
-            else:
-                e += 1
-        label = months[m - 1]
-        vendor_counts[label]  = v
-        enduser_counts[label] = e
+    grouped = qs.values("period", "uploader_id")
+
+    vendor_counts = dict_for_period(period, year)
+    enduser_counts = dict_for_period(period, year)
+
+    for row in grouped:
+        uid = row["uploader_id"]
+        period_label = PERIODS[period]["label"](row)
+
+        if vendor_flags.get(uid):
+            vendor_counts[period_label] += 1
+        else:
+            enduser_counts[period_label] += 1
+
+    labels = list(vendor_counts.keys())
 
     return chart_response(
-        title=f"Model uploads (vendors vs end‑users) in {year}",
-        labels=months,
+        title=f"Model uploads (vendors vs end-users) in {year}",
+        labels=labels,
         datasets=[
             {
                 "label": "End‑user models",
                 "backgroundColor": COLORS["primary"],
                 "borderColor": COLORS["primary"],
-                "data": list(enduser_counts.values()),
+                "data": [enduser_counts[lbl] for lbl in labels],
                 "stack": "stack1",
             },
             {
                 "label": "Vendor models",
                 "backgroundColor": COLORS["success"],
                 "borderColor": COLORS["success"],
-                "data": list(vendor_counts.values()),
+                "data": [vendor_counts[lbl] for lbl in labels],
                 "stack": "stack1",
             },
         ],
@@ -383,17 +455,20 @@ def get_tools_count_chart(request, year):
     models_qs = Model.objects.filter(created__year=year,
                                      produced_by__isnull=False)
 
-    grouped = group_by_month(models_qs,
+    grouped = group_by_period(models_qs,
+                            get_period(request),
                              "tools",
                              Count("produced_by", distinct=True))
 
-    tools_dict = fill_monthly_dict(grouped,
+    tools_dict = fill_period_dict(grouped,
+                                   get_period(request),
+                                   year,
                                    key="tools",
                                    transform=int)
 
     return chart_response(
         title=f"Distinct authoring tools observed in {year}",
-        labels=months,
+        labels=list(tools_dict.keys()),
         datasets=[{
             "label": "Tools",
             "backgroundColor": COLORS["info"],

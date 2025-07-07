@@ -32,6 +32,12 @@
       <label for="year">Choose a year:</label>
       <select name="year" id="year"></select>
       <input type="submit" value="Load" name="_load">
+      <label for="period">Granularity:</label>
+      <select id="period" name="period">
+        <option value="month" selected>Months</option>
+        <option value="week">Weeks</option>
+        <option value="day">Days</option>
+      </select>
     </form>
 
     <div id="totals" class="my-3"></div>
@@ -111,7 +117,13 @@
         }
 
         function loadAllCharts(year) {
-          chartDefs.forEach(def => loadChart(charts[def.id], `/api/chart/${def.endpoint}/${year}/`));
+          const period = $("#period").val();                    
+          chartDefs.forEach(def =>
+            loadChart(
+              charts[def.id],
+              `/api/chart/${def.endpoint}/${year}/?period=${period}`  
+            )
+          );
         }
 
         // ------------------------------------------------------------------
@@ -138,6 +150,9 @@
             e.preventDefault();
             loadAllCharts($("#year").val());
           });
+          $("#period").on("change", () => {
+            loadAllCharts($("#year").val());
+          });           
         });
 
       })(jQuery);
