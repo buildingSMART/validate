@@ -5,11 +5,8 @@ from .views import ValidationTaskListAPIView, ValidationTaskDetailAPIView
 from .views import ValidationOutcomeListAPIView, ValidationOutcomeDetailAPIView
 from .views import ModelListAPIView, ModelDetailAPIView
 
-from .chart_views import get_filter_options
-from .chart_views import get_requests_chart
-from .chart_views import get_duration_per_request_chart
-from .chart_views import get_processing_status_chart
-from .chart_views import get_duration_per_task_chart
+from . import chart_views as charts
+
 
 urlpatterns = [
 
@@ -24,9 +21,14 @@ urlpatterns = [
     path('model/<str:id>/',             ModelDetailAPIView.as_view()),
 
     # Django Admin charts
-    path("chart/filter-options/", get_filter_options),
-    path("chart/requests/<int:year>/", get_requests_chart),
-    path("chart/duration-per-request/<int:year>/", get_duration_per_request_chart),
-    path("chart/duration-per-task/<int:year>/", get_duration_per_task_chart),
-    path("chart/processing-status/<int:year>/", get_processing_status_chart),
+    path("chart/filter-options/", charts.get_filter_options),
+    path("chart/requests/<int:year>/", charts.get_requests_chart),
+    path("chart/duration-per-request/<int:year>/", charts.get_duration_per_request_chart),
+    path("chart/duration-per-task/<int:year>/", charts.get_duration_per_task_chart),
+    path("chart/processing-status/<int:year>/", charts.get_processing_status_chart),
+    path("chart/avg-size/<int:year>/", charts.get_avg_size_chart),
+    path("chart/user-registrations/<int:year>/", charts.get_user_registrations_chart),
+    path("chart/usage-by-vendor/<int:year>/", charts.get_usage_by_vendor_chart),
+    path("chart/models-by-vendor/<int:year>/", charts.get_models_by_vendor_chart),
+    path("chart/top-tools/<int:year>/", charts.get_top_tools_chart),
 ]

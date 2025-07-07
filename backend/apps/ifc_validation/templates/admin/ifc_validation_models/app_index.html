@@ -86,12 +86,22 @@
         loadChart(durationPerRequestChart, `/api/chart/duration-per-request/${year}/`);
         loadChart(durationPerTaskChart, `/api/chart/duration-per-task/${year}/`);
         loadChart(processingStatusChart, `/api/chart/processing-status/${year}/`);
+        loadChart(avgSizeChart, `/api/chart/avg-size/${year}/`);
+        loadChart(userRegistrationsChart,   `/api/chart/user-registrations/${year}/`);  
+        loadChart(usageByVendorChart,       `/api/chart/usage-by-vendor/${year}/`);
+        loadChart(modelsByVendorChart,      `/api/chart/models-by-vendor/${year}/`);
+        loadChart(topToolsChart,            `/api/chart/top-tools/${year}/`);           
       }
     </script>
     <canvas id="requestsChart"></canvas>
     <canvas id="durationPerRequestChart"></canvas>
     <canvas id="durationPerTaskChart"></canvas>
     <canvas id="processingStatusChart"></canvas>
+    <canvas id="avgSizeChart"></canvas>
+    <canvas id="userRegistrationsChart"></canvas>
+    <canvas id="usageByVendorChart"></canvas>
+    <canvas id="modelsByVendorChart"></canvas>
+    <canvas id="topToolsChart"></canvas>
     <script>
       let requestsCtx = document.getElementById("requestsChart").getContext("2d");
       let requestsChart = new Chart(requestsCtx, {
@@ -120,13 +130,22 @@
         options: {
           responsive: true,
           plugins: {
-              title: {
-                display: false,
-                text: ''
+            title: { display: false, text: "" },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.parsed.y} m`
               }
+            }
           },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { callback: v => v + " m" }  
+            }
+          }
         }
       });
+      
       let durationPerTaskCtx = document.getElementById("durationPerTaskChart").getContext("2d");
       let durationPerTaskChart = new Chart(durationPerTaskCtx, {
         type: "bar",
@@ -168,7 +187,116 @@
             }
           }
         }
-      });      
+      });
+      let avgSizeCtx = document.getElementById("avgSizeChart").getContext("2d");
+      let avgSizeChart = new Chart(avgSizeCtx, {
+        type: "line",
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: false,
+              text: ''
+            }
+          }
+        }
+      });
+      let userRegsCtx = document.getElementById("userRegistrationsChart").getContext("2d");
+      let userRegistrationsChart = new Chart(userRegsCtx, {
+        type: "bar",
+        options: {
+          responsive: true,
+          plugins: {
+            title: { display: false, text: "" },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}`
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                stepSize: 1,        
+                precision: 0        
+              }
+            }
+          }
+        }
+      });
+      let usageCtx = document
+      .getElementById("usageByVendorChart")
+      .getContext("2d");
+
+    let usageByVendorChart = new Chart(usageCtx, {
+      type: "bar",
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: false, text: "" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}`
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { stepSize: 1, precision: 0 }   
+          }
+        }
+      }
+    });
+    let modelsCtx = document.getElementById("modelsByVendorChart").getContext("2d");
+    let modelsByVendorChart = new Chart(modelsCtx, {
+      type: "bar",
+      options: {
+        responsive: true,
+        plugins: {
+          title: { display: false, text: "" },
+          tooltip: { callbacks: {
+            label: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}`
+          }}
+        },
+        scales: {
+          x: { stacked: true },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { stepSize: 1, precision: 0 }   
+          }
+        }
+      }
+    });
+    let topToolsCtx = document.getElementById("topToolsChart").getContext("2d");
+  let topToolsChart = new Chart(topToolsCtx, {
+    type: "bar",
+    options: {
+      indexAxis: "y",         
+      responsive: true,
+      plugins: {
+        title: { display: false, text: "" },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, precision: 0 }
+        },
+        y: {                     
+          ticks: { autoSkip: false }
+        }
+      }
+    }
+  });
     </script>
   </div>
 </div>

@@ -2,10 +2,11 @@
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, F, Sum, Avg, When, Case, DurationField
-from django.db.models.functions import ExtractYear, ExtractMonth, Now
+from django.contrib.auth.models import User        
+from django.db.models.functions import ExtractYear, ExtractMonth, Now, Coalesce, Concat
 from django.http import JsonResponse
 
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask
+from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, UserAdditionalInfo, Model, AuthoringTool
 
 months = [
     "January", 
@@ -88,20 +89,29 @@ def get_requests_chart(request, year):
 @staff_member_required
 def get_duration_per_request_chart(request, year):
     validation_requests = ValidationRequest.objects.filter(created__year=year)
-    validation_requests = validation_requests.annotate(_duration=Case(
-                When(completed__isnull=True, then=Now() - F('started')),
-                default=F('completed') - F('started'),
-                output_field=DurationField()
-            ))
-    grouped = validation_requests.annotate(month=ExtractMonth("created"))\
-        .values("month").annotate(average=Avg("_duration")).values("month", "average").order_by("month")
+    validation_requests = validation_requests.annotate(
+        _duration=Case(
+            When(completed__isnull=True, then=Now() - F("started")),
+            default=F("completed") - F("started"),
+            output_field=DurationField(),
+        ))
+        
+    grouped = (
+        validation_requests
+        .annotate(month=ExtractMonth("created"))
+        .values("month")
+        .annotate(average=Avg("_duration"))
+        .order_by("month")
+    )
 
     duration_per_request_dict = get_year_dict()
+    SECONDS_PER_MINUTE = 60
+
 
     for group in grouped:
         avg_duration = group["average"]
-        seconds = avg_duration.total_seconds() if avg_duration else 0
-        duration_per_request_dict[months[group["month"]-1]] = round(seconds, 2)
+        minutes = (avg_duration.total_seconds() / SECONDS_PER_MINUTE) if avg_duration else 0
+        duration_per_request_dict[months[group["month"]-1]] = round(minutes, 2)
 
     return JsonResponse({
         "title": f"Duration per request in {year}",
@@ -220,6 +230,235 @@ def get_processing_status_chart(request, year):
                     validation_requests.filter(status='COMPLETED').count(),
                     validation_requests.filter(status='FAILED').count(),
                 ],
+            }]
+        },
+    })
+
+
+@staff_member_required
+def get_avg_size_chart(request, year):
+    validation_requests = ValidationRequest.objects.filter(created__year=year)
+    grouped = (
+        validation_requests
+        .annotate(month=ExtractMonth("created"))
+        .values("month")
+        .annotate(avg_size=Avg("size"))     
+        .order_by("month")
+    )
+
+
+    size_dict = get_year_dict()
+    BYTES_PER_MB = 1024 * 1024
+    for group in grouped:
+        avg_size_mb = (group["avg_size"] or 0) / BYTES_PER_MB
+        size_dict[months[group["month"] - 1]] = round(avg_size_mb, 2) 
+
+    return JsonResponse({
+        "title": f"Avg. Request Size in {year}",
+        "data": {
+            "labels": list(size_dict.keys()),
+            "datasets": [{
+                "label": "Avg. Size (MB)",
+                "backgroundColor": colorPrimary,
+                "borderColor": colorPrimary,
+                "data": list(size_dict.values())
+            }]
+        },
+    })
+    
+@staff_member_required
+def get_user_registrations_chart(request, year):
+    """
+    Returns the number of new (first-time) users per month.
+    Uses the `created` timestamp of UserAdditionalInfo so that
+    only users who finished the registration flow are counted.
+    """
+    users_qs = UserAdditionalInfo.objects.filter(created__year=year)
+
+    grouped = (
+        users_qs
+        .annotate(month=ExtractMonth("created"))      
+        .values("month")
+        .annotate(registrations=Count("id"))
+        .order_by("month")
+    )
+
+    regs_dict = get_year_dict()                      
+    for group in grouped:
+        regs_dict[months[group["month"] - 1]] = int(group["registrations"] or 0)
+
+    return JsonResponse({
+        "title": f"New user registrations in {year}",
+        "data": {
+            "labels": list(regs_dict.keys()),
+            "datasets": [{
+                "label": "Registrations",
+                "backgroundColor": colorPrimary,
+                "borderColor": colorPrimary,
+                "data": list(regs_dict.values())
+            }]
+        },
+    })
+
+@staff_member_required
+def get_usage_by_vendor_chart(request, year):
+    """
+    Count unique users per month, split into vendor vs non-vendor.
+    Uses ValidationRequest.created_by as the 'uploader' field.
+    """
+
+    # all requests for this year
+    qs = ValidationRequest.objects.filter(created__year=year)
+
+    total_dict   = get_year_dict()   
+    vendor_dict  = get_year_dict()   
+    enduser_dict = get_year_dict() 
+
+    for month_num in range(1, 13):
+        # distinct user IDs that uploaded in this month
+        user_ids = (
+            qs.filter(created__month=month_num)
+              .values_list("created_by", flat=True)
+              .distinct()
+        )
+
+        total = user_ids.count()
+
+        # distinct vendor IDs among them
+        vendor_ids = (
+            UserAdditionalInfo.objects
+                .filter(user_id__in=user_ids, is_vendor=True)
+                .values_list("user_id", flat=True)
+                .distinct()
+        )
+        vendors = vendor_ids.count()
+
+        label = months[month_num - 1]
+        total_dict[label]   = int(total)
+        vendor_dict[label]  = int(vendors)
+        enduser_dict[label] = int(total - vendors)
+
+    return JsonResponse({
+        "title": f"Uploaders (end-users vs vendors) in {year}",
+        "data": {
+            "labels": list(total_dict.keys()),
+            "datasets": [
+                {
+                    "label": "End users",
+                    "backgroundColor": colorPrimary,
+                    "borderColor": colorPrimary,
+                    "data": list(enduser_dict.values()),
+                    "stack": "stack1",
+                },
+                {
+                    "label": "Vendors",
+                    "backgroundColor": colorSuccess,
+                    "borderColor": colorSuccess,
+                    "data": list(vendor_dict.values()),
+                    "stack": "stack1",
+                },
+            ],
+        },
+    })
+
+
+@staff_member_required
+def get_models_by_vendor_chart(request, year):
+    """
+    Count models uploaded per month, divided into vendor vs non-vendor.
+    Uses Model.created for the month, Model.uploaded_by for the user,
+    and UserAdditionalInfo.is_vendor to decide the bucket.
+    """
+
+    # All models created in the selected year
+    models_qs = Model.objects.filter(created__year=year).annotate(
+        month=ExtractMonth("created"),
+        uploader_id=F("uploaded_by_id"),
+    )
+
+    # pre-fetch vendor flags in one query
+    vendor_map = dict(
+        UserAdditionalInfo.objects.filter(user_id__in=models_qs.values_list("uploader_id", flat=True))
+        .values_list("user_id", "is_vendor")
+    )
+
+    vendor_counts  = get_year_dict()
+    enduser_counts = get_year_dict()
+
+    for m in range(1, 13):
+        month_models = models_qs.filter(month=m)
+
+        vendors = 0
+        endusers = 0
+        for mdl in month_models:
+            if vendor_map.get(mdl.uploader_id):
+                vendors += 1
+            else:
+                endusers += 1
+
+        label = months[m-1]
+        vendor_counts[label]  = vendors
+        enduser_counts[label] = endusers
+
+    return JsonResponse({
+        "title": f"Model uploads (vendors vs end-users) in {year}",
+        "data": {
+            "labels": list(vendor_counts.keys()),
+            "datasets": [
+                {
+                    "label": "End-user models",
+                    "backgroundColor": colorPrimary,
+                    "borderColor": colorPrimary,
+                    "data": list(enduser_counts.values()),
+                    "stack": "stack1",
+                },
+                {
+                    "label": "Vendor models",
+                    "backgroundColor": colorSuccess,
+                    "borderColor": colorSuccess,
+                    "data": list(vendor_counts.values()),
+                    "stack": "stack1",
+                },
+            ],
+        },
+    })
+
+@staff_member_required
+def get_top_tools_chart(request, year):
+    """
+    Returns the ten authoring tools that uploaded the most models in <year>.
+    """
+
+    # aggregate per tool ID
+    agg = (
+        Model.objects
+        .filter(created__year=year, produced_by__isnull=False)
+        .values("produced_by")                 # authoring-tool primary-key
+        .annotate(total=Count("id"))           # how many models
+        .order_by("-total")[:10]               # top 10
+    )
+
+    if not agg:
+        return JsonResponse({
+            "title": f"No uploads in {year}",
+            "data": {"labels": [], "datasets": []},
+        })
+
+    # 2. fetch names once 
+    tool_map = AuthoringTool.objects.in_bulk([row["produced_by"] for row in agg])
+
+    labels = [tool_map[row["produced_by"]].full_name for row in agg]
+    data   = [row["total"] for row in agg]
+
+    return JsonResponse({
+        "title": f"Top 10 authoring tools in {year}",
+        "data": {
+            "labels": labels,
+            "datasets": [{
+                "label": "Models uploaded",
+                "backgroundColor": colorPrimary,
+                "borderColor": colorPrimary,
+                "data": data,
             }]
         },
     })
