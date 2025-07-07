@@ -31,4 +31,6 @@ urlpatterns = [
     path("chart/usage-by-vendor/<int:year>/", charts.get_usage_by_vendor_chart),
     path("chart/models-by-vendor/<int:year>/", charts.get_models_by_vendor_chart),
     path("chart/top-tools/<int:year>/", charts.get_top_tools_chart),
+    path("chart/tools-count/<int:year>/", charts.get_tools_count_chart),
+    path("chart/totals/", charts.get_totals),
 ]

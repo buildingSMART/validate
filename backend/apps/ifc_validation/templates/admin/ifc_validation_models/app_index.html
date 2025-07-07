@@ -1,24 +1,27 @@
 {% extends "admin/index.html" %}
 {% load i18n %}
+
 {% block bodyclass %}{{ block.super }} app-{{ app_label }}{% endblock %}
+
 {% if not is_popup %}
-{% block breadcrumbs %}
-<div class="breadcrumbs">
-  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
-  &rsaquo;
-  {% for app in app_list %}
-  {{ app.name }}
-  {% endfor %}
-</div>
-{% endblock %}
+  {% block breadcrumbs %}
+    <div class="breadcrumbs">
+      <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a> &rsaquo;
+      {% for app in app_list %}
+        {{ app.name }}
+      {% endfor %}
+    </div>
+  {% endblock %}
 {% endif %}
 {% block content %}
 <div style="float: left">
   <div id="content-main">
     {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
   </div>
+
   <div id="content-statistics">
     <h1>Statistics</h1>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script
       src="https://code.jquery.com/jquery-3.7.1.min.js"
@@ -30,273 +33,114 @@
       <select name="year" id="year"></select>
       <input type="submit" value="Load" name="_load">
     </form>
+
+    <div id="totals" class="my-3"></div>
+
+    <div id="charts"></div>
+
     <script>
-      $(document).ready(function () {
-        $.ajax({
-          url: "/api/chart/filter-options/",
-          type: "GET",
-          dataType: "json",
-          success: (jsonResponse) => {
-            jsonResponse.options.forEach(option => {
-              $("#year").append(new Option(option, option));
+      (function ($) {
+        "use strict";
+
+        // ------------------------------------------------------------------
+        // CHARTS
+        // ------------------------------------------------------------------
+        const chartDefs = [
+          { id: "requestsChart",          type: "bar",  endpoint: "requests",               stacked: true },
+          { id: "durationPerRequestChart",type: "line", endpoint: "duration-per-request",   tooltip: ctx => `${ctx.parsed.y} m` },
+          { id: "durationPerTaskChart",   type: "bar",  endpoint: "duration-per-task",      stacked: true },
+          { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
+          { id: "avgSizeChart",           type: "line", endpoint: "avg-size" },
+          { id: "userRegistrationsChart", type: "bar",  endpoint: "user-registrations",     tooltip: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}` },
+          { id: "usageByVendorChart",     type: "bar",  endpoint: "usage-by-vendor",        stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
+          { id: "modelsByVendorChart",    type: "bar",  endpoint: "models-by-vendor",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
+          { id: "topToolsChart",          type: "bar",  endpoint: "top-tools",              horizontal: true, tooltip: ctx => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}` },
+          { id: "toolsCountChart",        type: "bar",  endpoint: "tools-count",            tooltip: ctx => `${ctx.parsed.y} tool${ctx.parsed.y === 1 ? "" : "s"}` }
+        ];
+
+        const charts = {}; // Chart instances keyed by id
+
+        // ------------------------------------------------------------------
+        // HELPERS
+        // ------------------------------------------------------------------
+        function createCanvases() {
+          const $container = $("#charts");
+          chartDefs.forEach(def => {
+            $("<canvas>", { id: def.id, class: "my-4" }).appendTo($container);
+          });
+        }
+
+        function buildOptions(def) {
+          const base = {
+            responsive: true,
+            plugins: { title: { display: false, text: "" } }
+          };
+
+          if (def.stacked) {
+            base.scales = { x: { stacked: true }, y: { stacked: true } };
+          }
+          if (def.horizontal) {
+            base.indexAxis = "y";
+          }
+          if (def.tooltip) {
+            base.plugins.tooltip = { callbacks: { label: def.tooltip } };
+          }
+          return base;
+        }
+
+        function initCharts() {
+          chartDefs.forEach(def => {
+            const ctx = document.getElementById(def.id).getContext("2d");
+            charts[def.id] = new Chart(ctx, {
+              type: def.type,
+              data: {},           // filled with backend API fetches
+              options: buildOptions(def)
             });
-            loadAllCharts($("#year").children().first().val());
-          },
-          error: () => console.log("Failed to fetch chart filter options!")
-        });
-      });
+          });
+        }
 
-      $("#filterForm").on("submit", (event) => {
-        event.preventDefault();
+        function loadChart(chart, endpoint) {
+          $.getJSON(endpoint)
+            .done(({ title, data }) => {
+              chart.data = data;
+              chart.options.plugins.title.text = title;
+              chart.options.plugins.title.display = true;
+              chart.update();
+            })
+            .fail(() => console.error("Failed to fetch chart data from " + endpoint));
+        }
 
-        const year = $("#year").val();
-        loadAllCharts(year)
-      });
+        function loadAllCharts(year) {
+          chartDefs.forEach(def => loadChart(charts[def.id], `/api/chart/${def.endpoint}/${year}/`));
+        }
 
-      function loadChart(chart, endpoint) {
-        $.ajax({
-          url: endpoint,
-          type: "GET",
-          dataType: "json",
-          success: (jsonResponse) => {
-            // Extract data from the response
-            const title = jsonResponse.title;
-            const labels = jsonResponse.data.labels;
-            const datasets = jsonResponse.data.datasets;
-
-            // Reset the current chart
-            chart.data.datasets = [];
-            chart.data.labels = [];
-
-            // Load new data into the chart
-            chart.options.plugins.title.text = title;
-            chart.options.plugins.title.display = true;
-            chart.data.labels = labels;
-            datasets.forEach(dataset => {
-              chart.data.datasets.push(dataset);
+        // ------------------------------------------------------------------
+        // BOOTSTRAP
+        // ------------------------------------------------------------------
+        $(function () {
+          // Populate year dropdown
+          $.getJSON("/api/chart/filter-options/", ({ options }) => {
+            const $year = $("#year");
+            options.forEach(opt => $year.append(new Option(opt, opt)));
+            $.getJSON("/api/chart/totals/", data => {
+              $("#totals").html(
+                `<strong>${data.users}</strong> users&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.files}</strong> files processed&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.tools}</strong> tools observed`
+              );
             });
-            chart.update();
-          },
-          error: () => console.log("Failed to fetch chart data from " + endpoint + "!")
+            createCanvases();   // 1. inject canvases
+            initCharts();       // 2. create empty Chart.js instances
+            loadAllCharts($year.children().first().val()); // 3. load first year
+          });
+
+          $("#filterForm").on("submit", e => {
+            e.preventDefault();
+            loadAllCharts($("#year").val());
+          });
         });
-      }
 
-      function loadAllCharts(year) {
-        loadChart(requestsChart, `/api/chart/requests/${year}/`);
-        loadChart(durationPerRequestChart, `/api/chart/duration-per-request/${year}/`);
-        loadChart(durationPerTaskChart, `/api/chart/duration-per-task/${year}/`);
-        loadChart(processingStatusChart, `/api/chart/processing-status/${year}/`);
-        loadChart(avgSizeChart, `/api/chart/avg-size/${year}/`);
-        loadChart(userRegistrationsChart,   `/api/chart/user-registrations/${year}/`);  
-        loadChart(usageByVendorChart,       `/api/chart/usage-by-vendor/${year}/`);
-        loadChart(modelsByVendorChart,      `/api/chart/models-by-vendor/${year}/`);
-        loadChart(topToolsChart,            `/api/chart/top-tools/${year}/`);           
-      }
-    </script>
-    <canvas id="requestsChart"></canvas>
-    <canvas id="durationPerRequestChart"></canvas>
-    <canvas id="durationPerTaskChart"></canvas>
-    <canvas id="processingStatusChart"></canvas>
-    <canvas id="avgSizeChart"></canvas>
-    <canvas id="userRegistrationsChart"></canvas>
-    <canvas id="usageByVendorChart"></canvas>
-    <canvas id="modelsByVendorChart"></canvas>
-    <canvas id="topToolsChart"></canvas>
-    <script>
-      let requestsCtx = document.getElementById("requestsChart").getContext("2d");
-      let requestsChart = new Chart(requestsCtx, {
-        type: "bar",
-        options: {
-          responsive: true,
-          plugins: {
-              title: {
-                display: false,
-                text: ''
-              }
-          },
-          scales: {
-            x: {
-              stacked: true,
-            },
-            y: {
-              stacked: true
-            }
-          }
-        }
-      });
-      let durationPerRequestCtx = document.getElementById("durationPerRequestChart").getContext("2d");
-      let durationPerRequestChart = new Chart(durationPerRequestCtx, {
-        type: "line",
-        options: {
-          responsive: true,
-          plugins: {
-            title: { display: false, text: "" },
-            tooltip: {
-              callbacks: {
-                label: ctx => `${ctx.parsed.y} m`
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: { callback: v => v + " m" }  
-            }
-          }
-        }
-      });
-      
-      let durationPerTaskCtx = document.getElementById("durationPerTaskChart").getContext("2d");
-      let durationPerTaskChart = new Chart(durationPerTaskCtx, {
-        type: "bar",
-        options: {
-          responsive: true,
-          plugins: {
-              title: {
-                display: false,
-                text: ''
-              }
-          },
-          scales: {
-            x: {
-              stacked: true,
-            },
-            y: {
-              stacked: true
-            }
-          }
-        }
-      });
-      let processingStatusCtx = document.getElementById("processingStatusChart").getContext("2d");
-      let processingStatusChart = new Chart(processingStatusCtx, {
-        type: "pie",
-        options: {
-          responsive: true,
-          plugins: {
-              title: {
-                display: false,
-                text: ''
-              }
-          },
-          layout: {
-            padding: {
-              left: 0,
-              right: 0,
-              top: 0,
-              bottom: 25
-            }
-          }
-        }
-      });
-      let avgSizeCtx = document.getElementById("avgSizeChart").getContext("2d");
-      let avgSizeChart = new Chart(avgSizeCtx, {
-        type: "line",
-        options: {
-          responsive: true,
-          plugins: {
-            title: {
-              display: false,
-              text: ''
-            }
-          }
-        }
-      });
-      let userRegsCtx = document.getElementById("userRegistrationsChart").getContext("2d");
-      let userRegistrationsChart = new Chart(userRegsCtx, {
-        type: "bar",
-        options: {
-          responsive: true,
-          plugins: {
-            title: { display: false, text: "" },
-            tooltip: {
-              callbacks: {
-                label: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}`
-              }
-            }
-          },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                stepSize: 1,        
-                precision: 0        
-              }
-            }
-          }
-        }
-      });
-      let usageCtx = document
-      .getElementById("usageByVendorChart")
-      .getContext("2d");
-
-    let usageByVendorChart = new Chart(usageCtx, {
-      type: "bar",
-      options: {
-        responsive: true,
-        plugins: {
-          title: { display: false, text: "" },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}`
-            }
-          }
-        },
-        scales: {
-          x: { stacked: true },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0 }   
-          }
-        }
-      }
-    });
-    let modelsCtx = document.getElementById("modelsByVendorChart").getContext("2d");
-    let modelsByVendorChart = new Chart(modelsCtx, {
-      type: "bar",
-      options: {
-        responsive: true,
-        plugins: {
-          title: { display: false, text: "" },
-          tooltip: { callbacks: {
-            label: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}`
-          }}
-        },
-        scales: {
-          x: { stacked: true },
-          y: {
-            stacked: true,
-            beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0 }   
-          }
-        }
-      }
-    });
-    let topToolsCtx = document.getElementById("topToolsChart").getContext("2d");
-  let topToolsChart = new Chart(topToolsCtx, {
-    type: "bar",
-    options: {
-      indexAxis: "y",         
-      responsive: true,
-      plugins: {
-        title: { display: false, text: "" },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}`
-          }
-        }
-      },
-      scales: {
-        x: {
-          beginAtZero: true,
-          ticks: { stepSize: 1, precision: 0 }
-        },
-        y: {                     
-          ticks: { autoSkip: false }
-        }
-      }
-    }
-  });
+      })(jQuery);
     </script>
   </div>
 </div>
