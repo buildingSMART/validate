@@ -38,6 +38,18 @@
         <option value="week">Weeks</option>
         <option value="day">Days</option>
       </select>
+      <span id="lookback" class="ml-2">
+        &nbsp;|&nbsp;
+        <label for="window" title="Show only the most recent N periods">Last</label>
+      
+        <input id="window" name="window"
+               type="number" min="1" step="1"
+               placeholder="N"
+               style="width:4rem;">
+      
+        <span id="window-unit">months</span>
+      </span>
+      
     </form>
 
     <div id="totals" class="my-3"></div>
@@ -74,6 +86,15 @@
           chartDefs.forEach(def => {
             $("<canvas>", { id: def.id, class: "my-4" }).appendTo($container);
           });
+        }
+
+        const $period  = $("#period");
+        const $window  = $("#window");
+        const $unitLbl = $("#window-unit");
+
+        function updateUnitLabel() {
+          const p = $period.val();          // month / week / day
+          $unitLbl.text(p === "week" ? "weeks" : p === "day" ? "days" : "months");
         }
 
         function buildOptions(def) {
@@ -117,13 +138,16 @@
         }
 
         function loadAllCharts(year) {
-          const period = $("#period").val();                    
-          chartDefs.forEach(def =>
-            loadChart(
-              charts[def.id],
-              `/api/chart/${def.endpoint}/${year}/?period=${period}`  
-            )
-          );
+          const period = $period.val();
+          const windowVal = $window.val();              
+        
+          chartDefs.forEach(def => {
+            let url = `/api/chart/${def.endpoint}/${year}/?period=${period}`;
+            if (windowVal) {                            // send only if entered N
+              url += `&window=${windowVal}`;
+            }
+            loadChart(charts[def.id], url);
+          });
         }
 
         // ------------------------------------------------------------------
@@ -143,6 +167,7 @@
             });
             createCanvases();   // 1. inject canvases
             initCharts();       // 2. create empty Chart.js instances
+            updateUnitLabel(); 
             loadAllCharts($year.children().first().val()); // 3. load first year
           });
 
@@ -152,7 +177,13 @@
           });
           $("#period").on("change", () => {
             loadAllCharts($("#year").val());
-          });           
+          });  
+          $period.on("change", () => {
+            updateUnitLabel();               
+            loadAllCharts($("#year").val());   
+          });
+          
+          $window.on("change", () => loadAllCharts($("#year").val()));         
         });
 
       })(jQuery);

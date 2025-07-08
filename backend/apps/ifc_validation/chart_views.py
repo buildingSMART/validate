@@ -67,23 +67,25 @@ TASK_TYPES = {
 SECONDS_PER_MINUTE = 60
 BYTES_PER_MB = 1024 * 1024
 
-def dict_for_period(period, year=None):
+def dict_for_period(period: str, year: int | None = None, window: int | None = None):
     """
-    Return {label: 0} for every period slot so charts always get
-    12/53/N bars even if no data.
+    Return a {label: 0, …} dict whose keys are either:
+
+    • The full fixed set (months / weeks / days in <year>)             – default
+    • OR the last <window> periods counted backwards from <today>      – when window given
     """
-    cfg = PERIODS[period]
-    if cfg["full_set"] is not None:          # month / week
+    if window:                                   # rolling window branch
+        return {lbl: 0 for lbl in _rolling_labels(period, window)}
+
+    cfg = PERIODS[period]                  
+    if cfg["full_set"] is not None:              # month / week
         return {lbl: 0 for lbl in cfg["full_set"]}
+
     first = datetime.date(year, 1, 1)
     last  = datetime.date(year, 12, 31)
     delta = datetime.timedelta(days=1)
-    out = {}
-    d = first
-    while d <= last:
-        out[d.strftime("%Y-%m-%d")] = 0
-        d += delta
-    return out
+    return { (first + i*delta).strftime("%Y-%m-%d"): 0
+             for i in range((last - first).days + 1) }
 
 
 def chart_response(title, labels, datasets):
@@ -105,17 +107,55 @@ def group_by_period(qs, period, agg_key, agg_expression):
           .order_by("period")
     )
 
-def fill_period_dict(grouped_qs, period, year, key, transform=lambda x: x):
-    data = dict_for_period(period, year)
-    cfg = PERIODS[period]
+def fill_period_dict(grouped_qs, period, year, *, key, transform=lambda x: x, window=None):
+    data = dict_for_period(period, year=year, window=window)   
+    cfg  = PERIODS[period]
+
     for row in grouped_qs:
         label = cfg["label"](row)
-        val   = transform(row[key]) if row[key] is not None else 0
-        data[label] = round(val, 2)
+        value = transform(row[key]) if row[key] is not None else 0
+        if label in data:                                      
+            data[label] = round(value, 2)
     return data
 
 def get_period(request):
     return request.GET.get("period", "month").lower()
+
+def get_window(request) -> int | None:
+    try:
+        w = int(request.GET.get("window", ""))
+        return w if w > 0 else None
+    except ValueError:
+        return None
+
+
+def _rolling_labels(period: str, window: int, today: datetime.date | None = None):
+    """
+    Build a chronologically ordered list of labels for the last <window> periods
+    ending at <today> (date.today()).
+    """
+    today = today or datetime.date.today()
+
+    if period == "day":
+        return [
+            (today - datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+            for i in range(window - 1, -1, -1)
+        ]
+
+    if period == "week":
+        week_start = today - datetime.timedelta(days=today.weekday())
+        labels = []
+        for _ in range(window):
+            _, iso_week, _ = week_start.isocalendar()         
+            labels.insert(0, f"W{iso_week:02d}")
+            week_start -= datetime.timedelta(weeks=1)
+        return labels
+    month_cursor = today.replace(day=1) 
+    labels = []
+    for _ in range(window):
+        labels.insert(0, months[month_cursor.month - 1])
+        month_cursor = (month_cursor - datetime.timedelta(days=1)).replace(day=1)
+    return labels
 
 
 @staff_member_required
@@ -140,8 +180,8 @@ def get_requests_chart(request, year):
     failed  = group_by_period(qs.filter(status="FAILED"), period,"count", Count("id"))
 
     
-    success_dict = fill_period_dict(success, period, year, key="count", transform=int)
-    failed_dict  = fill_period_dict(failed, period, year,  key="count", transform=int)
+    success_dict = fill_period_dict(success, period, year, key="count", transform=int, window=get_window(request))
+    failed_dict  = fill_period_dict(failed, period, year,  key="count", transform=int, window=get_window(request))
 
     return chart_response(
         title=f"Requests in {year}",
@@ -180,6 +220,7 @@ def get_duration_per_request_chart(request, year):
         year,
         key="avg_duration",
         transform=lambda d: (d.total_seconds() / SECONDS_PER_MINUTE) if d else 0,
+        window=get_window(request)
     )
 
     return chart_response(
@@ -272,6 +313,7 @@ def get_avg_size_chart(request, year):
         year,
         key="avg_size",
         transform=lambda s: (s or 0) / BYTES_PER_MB,
+        window=get_window(request)
     )
 
     return chart_response(
@@ -290,7 +332,7 @@ def get_avg_size_chart(request, year):
 def get_user_registrations_chart(request, year):
     users_qs = UserAdditionalInfo.objects.filter(created__year=year)
     grouped = group_by_period(users_qs, get_period(request), "registrations", Count("id"))
-    regs_dict = fill_period_dict(grouped, get_period(request), year, key="registrations", transform=int)
+    regs_dict = fill_period_dict(grouped, get_period(request), year, key="registrations", transform=int, window=get_window(request))
 
     return chart_response(
         title=f"New user registrations in {year}",
@@ -334,8 +376,8 @@ def get_usage_by_vendor_chart(request, year):
         Count("created_by", distinct=True),
     )
 
-    total_dict  = fill_period_dict(total_qs,  period, year, key="total",  transform=int)
-    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int)
+    total_dict  = fill_period_dict(total_qs,  period, year, key="total",  transform=int, window=get_window(request))
+    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int, window=get_window(request))
 
     enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0)
                     for lbl in total_dict}
@@ -464,7 +506,8 @@ def get_tools_count_chart(request, year):
                                    get_period(request),
                                    year,
                                    key="tools",
-                                   transform=int)
+                                   transform=int, 
+                                   window=get_window(request))
 
     return chart_response(
         title=f"Distinct authoring tools observed in {year}",
