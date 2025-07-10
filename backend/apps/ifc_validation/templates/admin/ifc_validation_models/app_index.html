@@ -29,14 +29,17 @@
       crossorigin="anonymous">
     </script>
     <form id="filterForm">
-      <label for="year">Choose a year:</label>
-      <select name="year" id="year"></select>
+      <span id="year-wrapper">
+        <label for="year">Choose a year:</label>
+        <select name="year" id="year"></select>
+      </span>
       <input type="submit" value="Load" name="_load">
       <label for="period">Granularity:</label>
       <select id="period" name="period">
         <option value="month" selected>Months</option>
         <option value="week">Weeks</option>
         <option value="day">Days</option>
+        <option value="total">Total</option>
       </select>
       <span id="lookback" class="ml-2">
         &nbsp;|&nbsp;
@@ -93,10 +96,16 @@
         const $unitLbl = $("#window-unit");
 
         function updateUnitLabel() {
-          const p = $period.val();          // month / week / day
-          $unitLbl.text(p === "week" ? "weeks" : p === "day" ? "days" : "months");
+          const p = $period.val();
+          if (p === "total") {
+            $("#lookback").hide();
+            $("#year-wrapper").hide();
+          } else {
+            $("#lookback").show();
+            $("#year-wrapper").show();
+            $unitLbl.text(p === "week" ? "weeks" : p === "day" ? "days" : "months");
+          }
         }
-
         function buildOptions(def) {
           const base = {
             responsive: true,

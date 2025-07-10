@@ -177,15 +177,33 @@ def get_filter_options(request):
 
 @staff_member_required
 def get_requests_chart(request, year):
-    period = get_period(request) 
+    period = get_period(request)
+    window = get_window(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.all()
+
+        success_count = qs.filter(status="COMPLETED").count()
+        failed_count  = qs.filter(status="FAILED").count()
+
+        return chart_response(
+            title="Total requests (all years)",
+            labels=["Success", "Failed"],
+            datasets=[{
+                "label": "Requests",
+                "backgroundColor": [COLORS["success"], COLORS["danger"]],
+                "borderColor": [COLORS["success"], COLORS["danger"]],
+                "data": [success_count, failed_count],
+            }]
+        )
+
     qs = ValidationRequest.objects.filter(created__year=year)
 
-    success = group_by_period(qs.filter(status="COMPLETED"), period, "count", Count("id"))
-    failed  = group_by_period(qs.filter(status="FAILED"), period,"count", Count("id"))
+    success_qs = group_by_period(qs.filter(status="COMPLETED"), period, "count", Count("id"))
+    failed_qs  = group_by_period(qs.filter(status="FAILED"), period, "count", Count("id"))
 
-    
-    success_dict = fill_period_dict(success, period, year, key="count", transform=int, window=get_window(request))
-    failed_dict  = fill_period_dict(failed, period, year,  key="count", transform=int, window=get_window(request))
+    success_dict = fill_period_dict(success_qs, period, year, key="count", transform=int, window=window)
+    failed_dict  = fill_period_dict(failed_qs,  period, year, key="count", transform=int, window=window)
 
     return chart_response(
         title=f"Requests in {year}",
@@ -209,6 +227,32 @@ def get_requests_chart(request, year):
 
 @staff_member_required
 def get_duration_per_request_chart(request, year):
+    'Total average request duration'
+    period = get_period(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.annotate(
+            _duration=Case(
+                When(completed__isnull=True, then=Now() - F("started")),
+                default=F("completed") - F("started"),
+                output_field=DurationField(),
+            )
+        )
+
+        avg_duration = qs.aggregate(avg_duration=Avg("_duration"))["avg_duration"]
+        minutes = (avg_duration.total_seconds() / SECONDS_PER_MINUTE) if avg_duration else 0
+
+        return chart_response(
+            title="Avg. duration per request (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Avg Duration (min)",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [round(minutes, 2)],
+            }]
+        )
+
     qs = ValidationRequest.objects.filter(created__year=year).annotate(
         _duration=Case(
             When(completed__isnull=True, then=Now() - F("started")),
@@ -217,10 +261,10 @@ def get_duration_per_request_chart(request, year):
         )
     )
 
-    grouped = group_by_period(qs, get_period(request), "avg_duration", Avg("_duration"))
+    grouped = group_by_period(qs, period, "avg_duration", Avg("_duration"))
     minutes_dict = fill_period_dict(
         grouped,
-        get_period(request),
+        period,
         year,
         key="avg_duration",
         transform=lambda d: (d.total_seconds() / SECONDS_PER_MINUTE) if d else 0,
@@ -231,7 +275,7 @@ def get_duration_per_request_chart(request, year):
         title=f"Duration per request in {year}",
         labels=list(minutes_dict.keys()),
         datasets=[{
-            "label": "Duration (avg, min)",
+            "label": "Avg Duration (min)",
             "backgroundColor": COLORS["primary"],
             "borderColor": COLORS["primary"],
             "data": list(minutes_dict.values()),
@@ -242,17 +286,53 @@ def get_duration_per_request_chart(request, year):
 @staff_member_required
 def get_duration_per_task_chart(request, year):
     """
-    Avg duration per task type, grouped by period (month/week/day).
+    Avg duration per task type, grouped by period or aggregated as 'total'.
+
     """
     period = get_period(request)
 
-    qs = ValidationTask.objects.filter(created__year=year, status="COMPLETED").annotate(
+    qs = ValidationTask.objects.filter(status="COMPLETED")
+
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    qs = qs.annotate(
         _duration=Case(
             When(ended__isnull=True, then=Now() - F("started")),
             default=F("ended") - F("started"),
             output_field=DurationField(),
         )
     )
+
+    if period == "total":
+        grouped = (
+            qs.values("type")
+              .annotate(avg_duration=Avg("_duration"))
+              .order_by("type")
+        )
+
+        datasets = []
+        labels = ["Total"]
+        for row in grouped:
+            original_type = row["type"]
+            task_type = SYNTAX_TASK_TYPES.get(original_type, original_type)
+
+            if task_type not in TASK_TYPES:
+                continue
+
+            seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
+            datasets.append({
+                "label": TASK_TYPES[task_type][0],
+                "backgroundColor": TASK_TYPES[task_type][1],
+                "borderColor": COLORS["primary"],
+                "data": [round(seconds, 2)],
+            })
+
+        return chart_response(
+            title="Avg Task Duration (Total)",
+            labels=labels,
+            datasets=datasets,
+        )
 
     qs = PERIODS[period]["annotate"](qs)
 
@@ -261,7 +341,7 @@ def get_duration_per_task_chart(request, year):
           .annotate(avg_duration=Avg("_duration"))
           .order_by("period", "type")
     )
-    
+
     task_data = {}
 
     for row in grouped:
@@ -300,12 +380,20 @@ def get_duration_per_task_chart(request, year):
 
 @staff_member_required
 def get_processing_status_chart(request, year):
-    qs = ValidationRequest.objects.filter(created__year=year)
+    period = get_period(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.all()
+        title = "Processing success rate (Total)"
+    else:
+        qs = ValidationRequest.objects.filter(created__year=year)
+        title = f"Processing success rate in {year}"
+
     completed = qs.filter(status="COMPLETED").count()
     failed    = qs.filter(status="FAILED").count()
 
     return chart_response(
-        title=f"Processing success rate in {year}",
+        title=title,
         labels=["Completed", "Failed"],
         datasets=[{
             "label": "Status",
@@ -318,11 +406,28 @@ def get_processing_status_chart(request, year):
 
 @staff_member_required
 def get_avg_size_chart(request, year):
+    period = get_period(request)
+
+    if period == "total":
+        avg_size = ValidationRequest.objects.aggregate(avg_size=Avg("size"))["avg_size"]
+        size_mb = (avg_size or 0) / BYTES_PER_MB
+
+        return chart_response(
+            title="Avg. Request Size (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Avg. Size (MB)",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [round(size_mb, 2)],
+            }],
+        )
+
     qs = ValidationRequest.objects.filter(created__year=year)
-    grouped = group_by_period(qs, get_period(request), "avg_size", Avg("size"))
+    grouped = group_by_period(qs, period, "avg_size", Avg("size"))
     size_dict = fill_period_dict(
         grouped,
-        get_period(request),
+        period,
         year,
         key="avg_size",
         transform=lambda s: (s or 0) / BYTES_PER_MB,
@@ -343,9 +448,32 @@ def get_avg_size_chart(request, year):
 
 @staff_member_required
 def get_user_registrations_chart(request, year):
+    period = get_period(request)
+
+    if period == "total":
+        total = UserAdditionalInfo.objects.count()
+
+        return chart_response(
+            title="User Registrations (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Registrations",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [total],
+            }],
+        )
+
     users_qs = UserAdditionalInfo.objects.filter(created__year=year)
-    grouped = group_by_period(users_qs, get_period(request), "registrations", Count("id"))
-    regs_dict = fill_period_dict(grouped, get_period(request), year, key="registrations", transform=int, window=get_window(request))
+    grouped = group_by_period(users_qs, period, "registrations", Count("id"))
+    regs_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="registrations",
+        transform=int,
+        window=get_window(request)
+    )
 
     return chart_response(
         title=f"New user registrations in {year}",
@@ -371,7 +499,26 @@ def get_usage_by_vendor_chart(request, year):
     """
     Distinct uploaders per period, split into end-users vs vendors.
     """
-    period = get_period(request)                     
+    period = get_period(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.all()
+        total_uploaders = qs.values("created_by").distinct().count()
+        vendor_uploaders = qs.filter(
+            created_by__useradditionalinfo__is_vendor=True
+        ).values("created_by").distinct().count()
+        enduser_uploaders = total_uploaders - vendor_uploaders
+
+        return chart_response(
+            title="Uploaders (vendors vs end-users, Total)",
+            labels=["End users", "Vendors"],
+            datasets=[{
+                "label": "Uploaders",
+                "backgroundColor": [COLORS["primary"], COLORS["success"]],
+                "borderColor": [COLORS["primary"], COLORS["success"]],
+                "data": [enduser_uploaders, vendor_uploaders],
+            }]
+        )
 
     qs = ValidationRequest.objects.filter(created__year=year)
 
@@ -389,12 +536,10 @@ def get_usage_by_vendor_chart(request, year):
         Count("created_by", distinct=True),
     )
 
-    total_dict  = fill_period_dict(total_qs,  period, year, key="total",  transform=int, window=get_window(request))
+    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=get_window(request))
     vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int, window=get_window(request))
 
-    enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0)
-                    for lbl in total_dict}
-
+    enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0) for lbl in total_dict}
     labels = list(total_dict.keys())
 
     return chart_response(
@@ -424,6 +569,31 @@ def get_models_by_vendor_chart(request, year):
     Count models uploaded per period, split by vendor vs end-user.
     """
     period = get_period(request)
+
+    if period == "total":
+        qs = Model.objects.all()
+        uploader_ids = qs.values_list("uploaded_by_id", flat=True).distinct()
+        vendor_flags = _vendor_flag_map(uploader_ids)
+
+        vendor_count = 0
+        enduser_count = 0
+
+        for uid in uploader_ids:
+            if vendor_flags.get(uid):
+                vendor_count += qs.filter(uploaded_by_id=uid).count()
+            else:
+                enduser_count += qs.filter(uploaded_by_id=uid).count()
+
+        return chart_response(
+            title="Model uploads (vendors vs end-users, Total)",
+            labels=["End‑user models", "Vendor models"],
+            datasets=[{
+                "label": "Model uploads",
+                "backgroundColor": [COLORS["primary"], COLORS["success"]],
+                "borderColor": [COLORS["primary"], COLORS["success"]],
+                "data": [enduser_count, vendor_count],
+            }]
+        )
 
     qs = Model.objects.filter(created__year=year).annotate(
         uploader_id=F("uploaded_by_id")
@@ -475,23 +645,29 @@ def get_models_by_vendor_chart(request, year):
 
 @staff_member_required
 def get_top_tools_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(produced_by__isnull=False)
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
     agg = (
-        Model.objects
-        .filter(created__year=year, produced_by__isnull=False)
-        .values("produced_by")
-        .annotate(total=Count("id"))
-        .order_by("-total")[:10]
+        qs.values("produced_by")
+          .annotate(total=Count("id"))
+          .order_by("-total")[:10]
     )
 
     if not agg:
-        return chart_response(f"No uploads in {year}", [], [])
+        title = f"No uploads in {year}" if period != "total" else "No uploads (Total)"
+        return chart_response(title, [], [])
 
     tool_map = AuthoringTool.objects.in_bulk([row["produced_by"] for row in agg])
     labels = [tool_map[row["produced_by"]].full_name for row in agg]
     data   = [row["total"] for row in agg]
 
+    title = f"Top 10 authoring tools in {year}" if period != "total" else "Top 10 authoring tools (Total)"
     return chart_response(
-        title=f"Top 10 authoring tools in {year}",
+        title=title,
         labels=labels,
         datasets=[{
             "label": "Models uploaded",
@@ -500,27 +676,47 @@ def get_top_tools_chart(request, year):
             "data": data,
         }],
     )
-    
+
     
 @staff_member_required
 def get_tools_count_chart(request, year):
     """
-    Distinct authoring tools observed per month (Model.produced_by).
+    Distinct authoring tools observed per ... (Model.produced_by).
     """
-    models_qs = Model.objects.filter(created__year=year,
-                                     produced_by__isnull=False)
+    period = get_period(request)
 
-    grouped = group_by_period(models_qs,
-                            get_period(request),
-                             "tools",
-                             Count("produced_by", distinct=True))
+    models_qs = Model.objects.filter(produced_by__isnull=False)
 
-    tools_dict = fill_period_dict(grouped,
-                                   get_period(request),
-                                   year,
-                                   key="tools",
-                                   transform=int, 
-                                   window=get_window(request))
+    if period == "total":
+        distinct_count = models_qs.values("produced_by").distinct().count()
+        return chart_response(
+            title="Distinct authoring tools observed (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Tools",
+                "backgroundColor": COLORS["info"],
+                "borderColor": COLORS["info"],
+                "data": [distinct_count],
+            }],
+        )
+
+    models_qs = models_qs.filter(created__year=year)
+
+    grouped = group_by_period(
+        models_qs,
+        period,
+        "tools",
+        Count("produced_by", distinct=True)
+    )
+
+    tools_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="tools",
+        transform=int,
+        window=get_window(request)
+    )
 
     return chart_response(
         title=f"Distinct authoring tools observed in {year}",
@@ -532,6 +728,7 @@ def get_tools_count_chart(request, year):
             "data": list(tools_dict.values()),
         }],
     )
+
 
 
 @staff_member_required
