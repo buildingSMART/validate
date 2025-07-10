@@ -49,10 +49,14 @@ COLORS = {
     "inst_completion": "#e76565",
 }
 
+SYNTAX_TASK_TYPES = {
+    "SYNTAX_HEADER": "SYNTAX",
+    "HEADER_SYNTAX": "SYNTAX",
+}
+
+
 TASK_TYPES = {
     "SYNTAX": ("Syntax", COLORS["success"]),
-    "HEADER_SYNTAX": ("Syntax", COLORS["success"]),
-    "SYNTAX_HEADER": ("Syntax", COLORS["success"]),
     "SCHEMA": ("Schema", COLORS["schema"]),
     "INFO": ("Info", COLORS["info"]),
     "HEADER": ("Header", COLORS["header"]),
@@ -257,25 +261,34 @@ def get_duration_per_task_chart(request, year):
           .annotate(avg_duration=Avg("_duration"))
           .order_by("period", "type")
     )
-
-    task_data = {t: dict_for_period(period, year) for t in TASK_TYPES}
+    
+    task_data = {}
 
     for row in grouped:
-        task_type = row["type"]
+        original_type = row["type"]
+        task_type = SYNTAX_TASK_TYPES.get(original_type, original_type)
+
+        if task_type not in TASK_TYPES:
+            continue
+
+        if task_type not in task_data:
+            task_data[task_type] = dict_for_period(period, year)
+
         period_label = PERIODS[period]["label"](row)
         seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
-        task_data[task_type][period_label] = round(seconds, 2)
+        task_data[task_type][period_label] += round(seconds, 2)
 
     labels = list(task_data[next(iter(task_data))].keys())  # labels from any type
 
-    datasets = []
-    for t, (label, color) in TASK_TYPES.items():
-        datasets.append({
-            "label": label,
-            "backgroundColor": color,
-            "borderColor": COLORS["primary"],
-            "data": [task_data[t][lbl] for lbl in labels],
-        })
+    datasets = [
+    {
+        "label": TASK_TYPES[t][0],
+        "backgroundColor": TASK_TYPES[t][1],
+        "borderColor": COLORS["primary"],
+        "data": [task_data[t][lbl] for lbl in labels],
+    }
+    for t in task_data 
+]
 
     return chart_response(
         title=f"Duration per Task in {year}",
