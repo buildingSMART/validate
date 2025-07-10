@@ -147,7 +147,14 @@ def get_feature_description(feature_code):
     return None
 
 
-def status_combine(*args):
+def status_combine(*args, allow_not_executed=False):
+    # status_header_syntax was introduced later and default initialized to `n`,
+    # which has higher severity order in this logic than valid (`v`), we don't
+    # want it to override the status for pre-existing data that never executed
+    # this check.
+    if allow_not_executed and not set(args) == {'n'}:
+        args = [a for a in args if a != 'n']
+
     statuses = "-pvnwi"
     return statuses[max(map(statuses.index, args))]
 
@@ -172,7 +179,8 @@ def format_request(request):
         "mvd": '-' if (request.model is None or request.model.mvd is None) else request.model.mvd, # TODO - formatting is actually a UI concern...
         "status_syntax": status_combine(
             "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
-            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax,
+            allow_not_executed=True
         ),
         "status_schema": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
