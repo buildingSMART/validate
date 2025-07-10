@@ -278,7 +278,7 @@ def get_duration_per_task_chart(request, year):
         })
 
     return chart_response(
-        title=f"Tasks in {year}",
+        title=f"Duration per Task in {year}",
         labels=labels,
         datasets=datasets,
     )
