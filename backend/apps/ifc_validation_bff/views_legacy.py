@@ -598,7 +598,7 @@ def report(request, id: str):
     signatures = []
     if report_type == "file":
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.DIGITAL_SIGNATURES).last()
-        signatures = [t.observed for t in task.outcomes.iterator()]
+        signatures = [t.observed for t in task.outcomes.iterator()] if task else None
         
     response_data = {
         'instances': instances,
