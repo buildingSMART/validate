@@ -21,6 +21,21 @@
 
   <div id="content-statistics">
     <h1>Statistics</h1>
+    <style>
+      .kpi-tile {
+        padding: 1rem;
+        background: #333;
+        color: #fff;
+        border-radius: 8px;
+        text-align: center;
+        width: 250px;
+        margin: 1rem auto;
+      }
+      .kpi-tile p {
+        font-size: 2rem;
+        margin: 0.5rem 0 0;
+      }
+    </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
     <script
@@ -86,6 +101,7 @@
         // ------------------------------------------------------------------
         function createCanvases() {
           const $container = $("#charts");
+          $container.empty(); 
           chartDefs.forEach(def => {
             $("<canvas>", { id: def.id, class: "my-4" }).appendTo($container);
           });
@@ -125,6 +141,7 @@
         }
 
         function initCharts() {
+          Object.keys(charts).forEach(id => delete charts[id]); 
           chartDefs.forEach(def => {
             const ctx = document.getElementById(def.id).getContext("2d");
             charts[def.id] = new Chart(ctx, {
@@ -135,9 +152,68 @@
           });
         }
 
-        function loadChart(chart, endpoint) {
+        function showTile(def, title, contentHTML) {
+          $("#" + def.id).replaceWith(`
+            <div class="kpi-tile" id="${def.id}">
+              <h3>${title}</h3>
+              ${contentHTML}
+            </div>
+          `);
+        }
+
+        function loadChart(chart, endpoint, def) {
           $.getJSON(endpoint)
             .done(({ title, data }) => {
+              const isTotal = $period.val() === "total";
+
+              if (def.id === "durationPerRequestChart" && isTotal) {
+                showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
+                return;
+              }
+
+              if (def.id === "avgSizeChart" && isTotal) {
+                showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
+                return;
+              }
+
+              if (def.id === "userRegistrationsChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const total = data.datasets[0].data[0];
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${total} user${total === 1 ? "" : "s"}</strong></p>
+                  </div>
+                `);
+                return;
+              }
+
+
+              if (def.id === "usageByVendorChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const [endUsers, vendors] = data.datasets[0].data;
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${endUsers}</strong> end-users<br><strong>${vendors}</strong> vendors</p>
+                  </div>
+                `);
+                return;
+              }
+
+              if (def.id === "toolsCountChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const total = data.datasets[0].data[0];
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${total} tool${total === 1 ? "" : "s"}</strong></p>
+                  </div>
+                `);
+                return;
+              }
+              
+        
               chart.data = data;
               chart.options.plugins.title.text = title;
               chart.options.plugins.title.display = true;
@@ -155,7 +231,7 @@
             if (windowVal) {                            // send only if entered N
               url += `&window=${windowVal}`;
             }
-            loadChart(charts[def.id], url);
+            loadChart(charts[def.id], url, def); 
           });
         }
 
@@ -188,10 +264,11 @@
             loadAllCharts($("#year").val());
           });  
           $period.on("change", () => {
-            updateUnitLabel();               
-            loadAllCharts($("#year").val());   
+            updateUnitLabel();  
+            createCanvases();            
+            initCharts();               
+            loadAllCharts($("#year").val());
           });
-          
           $window.on("change", () => loadAllCharts($("#year").val()));         
         });
 
