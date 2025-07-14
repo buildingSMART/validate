@@ -253,7 +253,7 @@ export default function DashboardTable({ models }) {
   const handleAsyncError = HandleAsyncError();
 
   useEffect(() => {
-    fetch(`${FETCH_PATH}/api/models_paginated/${page * rowsPerPage}/${page * rowsPerPage + rowsPerPage}`)
+    fetch(`${FETCH_PATH}/api/models_paginated/${page * rowsPerPage}/${page * rowsPerPage + rowsPerPage}`, { credentials: 'include', 'x-csrf-token': getCookieValue('csrftoken') })
       .then((response) => response.json())
       .then((json) => {
         setRows(json["models"]);

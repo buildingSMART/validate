@@ -15,6 +15,7 @@ import SelfDeclarationDialog from './SelfDeclarationDialog';
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
 import { FETCH_PATH } from './environment';
+import { getCookieValue } from './Cookies';
 
 import './App.css';
 
@@ -28,7 +29,7 @@ function App() {
   const [prTitle, setPrTitle] = useState("")
 
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
+    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include', 'x-csrf-token': getCookieValue('csrftoken') })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {

@@ -13,7 +13,7 @@ urlpatterns = [
     path('api/delete/<str:ids>',                                delete),
     path('api/revalidate/<str:ids>',                            revalidate),
     path('api/report/<str:id>',                                 report),
-    path('api/report_error/<str:name>/<str:msg>/<str:stack>',   report_error),
+    path('api/report_error',                                    report_error),
 
     # vs
 
