@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 from .utils import log_execution
 from .utils import send_email
 from .utils import get_title_from_html
-from .settings import PUBLIC_URL, ADMIN_EMAIL
+from .settings import PUBLIC_URL, ADMIN_EMAIL, ENVIRONMENT
 
 logger = get_task_logger(__name__)
 
@@ -20,11 +20,12 @@ def send_user_registered_admin_email_task(user_id, user_email, is_active = True)
         'USER_EMAIL': user_email,
         'IS_ACTIVE': is_active,
         'PUBLIC_URL': PUBLIC_URL,
-        'ACTIVATE_URL': PUBLIC_URL + '/admin/auth/user'
+        'ACTIVATE_URL': PUBLIC_URL + '/admin/auth/user',
+        'ENVIRONMENT': ENVIRONMENT
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("user_registered_admin_email.html", merge_data)
-    body_text = f"User {{user_email}} registered for the Validation Service."
+    body_text = f"User {{user_email}} registered for the Validation Service in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending

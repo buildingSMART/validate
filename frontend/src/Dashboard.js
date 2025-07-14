@@ -3,21 +3,18 @@ import ResponsiveAppBar from './ResponsiveAppBar'
 import DashboardTable from './DashboardTable'
 import Disclaimer from './Disclaimer';
 import Footer from './Footer';
-import FeedbackWidget from './FeedbackWidget';
+
 import Grid from '@mui/material/Grid';
 import VerticalLinearStepper from './VerticalLinearStepper'
-import Button from '@mui/material/Button';
-import HomeIcon from '@mui/icons-material/Home';
-import CheckIcon from '@mui/icons-material/Check';
 import Box from '@mui/material/Box';
 import SideMenu from './SideMenu';
-import Typography from '@mui/material/Typography';
+import FeedbackWidget from './FeedbackWidget';
+import SelfDeclarationDialog from './SelfDeclarationDialog';
 
 import { useEffect, useState, useContext } from 'react';
 
 import { FETCH_PATH } from './environment'
 import { PageContext } from './Page';
-
 
 function Dashboard() {
   const [isLoggedIn, setLogin] = useState(false);
@@ -129,6 +126,7 @@ function Dashboard() {
           </Grid>
 
           <FeedbackWidget user={user} />
+          <SelfDeclarationDialog user={user} />
 
         </Grid>
       </div>

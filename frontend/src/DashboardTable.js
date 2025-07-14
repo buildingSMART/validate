@@ -14,6 +14,7 @@ import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
 import IconButton from '@mui/material/IconButton';
 import InfoIcon from '@mui/icons-material/Info';
+import MailLockIcon from '@mui/icons-material/MailLock';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 //import ReplayIcon from '@mui/icons-material/Replay';
@@ -38,8 +39,10 @@ const statusToIcon = {
   "w": <WarningIcon color="warning" />,
   "p": <HourglassBottomIcon color="disabled" />,
   "-": <Tooltip title='N/A'><BlockIcon color="disabled" /></Tooltip>,
-  "info":<InfoIcon color="primary"/>
-}
+  "info": <InfoIcon color="primary" />,
+  "info-valid": <InfoIcon sx={{ color: "#2ab672" }}/>, // For passing header validation
+};
+
 
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
@@ -388,7 +391,24 @@ export default function DashboardTable({ models }) {
                       }}
                     />
                   </TableCell>
-                  <TableCell align="left">{row.filename} {wrap_status("info", context.sandboxId ? `/sandbox/report_file/${context.sandboxId}/${row.code}` : `/report_file/${row.code}`)}</TableCell>
+                  <TableCell align="left">
+                  {row.filename}{" "}
+                  {wrap_status(
+                      row.status_header === 'i' ? "w" : 
+                      row.status_header === 'v' ? "info-valid" : 
+                      "info",                      
+                      context.sandboxId
+                        ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
+                        : `/report_file/${row.code}`
+                    )}
+                    &nbsp;
+                    {row.status_signatures === 'v' && <IconButton component={Link} href={`/report_file/${row.code}#signatures`}>
+                      <MailLockIcon sx={{ color: "#2ab672" }} />
+                    </IconButton>}
+                    {row.status_signatures === 'i' && <IconButton component={Link} href={`/report_file/${row.code}#signatures`}>
+                      <MailLockIcon color="error" />
+                    </IconButton>}
+                </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}
                   </TableCell>
@@ -401,20 +421,6 @@ export default function DashboardTable({ models }) {
                   <TableCell align="center">
                     {wrap_status(row.status_ind, context.sandboxId ? `/sandbox/report_industry/${context.sandboxId}/${row.code}` : `/report_industry/${row.code}`)}
                   </TableCell>
-                  {/* <TableCell align="center">
-                    {wrap_status(row.status_bsdd, context.sandboxId ? `/sandbox/report_bsdd/${context.sandboxId}/${row.code}` : `/report_bsdd/${row.code}`)}
-                  </TableCell> */}
-                
-                  {
-                    // (row.progress == 100) ?
-                    // <TableCell align="left">
-                    //   <Link href={context.sandboxId ? `/sandbox/report/${context.sandboxId}/${row.code}` : `/report/${row.code}`} underline="hover">
-                    //     {'View report'}
-                    //   </Link>
-                    // </TableCell> :
-                    // <TableCell align="left"></TableCell>
-
-                  }
 
                   {
                     (row.progress == 100) ?

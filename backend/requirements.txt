@@ -4,6 +4,7 @@ djangorestframework
 django-filter
 django-cors-headers
 django-cleanup
+django-sql-explorer
 drf-spectacular
 drf-spectacular[sidecar]
 
@@ -16,6 +17,7 @@ celery[redis]
 # servers + utils
 redis
 psycopg2-binary
+psycopg[pool]
 sqlalchemy
 sqlalchemy-utils
 gunicorn
@@ -27,6 +29,7 @@ authlib
 
 # bsi
 lark-parser
+packaging
 pyparsing
 behave
 pytest
@@ -35,6 +38,13 @@ pyspellchecker
 requests
 pydot
 numpy
+rtree
+networkx
+pyyaml
+mpmath
+shapely
+python-ranges
+pyproj==3.7.1
 
 # dev
 django-debug-toolbar

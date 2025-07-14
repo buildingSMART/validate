@@ -15,6 +15,7 @@ DATABASES_ALL = {
     DB_SQLITE: {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": "test_django_db.sqlite3",
+        "MIGRATE": False,
     }
 }
 

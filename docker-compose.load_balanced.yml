@@ -33,6 +33,7 @@ services:
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
         expose:
             - 8000
         environment:
@@ -44,10 +45,12 @@ services:
             CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
             DJANGO_DB: ${DJANGO_DB}
             DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+            DJANGO_DB_BULK_CREATE_BATCH_SIZE: ${DJANGO_DB_BULK_CREATE_BATCH_SIZE}
             DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
             DJANGO_TRUSTED_ORIGINS: ${DJANGO_TRUSTED_ORIGINS}
             DJANGO_GUNICORN_WORKERS: ${DJANGO_GUNICORN_WORKERS}
             DJANGO_GUNICORN_THREADS_PER_WORKER: ${DJANGO_GUNICORN_THREADS_PER_WORKER}
+            GHERKIN_LOG_FOLDER: ${GHERKIN_LOG_FOLDER}
             POSTGRES_HOST: ${POSTGRES_HOST}
             POSTGRES_PORT: ${POSTGRES_PORT}
             POSTGRES_NAME: ${POSTGRES_NAME}
@@ -77,6 +80,7 @@ services:
         restart: unless-stopped
         volumes:
             - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
         environment:
             PUBLIC_URL: ${PUBLIC_URL} # for email links
             ENV: ${ENV}
@@ -90,6 +94,8 @@ services:
             CELERY_CONCURRENCY: ${CELERY_CONCURRENCY}
             DJANGO_DB: ${DJANGO_DB}
             DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+            DJANGO_DB_BULK_CREATE_BATCH_SIZE: ${DJANGO_DB_BULK_CREATE_BATCH_SIZE}
+            GHERKIN_LOG_FOLDER: ${GHERKIN_LOG_FOLDER}
             POSTGRES_HOST: ${POSTGRES_HOST}
             POSTGRES_PORT: ${POSTGRES_PORT}
             POSTGRES_NAME: ${POSTGRES_NAME}
@@ -138,3 +144,4 @@ volumes:
     files_data:
     postgres_data:
     redis_data:
+    gherkin_rules_log_data:

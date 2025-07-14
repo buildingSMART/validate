@@ -3,9 +3,10 @@ from rest_framework import serializers
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import ValidationOutcome
+from apps.ifc_validation_models.models import Model
 
 
-class BaseSerializer(serializers.HyperlinkedModelSerializer):
+class BaseSerializer(serializers.ModelSerializer):
 
     def get_field_names(self, declared_fields, info):
 
@@ -28,7 +29,8 @@ class ValidationRequestSerializer(BaseSerializer):
         model = ValidationRequest
         fields = '__all__'
         show = ["public_id", "model_public_id"]
-        hide = ["id", "model"]
+        hide = ["id"]
+        read_only_fields = ['size', 'created_by']
 
 
 class ValidationTaskSerializer(BaseSerializer):
@@ -47,3 +49,13 @@ class ValidationOutcomeSerializer(BaseSerializer):
         fields = '__all__'
         show = ["public_id", "instance_public_id", "validation_task_public_id"]
         hide = ["id", "instance", "validation_task"]
+
+
+class ModelSerializer(BaseSerializer):
+
+    class Meta:
+        model = Model
+        fields = '__all__'
+        show = ["public_id"]
+        hide = ["id", "number_of_elements", "number_of_geometries", "number_of_properties"] # no longer used
+        read_only_fields = ['',]
