@@ -1,6 +1,6 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
-from django.db.models import Count, F, Avg, When, Case, DurationField
+from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField
 from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek
 from django.http import JsonResponse
 import calendar
@@ -32,7 +32,23 @@ PERIODS = {
         "label":   lambda row: row["period"].strftime("%Y-%m-%d"),
         "full_set": None,  
     },
+    "quarter": {
+            "annotate": lambda qs: qs.annotate(
+                month=ExtractMonth("created")
+            ).annotate(
+                period=Case(
+                    When(month__in=[1, 2, 3], then=1),
+                    When(month__in=[4, 5, 6], then=2),
+                    When(month__in=[7, 8, 9], then=3),
+                    When(month__in=[10, 11, 12], then=4),
+                    output_field=IntegerField(),
+                )
+            ),
+            "label": lambda row: f"Q{row['period']}",
+            "full_set": [f"Q{q}" for q in range(1, 5)],
+    },
 }
+
 
 COLORS = {
     "primary": "#79aec8",
@@ -154,6 +170,19 @@ def _rolling_labels(period: str, window: int, today: datetime.date | None = None
             labels.insert(0, f"W{iso_week:02d}")
             week_start -= datetime.timedelta(weeks=1)
         return labels
+
+    if period == "quarter":
+        current_quarter = (today.month - 1) // 3 + 1
+        current_year = today.year
+        labels = []
+        for _ in range(window):
+            labels.insert(0, f"Q{current_quarter}")
+            current_quarter -= 1
+            if current_quarter == 0:
+                current_quarter = 4
+                current_year -= 1
+        return labels
+    
     month_cursor = today.replace(day=1) 
     labels = []
     for _ in range(window):

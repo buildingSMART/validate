@@ -55,6 +55,7 @@
         <option value="week">Weeks</option>
         <option value="day">Days</option>
         <option value="total">Total</option>
+        <option value="quarter">Quarters</option>
       </select>
       <span id="lookback" class="ml-2">
         &nbsp;|&nbsp;
@@ -119,7 +120,12 @@
           } else {
             $("#lookback").show();
             $("#year-wrapper").show();
-            $unitLbl.text(p === "week" ? "weeks" : p === "day" ? "days" : "months");
+            $unitLbl.text(
+              p === "week" ? "weeks" :
+              p === "day" ? "days" :
+              p === "quarter" ? "quarters" :
+              "months"
+            );
           }
         }
         function buildOptions(def) {
