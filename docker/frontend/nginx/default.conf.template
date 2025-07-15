@@ -41,6 +41,11 @@ server {
         try_files $uri @proxy_api;
     }
 
+    # Django SQL Explorer
+    location /sqlexplorer {
+        try_files $uri @proxy_api;
+    }
+    
     # AD B2C
     location /login {
         try_files $uri @proxy_api;

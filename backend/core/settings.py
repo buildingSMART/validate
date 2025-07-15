@@ -30,14 +30,21 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DEBUG", False)
+DEBUG = ast.literal_eval(os.environ.get("DEBUG", 'False'))
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVELOPMENT')
 STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
+ENVIRONMENT = 'DEVELOPMENT' if DEVELOPMENT else 'STAGING' if STAGING else 'PRODUCTION'
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
-# URL for rule hyperlinks; by default points to bSI Gherkin Rules repo (main)
-FEATURE_URL = os.getenv('FEATURE_URL', 'https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/')
+# URL for rule hyperlinks; determine the branch based on the environment
+FEATURE_BRANCH = "development" if DEVELOPMENT else "main"
+FEATURE_URL = os.getenv(
+    "FEATURE_URL", f"https://github.com/buildingSMART/ifc-gherkin-rules/blob/{FEATURE_BRANCH}/features/rules"
+)
+
+# Max. number of outcomes shown in UI
+MAX_OUTCOMES_PER_RULE = 10
 
 ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost", "backend"]
 
@@ -58,6 +65,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     "drf_spectacular",                   # OpenAPI/Swagger
     "drf_spectacular_sidecar",           # required for Django collectstatic discovery
+    "explorer",                          # Django SQL Explorer
     
     "django_celery_results",             # Celery result backend
     "django_celery_beat",                # Celery scheduled tasks
@@ -131,11 +139,15 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-    ]
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES':(
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
 
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'IFC Validation Service API',
+    'TITLE': 'IFC Validation Service API (PREVIEW)',
     'DESCRIPTION': 'API for the buildingSMART Validation Service',
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
@@ -193,12 +205,19 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "OPTIONS": {
+            "pool": True,
+        },
     },
 }
 
 DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
+DJANGO_DB_BULK_CREATE_BATCH_SIZE = int(os.environ.get("DJANGO_DB_BULK_CREATE_BATCH_SIZE", 1000))
 
-
+# SQL Explorer configuration (default)
+EXPLORER_CONNECTIONS = { 'Default': 'default' }
+EXPLORER_DEFAULT_CONNECTION = 'default'
+EXPLORER_TASKS_ENABLED = True
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
@@ -288,7 +307,10 @@ except Exception as err:
 # LOGGING
 
 log_folder = os.getenv("DJANGO_LOG_FOLDER", "logs")
-os.makedirs(log_folder, exist_ok=True)
+os.makedirs(log_folder, exist_ok=True)\
+    
+gherkin_log_folder = os.getenv("GHERKIN_LOG_FOLDER", "/gherkin_logs")
+os.makedirs(gherkin_log_folder, exist_ok=True)
 
 LOGGING = {
 
@@ -310,6 +332,12 @@ LOGGING = {
             "level": "DEBUG",
             "class": "logging.FileHandler",
             "filename": os.path.join(log_folder, "django.log"),
+        },
+        "gherkin_file": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(gherkin_log_folder, "gherkin_rules.log"),
+            "formatter": "simple",
         },
     },
     "root": {
@@ -340,6 +368,10 @@ LOGGING = {
         #     'level': 'DEBUG',
         #     'propagate': True,
         # },
+        "gherkin_rules": {
+            "handlers": ["gherkin_file"],
+            "level": "DEBUG",
+        },
         "ifcvalidation": {
             "handlers": ["console"],
             "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),

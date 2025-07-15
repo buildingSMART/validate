@@ -1,4 +1,5 @@
-import './App.css';
+import { Typography } from '@mui/material';
+
 import Dz from './Dz'
 import ResponsiveAppBar from './ResponsiveAppBar'
 import Disclaimer from './Disclaimer';
@@ -7,14 +8,15 @@ import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
 import SideMenu from './SideMenu';
 import VerticalLinearStepper from './VerticalLinearStepper'
-import FeedbackWidget from './FeedbackWidget';
 
-import { useEffect, useState } from 'react';
+import FeedbackWidget from './FeedbackWidget';
+import SelfDeclarationDialog from './SelfDeclarationDialog';
+
+import { useEffect, useState, useContext } from 'react';
+import { PageContext } from './Page';
 import { FETCH_PATH } from './environment';
 
-import {PageContext} from './Page';
-import { useContext } from 'react';
-import { Typography } from '@mui/material';
+import './App.css';
 
 function App() {
 
@@ -38,6 +40,7 @@ function App() {
           setLogin(true);
           setUser(data["user_data"]);
           data["sandbox_info"]["pr_title"] && setPrTitle(data["sandbox_info"]["pr_title"]);
+          
         }
       })
   }, []);
@@ -171,6 +174,7 @@ function App() {
             </Grid>
 
             <FeedbackWidget user={user} />
+            <SelfDeclarationDialog user={user} />
 
           </Grid>
         </Grid>

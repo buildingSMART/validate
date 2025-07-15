@@ -5,6 +5,9 @@ import requests
 import functools
 import logging
 
+from django.core.paginator import Paginator
+from django.db import connection, transaction, OperationalError
+
 logger = logging.getLogger()
 
 
@@ -138,3 +141,32 @@ def get_title_from_html(body_html):
         return found[0]
     else:
         return None
+
+
+class LargeTablePaginator(Paginator):
+
+    db_table_name: str = None
+    db_id_column_name: str = 'id'
+
+    @functools.cached_property
+    def count(self):
+
+        # print('type = ', type(self.object_list.first()))
+        # print('db_table = ', self.object_list.first()._meta.db_table)
+        # print('db pk = ', self.object_list.first()._meta.pk.name)
+
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute('SET LOCAL statement_timeout TO 25000;') # 25 seconds timeout
+            try:
+                # workaround for Postgres well-documented slow count(*) performance
+                table = self.object_list.first()._meta.db_table
+                id = self.object_list.first()._meta.pk.name
+                cursor.execute(f'SELECT COUNT(distinct {id}) FROM {table}')
+                row = cursor.fetchone()
+                return row[0]
+            
+            except OperationalError:
+                return 9999999999 # naive guess
+            
+            except AttributeError:
+                return 0

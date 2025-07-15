@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e # exit if any command fails
 
 until cd /files_storage
 do
@@ -10,12 +11,15 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! nc -z ${POSTGRES_HOST} ${POSTGRES_PORT}
+while ! pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -d "$POSTGRES_NAME" -U "$POSTGRES_USER" 2>/dev/null
 do
     echo "Waiting for DB to be ready..."
-    sleep 3
+    sleep 5
 done
 echo "DB is ready."
+
+python manage.py makemigrations
+python manage.py migrate
 
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"

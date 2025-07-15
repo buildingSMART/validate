@@ -23,7 +23,7 @@ function coerceToStr(v) {
   return JSON.stringify(v);
 }
 
-export default function SchemaResult({ summary, content, status, instances }) {
+export default function SchemaResult({ summary, count, content, status, instances }) {
   const [data, setRows] = React.useState([])
   const [grouped, setGrouped] = useState([])
   const [page, setPage] = useState(0);  
@@ -46,15 +46,31 @@ export default function SchemaResult({ summary, content, status, instances }) {
       return checked || el.severity > 2; // all or warning/error only?
     });
 
+    // sort & group
+    filteredContent.sort((f1, f2) => f1.title > f2.title ? 1 : -1);
     for (let c of (filteredContent || [])) {
-      if (grouped.length === 0 || (c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized')) !== grouped[grouped.length-1][0]) {
-        grouped.push([c.attribute ? c.attribute : (c.feature ? 'Schema - Version' : 'Uncategorized'),[]])
+      if (grouped.length === 0 || (c.title) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.title,[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
     setRows(grouped.slice(page * 10, page * 10 + 10))
     setGrouped(grouped)
   }, [page, content, checked]);
+
+  function partialResultsOnly(rows) {
+    let counts = Object.assign({}, count[0], count[1]);
+    return counts[rows[0].title] > rows.length;
+  }
+
+  function getTitleSuffix(rows) {
+    let counts = Object.assign({}, count[0], count[1]);
+    console.log(rows[0].severity);
+    let occurrences = counts[rows[0].title];
+    let times = (occurrences > 1) ? ' times' : ' time';
+    const warning_or_error = (rows[0].severity >= 3);
+    return warning_or_error ? '(occurred ' + occurrences.toLocaleString() + times + ')' : '';
+  }
 
   return (
     <div>
@@ -94,6 +110,7 @@ export default function SchemaResult({ summary, content, status, instances }) {
             ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
             ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
             ".caption" : { paddingTop: "1em", paddingBottom: "1em", textTransform: 'capitalize' },
+            ".caption-suffix" : { paddingTop: "1em", paddingBottom: "1em", fontSize: '0.9em', textTransform: 'none', fontStyle: 'italic' },
             ".subcaption" : { visibility: "hidden", fontSize: '80%' },
             ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
             "table": { borderCollapse: 'collapse', fontSize: '80%' },
@@ -104,17 +121,31 @@ export default function SchemaResult({ summary, content, status, instances }) {
               // overflowWrap: 'break-word'
             }
           }}>
-          <div >
+          <div>
             { data.length
               ? data.map(([hd, rows]) => {
                   return <TreeView 
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
                     >
-                      <TreeItem nodeId={hd} label={<div><div class='caption'>{(rows[0].constraint_type || '').replace('_', ' ')}{rows[0].constraint_type && ' - '}{hd}</div><div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}</div></div>}
+                      <TreeItem 
+                        nodeId={hd} 
+                        label={
+                          <div>
+                            <div class='caption'>{rows[0].title} <span class='caption-suffix'>{getTitleSuffix(rows)}</span>
+                            </div>
+                            <div class='subcaption'>{rows[0].constraint_type !== 'schema' ? (coerceToStr(rows[0].msg)).split('\n')[0] : ''}
+                            </div>
+                          </div>}
                         sx={{ "backgroundColor": severityToColor[rows[0].severity] }}
                       >
-
+                      { partialResultsOnly(rows) &&
+                        <div>
+                          ⓘ Note: a high number of occurrences were identified. Only the first {rows.length.toLocaleString()} occurrences are displayed below.
+                          <br />
+                          <br />
+                        </div>
+                      }
                       <table width='100%' style={{ 'text-align': 'left'}}>
                           <thead>
                             <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th></tr>

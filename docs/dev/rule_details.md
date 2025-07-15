@@ -445,45 +445,7 @@ Example table describing unit test expected results
 ## 7. Approve and merge the pull request
 ...
 
-## Appendix
-
-(error-codes)=
-### Error Codes
-
-Error codes are used to classify and categorize outcomes from the validation service and are
-implemented in [ifc-validation-data-model/main/models.py#L937](https://github.com/buildingSMART/ifc-validation-data-model/blob/main/models.py#L937).
-
-| Error Code | Description                            |
-|------------|----------------------------------------|
-| P00010     | Passed                                 |
-| N00010     | Not Applicable                         |
-|            |                                        |
-| E00001     | Syntax Error                           |
-| E00002     | Schema Error                           |
-| E00010     | Type Error                             |
-| E00020     | Value Error                            |
-| E00030     | Geometry Error                         |
-| E00040     | Cardinality Error                      |
-| E00050     | Duplicate Error                        |
-| E00060     | Placement Error                        |
-| E00070     | Units Error                            |
-| E00080     | Quantity Error                         |
-| E00090     | Enumerated Value Error                 |
-| E00100     | Relationship Error                     |
-| E00110     | Naming Error                           |
-| E00120     | Reference Error                        |
-| E00130     | Resource Error                         |
-| E00140     | Deprecation Error                      |
-| E00150     | Shape Representation Error             |
-| E00160     | Instance Structure Error               |
-|            |                                        |
-| W00010     | Alignment Contains Business Logic Only |
-| W00020     | Alignment Contains Geometry Only       |
-| W00030     | Warning                                |
-|            |                                        |
-| X00040     | Executed                               |
-
-#### Notes
+## Notes
 
 `Not Applicable` refers to a rule that does not apply because of the schema version.
 `Executed` refers to a rule that does apply because of schema version,

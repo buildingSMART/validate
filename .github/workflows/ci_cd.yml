@@ -10,7 +10,6 @@ on:
       - development
     paths-ignore:
       - 'README.md'
-      - '.github/**'
   pull_request:
     branches:
       - development
@@ -58,6 +57,8 @@ jobs:
 
       - name: Fetch submodules
         run: |
+          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
+          git submodule foreach --recursive 'git clean -fdx'
           cd backend
           cd apps
           git submodule update --init --recursive
@@ -79,7 +80,16 @@ jobs:
           source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ifcopenshell # TEMP workaround
+
+      - name: Install ifcopenshell package (temp)
+        run: |
+          cd backend
+          source venv/bin/activate
+          # use version of ifcopenshell with desired schema parsing
+          # TODO: revert to pyPI when schema parsing is published in the future
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-260bc80-linux64.zip"
+          mkdir -p venv/lib/python3.11/site-packages
+          unzip -d venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
       - name: Check Django config
         run: |
@@ -91,7 +101,12 @@ jobs:
         run: |
           cd backend
           source venv/bin/activate
-          python3 manage.py test
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_header_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_bsdd_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
   deploy:
     
@@ -125,10 +140,11 @@ jobs:
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
           cd ${{ vars.REPO_CLONE_PATH }}
           git checkout -q ${{ vars.BRANCH_NAME }} && git pull
+          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
+          git submodule foreach --recursive 'git clean -fdx'
           sudo make fetch-modules
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
           cd ./ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/step_file_parser && git checkout -q master && git pull
           cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
           cd ${{ vars.REPO_CLONE_PATH }}
           ./check-submodules.sh

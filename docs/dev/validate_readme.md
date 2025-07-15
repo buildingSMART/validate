@@ -1,4 +1,3 @@
-
 # Application Structure
 
 ## System Architecture
@@ -20,8 +19,7 @@ The application consists of three main submodules, each hosted in separate GitHu
 
 Documentation of the separate functionalities can be found within each submodule.
 
-1. **File Parser**: A [module within IfcOpenShell](https://github.com/IfcOpenShell/step-file-parser), dedicated to parsing files. 
-2. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the [repository](https://github.com/buildingSMART/ifc-gherkin-rules) and executing:
+1. **Gherkin Rules**: Contains the rules for validation. It can be run independently by cloning the [repository](https://github.com/buildingSMART/ifc-gherkin-rules) and executing:
 
    ```shell
    pytest -sv
@@ -35,8 +33,11 @@ Documentation of the separate functionalities can be found within each submodule
    python test/test_main.py path_to_separate_file.py # For a separate file
    ``````
 
-3. **Shared DataModel**: This [module](https://github.com/buildingSMART/ifc-validation-data-model) includes Django data models shared between the main repository and the Gherkin repository,
+2. **Shared DataModel**: This [module](https://github.com/buildingSMART/ifc-validation-data-model) includes Django data models shared between the main repository and the Gherkin repository,
 serving as a submodule for both.
+3. **Certificate store**: This [module](https://github.com/buildingsmart-certificates/validation-service-vendor-certificates) serves as the listing of trusted certificates for verifying digital certificates appended to IFC models.
+
+NB: Previously there was a fourth submodule that performed the syntax verification on IFC-SPF models. This is now directly part of IfcOpenShell as `ifcopenshell.simple_spf`.
 
 ## Running Validation Checks
 
