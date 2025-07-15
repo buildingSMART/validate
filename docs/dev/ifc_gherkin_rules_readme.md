@@ -7,7 +7,7 @@ See [application_structure](#application-structure) for more information.
 
 ## Making changes
 
-The rules developed in this repository follow the general ideas of Gherkin and its python implementation behave.
+The rules developed in this repository follow the general ideas of Gherkin and its python implementation [behave](https://behave.readthedocs.io/en/stable/).
 
 This means there are human-readable definitions of rules and Python implementations.
 
