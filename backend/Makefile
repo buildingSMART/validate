@@ -61,6 +61,11 @@ start-worker4:
 start-worker-scheduler:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 5 --task-events --beat
 
+.PHONY: stop-worker
+stop-worker:
+	-$(PYTHON) -m celery -A core control shutdown \
+	    --destination=worker@$(shell hostname) || true
+
 test: test-models test-bsdd-task test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task
 
 test-models:
