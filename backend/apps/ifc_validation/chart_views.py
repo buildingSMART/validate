@@ -94,11 +94,11 @@ def dict_for_period(period: str, year: int | None = None, window: int | None = N
     • The full fixed set (months / weeks / days in <year>)             – default
     • OR the last <window> periods counted backwards from <today>      – when window given
     """
-    if window:                                   # rolling window branch
+    if window:                                   
         return {lbl: 0 for lbl in _rolling_labels(period, window)}
 
     cfg = PERIODS[period]                  
-    if cfg["full_set"] is not None:              # month / week
+    if cfg["full_set"] is not None:              
         return {lbl: 0 for lbl in cfg["full_set"]}
 
     first = datetime.date(year, 1, 1)
@@ -118,9 +118,21 @@ def chart_response(title, labels, datasets):
         },
     })
     
-def group_by_period(qs, period, agg_key, agg_expression):
+def group_by_period(qs, period, agg_key, agg_expression, window=None):
     cfg = PERIODS[period]
     qs = cfg["annotate"](qs)
+    
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+
+        qs = qs.filter(
+            Q(period__in=[
+                int(lbl[1:]) if period in ["week", "quarter"]
+                else months.index(lbl) + 1 if period == "month"
+                else lbl
+                for lbl in valid_labels
+            ])
+        )
     return (
         qs.values("period")
           .annotate(**{agg_key: agg_expression})
@@ -228,8 +240,8 @@ def get_requests_chart(request, year):
 
     qs = ValidationRequest.objects.filter(created__year=year)
 
-    success_qs = group_by_period(qs.filter(status="COMPLETED"), period, "count", Count("id"))
-    failed_qs  = group_by_period(qs.filter(status="FAILED"), period, "count", Count("id"))
+    success_qs = group_by_period(qs.filter(status="COMPLETED"), period, "count", Count("id"), window=window)
+    failed_qs  = group_by_period(qs.filter(status="FAILED"), period, "count", Count("id"), window=window)
 
     success_dict = fill_period_dict(success_qs, period, year, key="count", transform=int, window=window)
     failed_dict  = fill_period_dict(failed_qs,  period, year, key="count", transform=int, window=window)
@@ -258,6 +270,7 @@ def get_requests_chart(request, year):
 def get_duration_per_request_chart(request, year):
     'Total average request duration'
     period = get_period(request)
+    window = get_window(request)
 
     if period == "total":
         qs = ValidationRequest.objects.annotate(
@@ -282,7 +295,11 @@ def get_duration_per_request_chart(request, year):
             }]
         )
 
-    qs = ValidationRequest.objects.filter(created__year=year).annotate(
+    qs = ValidationRequest.objects.all()
+    if not window:
+        qs = qs.filter(created__year=year)
+
+    qs = qs.annotate(
         _duration=Case(
             When(completed__isnull=True, then=Now() - F("started")),
             default=F("completed") - F("started"),
@@ -290,14 +307,14 @@ def get_duration_per_request_chart(request, year):
         )
     )
 
-    grouped = group_by_period(qs, period, "avg_duration", Avg("_duration"))
+    grouped = group_by_period(qs, period, "avg_duration", Avg("_duration"), window=window)
     minutes_dict = fill_period_dict(
         grouped,
         period,
         year,
         key="avg_duration",
         transform=lambda d: (d.total_seconds() / SECONDS_PER_MINUTE) if d else 0,
-        window=get_window(request)
+        window=window
     )
 
     return chart_response(
@@ -319,6 +336,7 @@ def get_duration_per_task_chart(request, year):
 
     """
     period = get_period(request)
+    window = get_window(request)
 
     qs = ValidationTask.objects.filter(status="COMPLETED")
 
@@ -363,12 +381,22 @@ def get_duration_per_task_chart(request, year):
             datasets=datasets,
         )
 
-    qs = PERIODS[period]["annotate"](qs)
+    annotated_qs = PERIODS[period]["annotate"](qs)
+    
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated_qs = annotated_qs.filter(period__in=label_values)
 
     grouped = (
-        qs.values("period", "type")
-          .annotate(avg_duration=Avg("_duration"))
-          .order_by("period", "type")
+        annotated_qs.values("period", "type")
+        .annotate(avg_duration=Avg("_duration"))
+        .order_by("period", "type")
     )
 
     task_data = {}
@@ -381,7 +409,7 @@ def get_duration_per_task_chart(request, year):
             continue
 
         if task_type not in task_data:
-            task_data[task_type] = dict_for_period(period, year)
+            task_data[task_type] = dict_for_period(period, year, window=window)
 
         period_label = PERIODS[period]["label"](row)
         seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
@@ -435,6 +463,7 @@ def get_processing_status_chart(request, year):
 
 @staff_member_required
 def get_avg_size_chart(request, year):
+    window=get_window(request)
     period = get_period(request)
 
     if period == "total":
@@ -453,14 +482,14 @@ def get_avg_size_chart(request, year):
         )
 
     qs = ValidationRequest.objects.filter(created__year=year)
-    grouped = group_by_period(qs, period, "avg_size", Avg("size"))
+    grouped = group_by_period(qs, period, "avg_size", Avg("size"), window=window)
     size_dict = fill_period_dict(
         grouped,
         period,
         year,
         key="avg_size",
         transform=lambda s: (s or 0) / BYTES_PER_MB,
-        window=get_window(request)
+        window=window
     )
 
     return chart_response(
@@ -477,6 +506,7 @@ def get_avg_size_chart(request, year):
 
 @staff_member_required
 def get_user_registrations_chart(request, year):
+    window=get_window(request)
     period = get_period(request)
 
     if period == "total":
@@ -494,14 +524,14 @@ def get_user_registrations_chart(request, year):
         )
 
     users_qs = UserAdditionalInfo.objects.filter(created__year=year)
-    grouped = group_by_period(users_qs, period, "registrations", Count("id"))
+    grouped = group_by_period(users_qs, period, "registrations", Count("id"), window=window)
     regs_dict = fill_period_dict(
         grouped,
         period,
         year,
         key="registrations",
         transform=int,
-        window=get_window(request)
+        window=window
     )
 
     return chart_response(
@@ -529,6 +559,7 @@ def get_usage_by_vendor_chart(request, year):
     Distinct uploaders per period, split into end-users vs vendors.
     """
     period = get_period(request)
+    window = get_window(request)
 
     if period == "total":
         qs = ValidationRequest.objects.all()
@@ -556,6 +587,7 @@ def get_usage_by_vendor_chart(request, year):
         period,
         "total",
         Count("created_by", distinct=True),
+        window=window
     )
 
     vendor_qs = group_by_period(
@@ -563,10 +595,11 @@ def get_usage_by_vendor_chart(request, year):
         period,
         "vendors",
         Count("created_by", distinct=True),
+        window=window
     )
 
-    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=get_window(request))
-    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int, window=get_window(request))
+    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=window)
+    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int, window=window)
 
     enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0) for lbl in total_dict}
     labels = list(total_dict.keys())
@@ -591,6 +624,7 @@ def get_usage_by_vendor_chart(request, year):
             },
         ],
     )
+    
 
 @staff_member_required
 def get_models_by_vendor_chart(request, year):
@@ -598,6 +632,7 @@ def get_models_by_vendor_chart(request, year):
     Count models uploaded per period, split by vendor vs end-user.
     """
     period = get_period(request)
+    window = get_window(request)
 
     if period == "total":
         qs = Model.objects.all()
@@ -632,16 +667,29 @@ def get_models_by_vendor_chart(request, year):
         qs.values_list("uploader_id", flat=True).distinct()
     )
 
-    qs = PERIODS[period]["annotate"](qs)
+    annotated_qs = PERIODS[period]["annotate"](qs)
 
-    grouped = qs.values("period", "uploader_id")
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated_qs = annotated_qs.filter(period__in=label_values)
 
-    vendor_counts = dict_for_period(period, year)
-    enduser_counts = dict_for_period(period, year)
+    grouped = annotated_qs.values("period", "uploader_id")
+
+    vendor_counts = dict_for_period(period, year, window=window)
+    enduser_counts = dict_for_period(period, year, window=window)
 
     for row in grouped:
         uid = row["uploader_id"]
         period_label = PERIODS[period]["label"](row)
+
+        if period_label not in vendor_counts:
+            continue
 
         if vendor_flags.get(uid):
             vendor_counts[period_label] += 1
@@ -712,6 +760,7 @@ def get_tools_count_chart(request, year):
     """
     Distinct authoring tools observed per ... (Model.produced_by).
     """
+    window = get_window(request)
     period = get_period(request)
 
     models_qs = Model.objects.filter(produced_by__isnull=False)
@@ -735,7 +784,8 @@ def get_tools_count_chart(request, year):
         models_qs,
         period,
         "tools",
-        Count("produced_by", distinct=True)
+        Count("produced_by", distinct=True),
+        window=window
     )
 
     tools_dict = fill_period_dict(
@@ -744,7 +794,7 @@ def get_tools_count_chart(request, year):
         year,
         key="tools",
         transform=int,
-        window=get_window(request)
+        window=window
     )
 
     return chart_response(
