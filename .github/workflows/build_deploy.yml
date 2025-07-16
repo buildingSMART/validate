@@ -27,6 +27,7 @@ on:
           - release/0.7.5
           - release/0.7.6
           - release/0.7.7
+          - release/0.7.7.1
 
       environment:
         description: 'Environment to (re)deploy to'
