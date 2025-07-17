@@ -13,7 +13,7 @@ import glob
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
+from django.views.decorators.csrf import requires_csrf_token
 
 from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
@@ -114,6 +114,7 @@ def get_feature_filename(feature_code):
     rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
     return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
 
+
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code):
     """
@@ -202,7 +203,7 @@ def format_request(request):
 
 
 #@login_required - doesn't work as OAuth is not integrated with Django
-@ensure_csrf_cookie
+@requires_csrf_token
 def me(request):
     
     # return user or redirect response
@@ -245,6 +246,7 @@ def me(request):
         return create_redirect_response(login=True)
 
 
+@requires_csrf_token
 def models_paginated(request, start: int, end: int):
 
     # fetch current user
@@ -403,6 +405,7 @@ def revalidate(request, ids: str):
     })
 
 
+@requires_csrf_token
 def report(request, id: str):
 
     report_type = request.GET.get('type')
@@ -633,7 +636,16 @@ def report(request, id: str):
     return response
 
 
-def report_error(request, path):
+@requires_csrf_token
+def report_error(request):
 
-    # TODO
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+
+    # add to default log
+    error = request.data
+    logger.info(f"Received error report: {error}")
+
     return HttpResponse(content='OK')
