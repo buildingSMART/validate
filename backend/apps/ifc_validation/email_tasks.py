@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 from core.utils import log_execution
 from core.utils import send_email
 from core.utils import get_title_from_html
-from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL
+from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL, ENVIRONMENT
 
 from apps.ifc_validation_models.models import ValidationRequest
 
@@ -56,14 +56,14 @@ def send_acknowledgement_admin_email_task(id, file_name):
     merge_data = { 
         'NUMBER_OF_FILES': 1,
         'FILE_NAMES': file_name,
-        # From django docs: Returns the first_name plus the last_name, with a space in between.
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
-        'PUBLIC_URL': PUBLIC_URL
+        'PUBLIC_URL': PUBLIC_URL,
+        'ENVIRONMENT': ENVIRONMENT
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_ack_admin_email.html", merge_data)
-    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s)."
+    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending
@@ -118,11 +118,12 @@ def send_revalidating_admin_email_task(id, file_name):
         'FILE_NAMES': file_name,
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
-        'PUBLIC_URL': PUBLIC_URL
+        'PUBLIC_URL': PUBLIC_URL,
+        'ENVIRONMENT': ENVIRONMENT
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_reval_admin_email.html", merge_data)
-    body_text = f"Revalidating {{merge_data.NUMBER_OF_FILES}} file(s)."
+    body_text = f"Revalidating {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending
@@ -147,7 +148,10 @@ def send_completion_email_task(id, file_name):
     merge_data = { 
         'FILE_NAME': file_name,
         'ID': request.public_id,
-        'STATUS_SYNTAX': ("p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax) in ['v', 'w', 'i'],
+        "STATUS_SYNTAX": status_combine(
+            "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
+            "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax
+        ) in ['v', 'w', 'i'],
         "STATUS_SCHEMA": status_combine(
             "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
@@ -201,3 +205,34 @@ def send_failure_email_task(id, file_name):
         return f'Warning - unable to send failure email to {user.email}: {warn}'
     except Exception as err:
         return f'Error - unable to send failure email to {user.email}: {err}'
+
+
+@shared_task
+@log_execution
+def send_failure_admin_email_task(id, file_name):
+
+    # fetch request and user info
+    request = ValidationRequest.objects.get(pk=id)
+    user = request.created_by
+
+    # load and merge email template
+    merge_data = { 
+        'NUMBER_OF_FILES': 1,
+        'FILE_NAMES': file_name,
+        'USER_FULL_NAME': user.get_full_name(),
+        'USER_EMAIL': user.email,
+        'ENVIRONMENT': ENVIRONMENT
+    }
+    to = ADMIN_EMAIL
+    body_html = render_to_string("validation_failed_admin_email.html", merge_data)
+    body_text = f'Unable to complete validation of file: {file_name}.'
+    subject = get_title_from_html(body_html)
+
+    # queue for sending
+    try:
+        send_email(to, subject, body_text, body_html)
+        return f'Sent failure admin email to {to}'
+    except Warning as warn:
+        return f'Warning - unable to send failure admin email to {to}: {warn}'
+    except Exception as err:
+        return f'Error - unable to send failure admin email to {to}: {err}'

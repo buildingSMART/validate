@@ -14,6 +14,28 @@ import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
 
 function unsafe_format(obj) {
+  // PJS003 -> Invalid characters in GUID
+  if (typeof obj == 'object' && 'invalid_guid_chars' in obj && 'expected_or_observed' in obj) {
+    if (obj.expected_or_observed === 'expected') {
+      return <span>{`One of the following characters: ${obj.invalid_guid_chars}`}</span>;
+    } else if (obj.expected_or_observed === 'observed' && 'inst' in obj) {
+      return (
+        <span>
+          {`For guid '${obj.inst}', the following invalid character(s) is/were found: ${obj.invalid_guid_chars}`}
+        </span>
+      );
+    }
+  }
+
+    // PJS003 -> invalid length
+    if (typeof obj == 'object' && 'length' in obj && 'expected_or_observed' in obj) {
+      if (obj.expected_or_observed === 'expected') {
+        return <span>{`A sequence of length ${obj.length} for the global ID`}</span>;
+      } else if (obj.expected_or_observed === 'observed' && 'inst' in obj) {
+        return <span>{`The guid '${obj.inst}' is a sequence of length ${obj.length}`}</span>;
+      }
+    }
+
   if (typeof obj == 'object' && 'value' in obj) {
     if (typeof obj.value === 'string' || obj.value instanceof String || typeof obj.value === 'number' || typeof obj.value === 'boolean') {
       return <span style={{background: '#00000010', padding: '3px'}}>{obj.value}</span>
@@ -23,22 +45,65 @@ function unsafe_format(obj) {
   } else if (typeof obj === 'string' || obj instanceof String) {
     return <i>{obj}</i>;
   } else if (typeof obj == 'object' && 'instance' in obj) {
-    // @todo turn into actual instance in DB
     return <span style={{padding: '3px', borderBottom: 'dotted 3px gray'}}>{obj.instance}</span>
   } else if (typeof obj == 'object' && 'entity' in obj) {
-    // @todo actual URL for schema
     var entity = obj.entity.split('(#')[0];
     return <a href={`https://ifc43-docs.standards.buildingsmart.org/IFC/RELEASE/IFC4x3/HTML/lexical/${entity}.htm`}>{entity}</a>
   } else if (typeof obj == 'object' && 'oneOf' in obj) {
-    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`
-    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v =><li>{v}</li>)}</ul></div>
-  } else if (typeof obj== 'object' && 'num_digits' in obj) {
-    // custom formatting for calculated alignment consistency (e.g. ALS016, ALS017, ALS018)
-    console.log(`object is ${obj.expected}`);
-    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`
-    let value = obj.expected || obj.observed;
-    let display_value = value.toExponential(obj.num_digits);
-    return <div>{ctx} {display_value}</div>
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} one of:` : `One of:`;
+    return <div>{ctx}<div></div><ul>{obj.oneOf.map(v => <li>{v}</li>)}</ul></div>;
+  } else if (typeof obj == 'object' && 'schema_identifier' in obj) {
+    let lines = obj.schema_identifier.split("\n");
+    return <div>{lines ? lines.map(line => <div> {line} </div>) : obj.schema_identifier}</div>;
+  } else if (typeof obj == 'object' && 'num_digits' in obj) {
+    // Custom formatting for calculated alignment consistency
+    let ctx = obj.context ? `${obj.context.charAt(0).toUpperCase()}${obj.context.slice(1)} :` : `One of:`;
+
+    let reported_value = obj.expected || obj.observed;
+    let display_value;
+    if ( Array.isArray(reported_value) ) {
+      display_value = reported_value;
+    } else {
+      display_value = reported_value.toExponential(obj.num_digits);
+    }
+
+    let directionLabel;
+    if (ctx.includes('direction')) {
+      directionLabel = 'Tangent Direction';
+    }
+    else if (ctx.includes('gradient'))  {
+      directionLabel = 'Gradient';
+    }
+    else {
+      // warning is raised for position, so don't report any details of direction or gradient
+      directionLabel= 'suppress';
+    }
+
+    if ('continuity_details' in obj) {
+      let dts = obj.continuity_details;
+      return (
+        <div>
+          <div>{ctx} {display_value}</div>
+          <div>at end of {dts.segment_to_analyze}</div>
+          <ul>Coords: ({dts.current_end_point[0]}, {dts.current_end_point[1]})</ul>
+          { directionLabel !== 'suppress' && (
+            <ul>{directionLabel}: {dts.current_end_direction}</ul>) }
+          <br />
+          <div>and start of {dts.following_segment}</div>
+          <ul>Coords: ({dts.following_start_point[0]}, {dts.following_start_point[1]})</ul>
+          { directionLabel !== 'suppress' && (
+          <ul>{directionLabel}: {dts.following_start_direction}</ul> )}
+        </div>
+      );
+    } else {
+      if (ctx === 'Position :') {
+        let msg = `${ctx} (${display_value[0]}, ${display_value[1]})`;
+        return <div>{msg}</div>;
+      } else {
+        return <div>{ctx} {display_value}</div>;
+      }
+    }
+  
   } else {
     return JSON.stringify(obj);
   }
@@ -52,7 +117,7 @@ function format(obj) {
   }
 }
 
-export default function GherkinResult({ summary, content, status, instances }) {
+export default function GherkinResult({ summary, count, content, status, instances }) {
   const [data, setRows] = useState([])
   const [grouped, setGrouped] = useState([])
   const [page, setPage] = useState(0);  
@@ -76,7 +141,6 @@ export default function GherkinResult({ summary, content, status, instances }) {
     });
 
     // only keep visible columns
-    let columns = ['instance_id', 'severity', 'expected', 'observed', 'msg']
     filteredContent = filteredContent.map(function(el) {
       const container = {};
 
@@ -89,28 +153,29 @@ export default function GherkinResult({ summary, content, status, instances }) {
       container.expected = el.expected ? el.expected : '-';
       container.severity = el.severity;
       container.msg = el.msg;
+      container.title = el.title;
       
       return container
     })
     
-    // deduplicate
-    const uniqueArray = (array, key) => {
+    // // deduplicate
+    // const uniqueArray = (array, key) => {
 
-      return [
-        ...new Map(
-          array.map( x => [key(x), x])
-        ).values()
-      ]
-    }
+    //   return [
+    //     ...new Map(
+    //       array.map( x => [key(x), x])
+    //     ).values()
+    //   ]
+    // }
 
-    filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
+    // filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
     
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
 
     for (let c of (filteredContent || [])) {
-      if (grouped.length === 0 || (c.feature ? c.feature : 'Uncategorized') !== grouped[grouped.length-1][0]) {
-        grouped.push([c.feature ? c.feature : 'Uncategorized',[]])
+      if (grouped.length === 0 || (c.title) !== grouped[grouped.length-1][0]) {
+        grouped.push([c.title,[]])
       }
       grouped[grouped.length-1][1].push(c);
     }
@@ -126,6 +191,17 @@ export default function GherkinResult({ summary, content, status, instances }) {
     setRows(grouped.slice(page * 10, page * 10 + 10))
     setGrouped(grouped)
   }, [page, content, checked]);
+
+  function partialResultsOnly(rows) {
+    return count[rows[0].title] > rows.length;
+  }
+
+  function getTitleSuffix(rows) {
+    let occurrences = count[rows[0].title];
+    let times = (occurrences > 1) ? ' times' : ' time';
+    const warning_or_error = (rows[0].severity >= 3);
+    return warning_or_error ? '(occurred ' + occurrences.toLocaleString() + times + ')' : '';
+  }
 
   return (
     <div>
@@ -163,6 +239,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
           ".MuiTreeItem-content.Mui-expanded": { borderBottom: 'solid 1px black' },
           ".MuiTreeItem-group .MuiTreeItem-content.Mui-expanded": { borderBottom: 0 },
           ".caption" : { paddingTop: "1em", paddingBottom: "1em", textTransform: 'capitalize' },
+          ".caption-suffix" : { paddingTop: "1em", paddingBottom: "1em", fontSize: '0.9em', textTransform: 'none', fontStyle: 'italic' },
           ".subcaption" : { visibility: "hidden", fontSize: '80%' },
           ".MuiTreeItem-content.Mui-expanded .subcaption" : { visibility: "visible" },
           "table": { borderCollapse: 'collapse', fontSize: '80%' },
@@ -186,7 +263,7 @@ export default function GherkinResult({ summary, content, status, instances }) {
                   >
                     <TreeItem 
                       nodeId={feature} 
-                      label={<div class='caption'>{feature}</div>} 
+                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getTitleSuffix(rows)}</span></div></div>} 
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>
@@ -195,7 +272,14 @@ export default function GherkinResult({ summary, content, status, instances }) {
                         <br />
                         <a size='small' target='blank' href={rows[0].feature_url}>{rows[0].feature_url}</a>
                         <br />
-                        <br />                        
+                        <br />
+                        { partialResultsOnly(rows) &&
+                          <div>
+                            ⓘ Note: a high number of occurrences were identified. Only the first {rows.length.toLocaleString()} occurrences are displayed below.
+                            <br />
+                            <br />
+                          </div>
+                        }                       
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>

@@ -11,7 +11,15 @@ import BsddTreeView from './BsddTreeView';
 import GherkinResults from './GherkinResult';
 import SideMenu from './SideMenu';
 import FeedbackWidget from './FeedbackWidget';
+import SelfDeclarationDialog from './SelfDeclarationDialog';
+
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
 
 import { useEffect, useState, useContext } from 'react';
 import { FETCH_PATH } from './environment'
@@ -83,6 +91,15 @@ function Report({ kind }) {
 
   if (isLoggedIn) {
     console.log("Report data ", reportData);
+    const toTitle = s =>
+      s.replace(/(^|_)([a-z])/g, (_, p1, p2) => (p1 ? ' ' : '') + p2.toUpperCase());
+    function formatSignatureValue(v) {
+      if (typeof v === 'string' && v.length > 64) {
+        return v.substring(0, 61) + '...';
+      } else {
+        return v;
+      }
+    }
     return (
       <div>
         <Grid direction="column"
@@ -140,14 +157,14 @@ function Report({ kind }) {
                   <Disclaimer />
                   {isLoaded && !errorStatus && 
                     <>
-                        {(kind === "file") && <h2>File Metrics</h2>}
+                        {(kind === "file") && <h2>File Info</h2>}
                         {(kind === "syntax") && <h2>STEP Syntax Report</h2>}
                         {(kind === "schema") && <h2>IFC Schema Report</h2>}
                         {(kind === "bsdd") && <h2>bSDD Compliance Report</h2>}
                         {(kind === "normative") && <h2>Normative IFC Rules Report</h2>}
                         {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
-                        <GeneralTable data={reportData} type={"general"} />
+                        <GeneralTable data={reportData} type={kind} />
 
                         {(kind === "syntax") && <SyntaxResult 
                           status={reportData.model.status_syntax} 
@@ -157,25 +174,28 @@ function Report({ kind }) {
                         {(kind === "schema") && <SchemaResult 
                           status={reportData.model.status_schema} 
                           summary={"IFC Schema"} 
-                          content={[...reportData.results.schema_results, ...reportData.results.prereq_rules_results]} 
+                          count={[...reportData.results.schema.counts, ...reportData.results.prereq_rules.counts]}
+                          content={[...reportData.results.schema.results, ...reportData.results.prereq_rules.results]}
                           instances={reportData.instances} />}
 
                         {(kind === "bsdd") && <BsddTreeView 
                           status={reportData.model.status_bsdd} 
                           summary={"bSDD Compliance"} 
-                          content={[...reportData.results.bsdd_results]}
+                          content={reportData.results.bsdd_results}
                           instances={reportData.instances} />}
 
                         {(kind === "normative") && <GherkinResults 
                           status={reportData.model.status_rules} 
                           summary={"Normative IFC Rules"}
-                          content={reportData.results.norm_rules_results} 
+                          count={reportData.results.norm_rules.counts}
+                          content={reportData.results.norm_rules.results} 
                           instances={reportData.instances} />}
                           
                         {(kind === "industry") && <GherkinResults 
                           status={reportData.model.status_ind}
                           summary={"Industry Practices"}
-                          content={reportData.results.ind_rules_results} 
+                          count={reportData.results.ind_rules.counts}
+                          content={reportData.results.ind_rules.results}
                           instances={reportData.instances} />}
                     </> }
                   {!isLoaded && <div>Loading...</div>}
@@ -186,6 +206,26 @@ function Report({ kind }) {
                       <SearchOffOutlinedIcon color="disabled" fontSize='large' />                      
                     </div>
                   }
+                  {(kind === "file" && reportData && reportData.results && reportData.results.signatures) && 
+                    <>
+                      {(reportData.results.signatures.length > 0) && <h2 id="signatures">Digital signatures</h2>}
+                      {reportData.results.signatures.map((sig, sigIndex) => (
+                        <TableContainer sx={{ maxWidth: 850, border: `solid 2px ${sig.signature === 'invalid' ? 'red' : sig.signature === 'valid_unknown_cert' ? 'gray' : 'green'}` }} component={Paper}>
+                          <Table aria-label="simple table">
+                            <TableBody>
+                              {["issuer", "subject", "signature_hash_algorithm_name", "rsa_key_size", "not_valid_after", "not_valid_before", "fingerprint_hex", "payload", "start", "end"].filter(x => sig[x]).map((item, itemIndex) =>
+                                <TableRow key={`sig-${sigIndex}-${itemIndex}-key`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                  <TableCell sx={{ width: '33%' }}>
+                                    <b>{toTitle(item).replace('Rsa', 'RSA')}</b>
+                                  </TableCell>
+                                  <TableCell align="left">{formatSignatureValue(sig[item])}</TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ))}
+                    </>}
                   <Footer />
                 </Grid>
               </div>
@@ -193,6 +233,7 @@ function Report({ kind }) {
           </Grid>
 
           <FeedbackWidget user={user} />
+          <SelfDeclarationDialog user={user} />
           
         </Grid>
       </div>
