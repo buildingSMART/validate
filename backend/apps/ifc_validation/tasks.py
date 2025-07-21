@@ -19,11 +19,12 @@ from core.settings import DJANGO_DB_BULK_CREATE_BATCH_SIZE
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
 from apps.ifc_validation_models.models import *
+from apps.ifc_validation.task_configs import TASK_CONFIGS
 
 from .email_tasks import *
 
 logger = get_task_logger(__name__)
-
+    
 PROGRESS_INCREMENTS = {
     'instance_completion_subtask': 5,
     'syntax_validation_subtask': 5,
@@ -38,7 +39,7 @@ PROGRESS_INCREMENTS = {
     'industry_practices_subtask': 10
 }
 
-assert sum(PROGRESS_INCREMENTS.values()) == 100
+assert sum(cfg.increment for cfg in TASK_CONFIGS.values()) == 100
 
 class ValidationSubprocessError(Exception): pass
 class ValidationTimeoutError(ValidationSubprocessError): pass
@@ -93,8 +94,9 @@ def update_progress(func):
             request_id = kwargs.get("id")
             # @nb not the most efficient because we fetch the ValidationRequest anew, but
             # assuming django will cache this efficiently enough for us to keep the code clean
+            config = TASK_CONFIGS.get(func.__name__)
             request = ValidationRequest.objects.get(pk=request_id)
-            increment = PROGRESS_INCREMENTS.get(func.__name__, 0)
+            increment = config.increment
             request.progress = min(request.progress + increment, 100)
             request.save()
         except Exception as e:
@@ -330,28 +332,35 @@ def instance_completion_subtask(self, task, request, file_path, *args, **kwargs)
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
 def normative_rules_ia_validation_subtask(self, task, request, file_path, **kwargs):
-    return run_gherkin_subtask(self, task, request, file_path, 'IMPLEMENTER_AGREEMENT', 'status_ia')
+    check_program = TASK_CONFIGS['normative_rules_ia_validation_subtask'].check_program(file_path, task.id)
+    log_program(self.__qualname__, check_program)
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ia')
 
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
 def normative_rules_ip_validation_subtask(self, task, request, file_path, **kwargs):
-    return run_gherkin_subtask(self, task, request, file_path, 'INFORMAL_PROPOSITION', 'status_ip')
+    check_program = TASK_CONFIGS['normative_rules_ip_validation_subtask'].check_program(file_path, task.id)
+    log_program(self.__qualname__, check_program)
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ip')
 
 
 @validation_task_runner(ValidationTask.Type.PREREQUISITES)
 def prerequisites_subtask(self, task, request, file_path, **kwargs):
-    return run_gherkin_subtask(self, task, request, file_path, 'CRITICAL', 'status_prereq', extra_args=['--purepythonparser'])
+    check_program = TASK_CONFIGS['prerequisites_subtask'].check_program(file_path, task.id)
+    log_program(self.__qualname__, check_program)
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_prereq')
+
 
 
 @validation_task_runner(ValidationTask.Type.SYNTAX)
 def syntax_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", file_path]
+    check_program = TASK_CONFIGS['syntax_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     return run_syntax_subtask(self, task, request, file_path, check_program, 'status_syntax')
 
 @validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
 def header_syntax_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", "--only-header", file_path]
+    check_program = TASK_CONFIGS['header_syntax_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     return run_syntax_subtask(self, task, request, file_path, check_program, 'status_header_syntax')
     
@@ -406,7 +415,8 @@ def run_syntax_subtask(self, task, request, file_path, check_program, model_stat
 
 @validation_task_runner(ValidationTask.Type.SCHEMA)
 def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
-    check_program = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", file_path]
+    
+    check_program = TASK_CONFIGS['schema_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
@@ -488,8 +498,7 @@ def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
 
 @validation_task_runner(ValidationTask.Type.HEADER)
 def header_validation_subtask(self, task, request, file_path, **kwargs):
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
-    check_program = [sys.executable, check_script, file_path]
+    check_program = TASK_CONFIGS['header_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     
     proc = run_task(
@@ -597,6 +606,7 @@ def header_validation_subtask(self, task, request, file_path, **kwargs):
 @validation_task_runner(ValidationTask.Type.DIGITAL_SIGNATURES)
 def digital_signatures_subtask(self, task, request, file_path, **kwargs):
     check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
+    
     check_program = [sys.executable, check_script, file_path]
     log_program(self.__qualname__, check_program)
     
@@ -641,8 +651,7 @@ def digital_signatures_subtask(self, task, request, file_path, **kwargs):
 
 @validation_task_runner(ValidationTask.Type.BSDD)
 def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_bsdd.py")
-    check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id)]
+    check_program = TASK_CONFIGS['bsdd_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     
     proc = run_task(
@@ -703,14 +712,7 @@ def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
 
 @validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
 def industry_practices_subtask(self, task, request, file_path):
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-    check_program = [
-        sys.executable,
-        check_script,
-        '--file-name', file_path,
-        '--task-id', str(task.id),
-        '--rule-type', 'INDUSTRY_PRACTICE'
-    ]
+    check_program = TASK_CONFIGS['industry_practices_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
@@ -738,18 +740,7 @@ def industry_practices_subtask(self, task, request, file_path):
         return {'is_valid': is_valid, 'reason': reason}
 
 
-def run_gherkin_subtask(self, task, request, file_path, gherkin_task_type, status_field, extra_args=None):
-    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-    check_program = [
-        sys.executable,
-        check_script,
-        '--file-name', file_path,
-        '--task-id', str(task.id),
-        '--rule-type', gherkin_task_type
-    ]
-    if extra_args:
-        check_program += extra_args
-
+def run_gherkin_subtask(self, task, request, file_path, check_program, status_field):
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
