@@ -5,6 +5,7 @@ import subprocess
 import functools
 import json
 import ifcopenshell
+import typing
 
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
@@ -39,13 +40,57 @@ PROGRESS_INCREMENTS = {
 
 assert sum(PROGRESS_INCREMENTS.values()) == 100
 
+class ValidationSubprocessError(Exception): pass
+class ValidationTimeoutError(ValidationSubprocessError): pass
+class ValidationOpenShellError(ValidationSubprocessError): pass
+class ValidationIntegrityError(ValidationSubprocessError): pass
+
+def run_task(
+    task: ValidationTask,
+    check_program: typing.List[str],
+    task_name: str
+) -> subprocess.CompletedProcess[str]:
+    task.set_process_details(None, check_program)
+    try:
+        proc = subprocess.run(
+            check_program,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=TASK_TIMEOUT_LIMIT,
+            env= os.environ.copy()
+        )
+        return proc
+    
+    except subprocess.TimeoutExpired as err:
+        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task_name}")
+        task.mark_as_failed(err)
+        raise ValidationTimeoutError(f"Task {task_name} timed out") from err
+
+    except ifcopenshell.Error as err:
+        logger.exception(f"Ifcopenshell error in task {task.id} : {task_name}")
+        task.mark_as_failed(err)
+        raise ValidationOpenShellError(f"IFC parsing or validation failed during task {task_name}") from err
+
+    except IntegrityError as err:
+        logger.exception(f"Database integrity error in task {task.id} : {task_name}")
+        task.mark_as_failed(err)
+        raise ValidationIntegrityError(f"Database error during task {task_name}") from err
+
+    except Exception as err:
+        logger.exception(f"Unexpected error in task {task.id} : {task_name}")
+        task.mark_as_failed(err)
+        raise ValidationSubprocessError(f"Unknown error during validation task {task.id}: {task_name}") from err
+
+def log_program(taskname, check_program):
+    logger.debug(f'Command for {taskname}: {" ".join(check_program)}')
 
 def update_progress(func):
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         return_value = func(self, *args, **kwargs)
         try:
-            request_id = args[1]
+            request_id = kwargs.get("id")
             # @nb not the most efficient because we fetch the ValidationRequest anew, but
             # assuming django will cache this efficiently enough for us to keep the code clean
             request = ValidationRequest.objects.get(pk=request_id)
@@ -105,7 +150,7 @@ def chord_error_handler(self, request, exc, traceback, *args, **kwargs):
 def on_workflow_started(self, *args, **kwargs):
 
     # update status
-    id = self.request.args[0]
+    id = kwargs.get('id')
     reason = f"args={args} kwargs={kwargs}"
     request = ValidationRequest.objects.get(pk=id)
     request.mark_as_initiated(reason)
@@ -123,10 +168,12 @@ def on_workflow_started(self, *args, **kwargs):
 @shared_task(bind=True)
 @log_execution
 @requires_django_user_context
-def on_workflow_completed(self, *args, **kwargs):
+def on_workflow_completed(self, result, **kwargs):
 
     # update status
-    id = args[1]
+    id = kwargs.get('id')
+    if not isinstance(id, int):
+        raise ValueError(f"Invalid id: {id!r}")
     reason = "Processing completed"
     request = ValidationRequest.objects.get(pk=id)
     request.mark_as_completed(reason)
@@ -181,6 +228,34 @@ def get_or_create_ifc_model(request_id):
     else:
         return request.model
 
+def validation_task_runner(task_type):
+    def decorator(func):
+        @shared_task(bind=True)
+        @log_execution
+        @requires_django_user_context
+        @update_progress
+        @functools.wraps(func)
+        def wrapper(self, prev_result, id, file_name, *args, **kwargs):
+            if args and isinstance(args[0], dict) and "is_valid" in args[0]:
+                prev_result = args[0]
+            else:
+                prev_result = {"is_valid": True}
+                
+            
+            request = ValidationRequest.objects.get(pk=id)
+            file_path = get_absolute_file_path(request.file.name)
+            task = ValidationTask.objects.create(request=request, type=task_type)
+
+            if prev_result is not None and prev_result.get('is_valid') is True:
+                task.mark_as_initiated()
+                return func(self, task, request, file_path, *args, **kwargs)
+            else:
+                reason = f'Skipped as prev_result = {prev_result}.'
+                task.mark_as_skipped(reason)
+                return {'is_valid': None, 'reason': reason}
+        return wrapper
+    return decorator
+
 
 @shared_task(bind=True)
 @log_execution
@@ -192,27 +267,27 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     error_task = error_handler.s(id, file_name)
     chord_error_task = chord_error_handler.s(id, file_name)
 
-    workflow_started = on_workflow_started.s(id, file_name)
-    workflow_completed = on_workflow_completed.s(id, file_name)
+    workflow_started = on_workflow_started.s(id=id, file_name=file_name)
+    workflow_completed = on_workflow_completed.s(id=id, file_name=file_name)
 
     serial_tasks = chain(
-        header_syntax_validation_subtask.s(id, file_name),
-        header_validation_subtask.s(id, file_name),
-        syntax_validation_subtask.s(id, file_name),
-        prerequisites_subtask.s(id, file_name),
+        header_syntax_validation_subtask.s(id=id, file_name=file_name),
+        header_validation_subtask.s(id=id, file_name=file_name),
+        syntax_validation_subtask.s(id=id, file_name=file_name),
+        prerequisites_subtask.s(id=id, file_name=file_name),
     )
 
     parallel_tasks = group([
-        digital_signatures_subtask.s(id, file_name),
-        schema_validation_subtask.s(id, file_name),
-        #bsdd_validation_subtask.s(id, file_name), # disabled
-        normative_rules_ia_validation_subtask.s(id, file_name),
-        normative_rules_ip_validation_subtask.s(id, file_name),
-        industry_practices_subtask.s(id, file_name)
+        digital_signatures_subtask.s(id=id, file_name=file_name),
+        schema_validation_subtask.s(id=id, file_name=file_name),
+        #bsdd_validation_subtask.s(id=id, file_name=file_name), # disabled
+        normative_rules_ia_validation_subtask.s(id=id, file_name=file_name),
+        normative_rules_ip_validation_subtask.s(id=id, file_name=file_name),
+        industry_practices_subtask.s(id=id, file_name=file_name)
     ])
 
     final_tasks = chain(
-        instance_completion_subtask.s(id, file_name)
+        instance_completion_subtask.s(id=id, file_name=file_name)
     )
 
     workflow = (
@@ -226,988 +301,477 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow.apply_async()
 
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def instance_completion_subtask(self, prev_result, id, file_name, *args, **kwargs):
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INSTANCE_COMPLETION)
-
-    prev_result_succeeded = prev_result is not None and prev_result[0]['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-        
-        try:
-            ifc_file = ifcopenshell.open(file_path)
-        except:            
-            reason = f'Failed to open {file_path}. Likely previous tasks also failed.'
-            task.mark_as_completed(reason)
-            return {'is_valid': False, 'reason': reason}
-
-        if ifc_file:
-
-            # fetch and update ModelInstance records without ifc_type
-            with transaction.atomic():
-                model_id = request.model.id
-                model_instances = ModelInstance.objects.filter(model_id=model_id, ifc_type__in=[None, ''])
-                instance_count = model_instances.count()
-                logger.info(f'Retrieved {instance_count:,} ModelInstance record(s)')
-                
-                for inst in model_instances.iterator():
-                    inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
-                    inst.save()
-
-                # update Task info and return
-                reason = f'Updated {instance_count:,} ModelInstance record(s)'
-                task.mark_as_completed(reason)
-                return {'is_valid': True, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
-
-
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # determine program/script to run
-    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", '--json', file_path]
-    logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SYNTAX)
-    task.mark_as_initiated()
-
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-    # check syntax
-        try:
-
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            task.set_process_details(None, check_program)  # run() has no pid...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT
-            )
-
-            # parse output
-            output = proc.stdout
-            error_output = proc.stderr
-            success = (len(list(filter(None, output.split("\n")))) == 0) and len(proc.stderr) == 0
-
-            with transaction.atomic():
-
-                # create or retrieve Model info
-                model = get_or_create_ifc_model(id)
-
-                # update Model info
-                if success:
-                    model.status_syntax = Model.Status.VALID
-                    task.outcomes.create(
-                        severity=ValidationOutcome.OutcomeSeverity.PASSED,
-                        outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
-                        observed=output if output != '' else None
-                    )
-
-                elif len(error_output) != 0:
-                    model.status_syntax = Model.Status.INVALID
-                    task.outcomes.create(
-                        severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                        outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                        observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
-                    )
-
-                else:
-                    messages = json.loads(output)
-                    model.status_syntax = Model.Status.INVALID
-                    task.outcomes.create(
-                        severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                        outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                        observed=messages['message'] if 'message' in messages else None
-                    )
-
-                model.save(update_fields=['status_syntax'])
-
-                # store and return
-                if success:
-                    reason = "No IFC syntax error(s)."
-                    task.mark_as_completed(reason)
-                    return {'is_valid': True, 'reason': task.status_reason}
-                else:
-                    reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
-                    task.mark_as_completed(reason)
-                    return {'is_valid': False, 'reason': reason}
-
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def header_syntax_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # determine program/script to run
-    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", '--json', '--only-header', file_path]
-    logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.HEADER_SYNTAX)
-    task.mark_as_initiated()
-
-    # check header syntax
+@validation_task_runner(ValidationTask.Type.INSTANCE_COMPLETION)
+def instance_completion_subtask(self, task, request, file_path, *args, **kwargs):
     try:
-
-        # note: use run instead of Popen b/c PIPE output can be very big...
-        task.set_process_details(None, check_program)  # run() has no pid...
-        proc = subprocess.run(
-            check_program,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            universal_newlines=True,
-            timeout=TASK_TIMEOUT_LIMIT
-        )
-
-        # parse output
-        output = proc.stdout
-        error_output = proc.stderr
-        success = (len(list(filter(None, output.split("\n")))) == 0) and len(proc.stderr) == 0
-
-        with transaction.atomic():
-
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-
-            # update Model info
-            if success:
-                model.status_header_syntax = Model.Status.VALID
-                task.outcomes.create(
-                    severity=ValidationOutcome.OutcomeSeverity.PASSED,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
-                    observed=output if output != '' else None
-                )
-
-            elif len(error_output) != 0:
-                model.status_header_syntax = Model.Status.INVALID
-                task.outcomes.create(
-                    severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                    observed=list(filter(None, proc.stderr.split("\n")))[-1] # last line of traceback
-                )
-
-            else:
-                messages = json.loads(output)
-                model.status_header_syntax = Model.Status.INVALID
-                task.outcomes.create(
-                    severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                    observed=messages['message'] if 'message' in messages else None
-                )
-
-            model.save(update_fields=['status_header_syntax'])
-
-            # store and return
-            if success:
-                reason = "No IFC syntax error(s)."
-                task.mark_as_completed(reason)
-                return {'is_valid': True, 'reason': task.status_reason}
-            else:
-                reason = f"Found IFC syntax errors in header:\n\nConsole: \n{output}\n\nError: {error_output}"
-                task.mark_as_completed(reason)
-                return {'is_valid': False, 'reason': reason}
-
-    except subprocess.TimeoutExpired as err:
-        task.mark_as_failed(err)
-        raise
-
-    except Exception as err:
-        task.mark_as_failed(err)
-        raise
-
-
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def header_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
-    """"
-    Parses and validates the file header
-    """
-    
-    # fetch request info 
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.HEADER)
-    
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-        task.mark_as_initiated()
-        # check for header policy 
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
-        
-        try:
-            logger.debug(f'before header validation task, path {file_path}, script {check_script} ')
-            proc = subprocess.run(
-                [sys.executable, check_script, file_path],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=TASK_TIMEOUT_LIMIT  # Add timeout to prevent infinite hangs
-            )
-            
-            
-            if (proc.returncode is not None and proc.returncode != 0) or (len(proc.stderr) > 0):
-                error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-                task.mark_as_failed(error_message)
-                raise RuntimeError(error_message)
-
-            header_validation = {}
-            stdout_lines = proc.stdout.splitlines()
-            for line in stdout_lines:
-                try:
-                    header_validation = json.loads(line)
-                except json.JSONDecodeError:
-                    continue 
-            
-            logger.debug(f'header validation output : {header_validation}')
-            
-            with transaction.atomic():
-                # create or retrieve Model info
-                model = get_or_create_ifc_model(id)
-
-                # update Model info
-                agg_status = task.determine_aggregate_status()
-                model.status_prereq = agg_status
-                
-                # size
-                model.size = os.path.getsize(file_path)
-                logger.debug(f'Detected size = {model.size} bytes')
-                
-                # schema 
-                model.schema = header_validation.get('schema_identifier')
-                
-                logger.debug(f'The schema identifier = {header_validation.get("schema")}')
-                # time_stamp 
-                if ifc_file_time_stamp := header_validation.get('time_stamp', False):
-                    try:
-                        logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
-                        date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
-                        date_with_tz = datetime.datetime(
-                            date.year, 
-                            date.month, 
-                            date.day, 
-                            date.hour, 
-                            date.minute, 
-                            date.second, 
-                            tzinfo=datetime.timezone.utc)
-                        model.date = date_with_tz
-                    except ValueError:
-                        try:
-                            model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
-                        except ValueError:
-                            pass
-                        
-                # mvd
-                model.mvd = header_validation.get('mvd')
-                
-                app = header_validation.get('application_name')
-                
-                version = header_validation.get('version')
-                name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
-                company_name = header_validation.get('company_name')
-                logger.debug(f'Detected Authoring Tool in file = {name}')
-                
-                validation_errors = header_validation.get('validation_errors', [])
-                invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
-                if any(field in validation_errors for field in invalid_marker_fields):
-                    model.status_header = Model.Status.INVALID
-                else:
-                    # parsing was successful and model can be considered for scorecards
-                    model.status_header = Model.Status.VALID
-                    authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
-                    if (isinstance(authoring_tool, AuthoringTool)):
-                        
-                        if authoring_tool.company is None:
-                            company, _ = Company.objects.get_or_create(name=company_name)
-                            authoring_tool.company = company
-                            authoring_tool.save()
-                            logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
-
-                        model.produced_by = authoring_tool
-                        logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
-
-                    elif authoring_tool is None:
-                        company, _ = Company.objects.get_or_create(name=company_name)
-                        authoring_tool, _ = AuthoringTool.objects.get_or_create(
-                            company=company,
-                            name=app,
-                            version=version
-                        )
-                        model.produced_by = authoring_tool
-                        logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
-                    else:
-                        model.produced_by = None
-                        logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')  
-                                
-                # update header validation
-                model.header_validation = header_validation
-                model.save(update_fields=['status_header', 'header_validation'])
-                model.save()
-                
-                
-                # update Task info and return
-                is_valid = agg_status != Model.Status.INVALID
-                reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
-                task.mark_as_completed(reason)
-                return {'is_valid': is_valid, 'reason': reason}
-            
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-        except IntegrityError as err:
-            task.mark_as_failed(err)
-            raise
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-    else: 
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
+        ifc_file = ifcopenshell.open(file_path)
+    except:
+        reason = f'Failed to open {file_path}. Likely previous tasks also failed.'
+        task.marked_as_completed(reason)
         return {'is_valid': None, 'reason': reason}
-
-
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def prerequisites_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.PREREQUISITES)
-
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'CRITICAL', "--purepythonparser"]
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-        logger.debug(f"gherkin log path : {os.path.join(os.getenv('Django_LOG_FOLDER', 'logs'), 'gherkin_rules.log')}")
-        logger.debug(f"Log folder exists and writable: {os.access(os.getenv('Django_LOG_FOLDER', 'logs'), os.W_OK)}")
-
-        # check Gherkin IP
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT,
-                env=os.environ.copy()
-            )
-            task.set_process_details(None, check_program)  # run() has no pid...
-
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-        # @nb previously we also checked for:
-        # or (len(proc.stderr) > 0):
-        #
-        # but I now get warnings:
-        #
-        # - features/environment.py:86: ContextMaskWarning: user code is masking context attribute 'gherkin_outcomes'; 
-        #                                                   see the tutorial for what this means
-        if proc.returncode is not None and proc.returncode != 0: 
-            error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-            task.mark_as_failed(error_message)
-            raise RuntimeError(error_message)
-
-        raw_output = proc.stdout
-
+    
+    if ifc_file:
+        # fetch and update ModelInstance records without ifc_type
         with transaction.atomic():
-
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-
-            # update Model info
-            agg_status = task.determine_aggregate_status()
-            model.status_prereq = agg_status
-            model.save(update_fields=['status_prereq'])
+            model_id = request.model.id
+            model_instances = ModelInstance.objects.filter(model_id=model_id, ifc_type__in=[None, ''])
+            instance_count = model_instances.count()
+            logger.info(f'Retrieved {instance_count:,} ModelInstance record(s)')
+            
+            for inst in model_instances.iterator():
+                inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
+                inst.save()
 
             # update Task info and return
-            is_valid = agg_status != Model.Status.INVALID
-            reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
+            reason = f'Updated {instance_count:,} ModelInstance record(s)'
             task.mark_as_completed(reason)
-            return {'is_valid': is_valid, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+            return {'is_valid': True, 'reason': reason}
 
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def schema_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+@validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
+def normative_rules_ia_validation_subtask(self, task, request, file_path, **kwargs):
+    return run_gherkin_subtask(self, task, request, file_path, 'IMPLEMENTER_AGREEMENT', 'status_ia')
 
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
 
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.SCHEMA)
+@validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
+def normative_rules_ip_validation_subtask(self, task, request, file_path, **kwargs):
+    return run_gherkin_subtask(self, task, request, file_path, 'INFORMAL_PROPOSITION', 'status_ip')
 
-    # TODO: revisit schema validation task, perhaps change order of flow?
-    prev_result_succeeded = prev_result is not None and (prev_result['is_valid'] is True or 'Unsupported schema' in prev_result['reason'])
-    if prev_result_succeeded:
 
-        task.mark_as_initiated()
+@validation_task_runner(ValidationTask.Type.PREREQUISITES)
+def prerequisites_subtask(self, task, request, file_path, **kwargs):
+    return run_gherkin_subtask(self, task, request, file_path, 'CRITICAL', 'status_prereq', extra_args=['--purepythonparser'])
 
-        # determine program/script to run
-        check_program = [sys.executable, '-m', 'ifcopenshell.validate', '--json', '--rules', '--fields', file_path]
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
 
-        # check schema
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT
+@validation_task_runner(ValidationTask.Type.SYNTAX)
+def syntax_validation_subtask(self, task, request, file_path, **kwargs):
+    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", file_path]
+    log_program(self.__qualname__, check_program)
+    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_syntax')
+
+@validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
+def header_syntax_validation_subtask(self, task, request, file_path, **kwargs):
+    check_program = [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", "--only-header", file_path]
+    log_program(self.__qualname__, check_program)
+    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_header_syntax')
+    
+
+def run_syntax_subtask(self, task, request, file_path, check_program, model_status_field):
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
+    output = proc.stdout
+    error_output = proc.stderr
+    success = (len(list(filter(None, output.split("\n")))) == 0) and len(error_output) == 0
+
+    with transaction.atomic():
+        model = get_or_create_ifc_model(request.id)
+
+        if success:
+            setattr(model, model_status_field, Model.Status.VALID)
+            task.outcomes.create(
+                severity=ValidationOutcome.OutcomeSeverity.PASSED,
+                outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
+                observed=output if output else None
             )
-            task.set_process_details(None, check_program)  # run() has no pid...
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-        except ifcopenshell.Error as err:
-            # logical validation error OR C++ errors
-            task.mark_as_failed(err)
-            pass
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
+        elif error_output:
+            setattr(model, model_status_field, Model.Status.INVALID)
+            task.outcomes.create(
+                severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                observed=list(filter(None, error_output.split("\n")))[-1]
+            )
+        else:
+            messages = json.loads(output)
+            setattr(model, model_status_field, Model.Status.INVALID)
+            task.outcomes.create(
+                severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                observed=messages.get("message")
+            )
 
-        # schema check returns either multiple JSON lines, or a single line message, or nothing.        
-        def is_schema_error(line):
-            try:
-                json.loads(line) # ignoring non-JSON messages
-            except ValueError:
-                return False
-            return True
+        model.save(update_fields=[model_status_field])
+
+        if success:
+            reason = "No IFC syntax error(s)."
+            task.mark_as_completed(reason)
+            return {'is_valid': True, 'reason': reason}
+        else:
+            reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
+            task.mark_as_completed(reason)
+            return {'is_valid': False, 'reason': reason}
         
-        output = list(filter(is_schema_error, proc.stdout.split("\n")))
-        # success = (len(output) == 0)
-        # tfk: if we mark this task as failed we don't do the instance population either.
-        # marking as failed should probably be reserved for blocking errors (prerequisites)
-        # and internal errors and differentiate between valid and task_success.
-        success = proc.returncode >= 0
-        valid = (len(output) == 0)
 
-        with transaction.atomic():
+@validation_task_runner(ValidationTask.Type.SCHEMA)
+def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
+    check_program = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", file_path]
+    log_program(self.__qualname__, check_program)
 
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
+    def is_schema_error(line):
+        try:
+            json.loads(line) # ignoring non-JSON messages
+        except ValueError:
+            return False
+        return True
+    
+    output = list(filter(is_schema_error, proc.stdout.split("\n")))
 
-            # update Model and Validation Outcomes
-            if valid:
-                model.status_schema = Model.Status.VALID
-                task.outcomes.create(
-                    severity=ValidationOutcome.OutcomeSeverity.PASSED,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
-                    observed=None
+    success = proc.returncode >= 0
+    valid = len(output) == 0
+
+    with transaction.atomic():
+        model = get_or_create_ifc_model(request.id)
+
+        if valid:
+            model.status_schema = Model.Status.VALID
+            task.outcomes.create(
+                severity=ValidationOutcome.OutcomeSeverity.PASSED,
+                outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
+                observed=None
+            )
+        else:
+            model.status_schema = Model.Status.INVALID
+            outcomes_to_save = list()
+            outcomes_instances_to_save = list()
+
+            for line in output:
+                message = json.loads(line)
+                outcome = ValidationOutcome(
+                    severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR,
+                    observed=message['message'],
+                    feature=json.dumps({
+                        'type': message['type'] if 'type' in message else None,
+                        'attribute': message['attribute'] if 'attribute' in message else None
+                    }),
+                    validation_task=task
                 )
-            else:
-                outcomes_to_save = list()
-                outcomes_instances_to_save = list()
-
-                for line in output:
-                    message = json.loads(line)
-                    model.status_schema = Model.Status.INVALID
-                    outcome = ValidationOutcome(
-                        severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                        outcome_code=ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR,
-                        observed=message['message'],
-                        feature=json.dumps({
-                            'type': message['type'] if 'type' in message else None,
-                            'attribute': message['attribute'] if 'attribute' in message else None
-                        })
-                    )
-                    outcome.validation_task = task
-                    outcomes_to_save.append(outcome)
-
-                    if 'instance' in message and message['instance'] is not None and 'id' in message['instance'] and 'type' in message['instance']:
-                        instance = ModelInstance(
+                outcomes_to_save.append(outcome)
+                if 'instance' in message and message['instance'] is not None and 'id' in message['instance'] and 'type' in message['instance']:
+                    instance = ModelInstance(
                             stepfile_id=message['instance']['id'],
                             ifc_type=message['instance']['type'],
                             model=model
                         )
-                        outcome.instance_id = instance.stepfile_id # store for later reference (not persisted)
-                        outcomes_instances_to_save.append(instance)
-                
-                ModelInstance.objects.bulk_create(outcomes_instances_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE, ignore_conflicts=True) # ignore existing
-                model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
+                    outcome.instance_id = instance.stepfile_id # store for later reference (not persisted)
+                    outcomes_instances_to_save.append(instance)
 
-                for outcome in outcomes_to_save:
-                    if outcome.instance_id:
-                        instance_id = model_instances[outcome.instance_id]
-                        if instance_id:
-                            outcome.instance_id = instance_id
+            ModelInstance.objects.bulk_create(outcomes_instances_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE, ignore_conflicts=True) #ignore existing
+            model_instances = dict(ModelInstance.objects.filter(model_id=model.id).values_list('stepfile_id', 'id')) # retrieve all
 
-                ValidationOutcome.objects.bulk_create(outcomes_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
+            for outcome in outcomes_to_save:
+                if outcome.instance_id:
+                    instance_id = model_instances[outcome.instance_id]
+                    if instance_id:
+                        outcome.instance_id = instance_id
 
-            model.save(update_fields=['status_schema'])
+            ValidationOutcome.objects.bulk_create(outcomes_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
-            # return
-            if success:
-                reason = 'No IFC schema errors.'
-                task.mark_as_completed(reason)
-                return {'is_valid': True, 'reason': reason}
-            else:
-                reason = f"'ifcopenshell.validate' returned exit code {proc.returncode} and {len(output):,} errors : {output}"
-                task.mark_as_completed(reason)
-                return {'is_valid': False, 'reason': reason}
+        model.save(update_fields=['status_schema'])
 
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+        if success:
+            reason = "No IFC schema errors."
+            task.mark_as_completed(reason)
+            return {'is_valid': True, 'reason': reason}
+        else:
+            reason = f"'ifcopenshell.validate' returned exit code {proc.returncode} and {len(output):,} errors."
+            task.mark_as_completed(reason)
+            return {'is_valid': False, 'reason': reason}
 
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def digital_signatures_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.DIGITAL_SIGNATURES)
-
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
-        check_program = [sys.executable, check_script, file_path]
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-        # check signatures
+@validation_task_runner(ValidationTask.Type.HEADER)
+def header_validation_subtask(self, task, request, file_path, **kwargs):
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py")
+    check_program = [sys.executable, check_script, file_path]
+    log_program(self.__qualname__, check_program)
+    
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
+    
+    
+    header_validation = {}
+    stdout_lines = proc.stdout.splitlines()
+    for line in stdout_lines:
         try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT
-            )
-            task.set_process_details(None, check_program)  # run() has no pid...
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
+            header_validation = json.loads(line)
+        except json.JSONDecodeError:
+            continue 
+
+    with transaction.atomic():
+        # create or retrieve Model info
+        model = get_or_create_ifc_model(request.id)
+        agg_status = task.determine_aggregate_status()
+        model.status_prereq = agg_status
+        model.size = os.path.getsize(file_path)
+        logger.debug(f'Detected size = {model.size} bytes')
         
-        output = list(map(json.loads, filter(None, map(lambda s: s.strip(), proc.stdout.split("\n")))))
-        success = proc.returncode >= 0
-        valid = all(m['signature'] != "invalid" for m in output)
+        model.schema = header_validation.get('schema_identifier')
+        logger.debug(f'The schema identifier = {header_validation.get("schema")}')
+        
+        # time_stamp 
+        if ifc_file_time_stamp := header_validation.get('time_stamp', False):
+            try:
+                logger.debug(f'Timestamp within file = {ifc_file_time_stamp}')
+                date = datetime.datetime.strptime(ifc_file_time_stamp, "%Y-%m-%dT%H:%M:%S")
+                date_with_tz = datetime.datetime(
+                    date.year, 
+                    date.month, 
+                    date.day, 
+                    date.hour, 
+                    date.minute, 
+                    date.second, 
+                    tzinfo=datetime.timezone.utc)
+                model.date = date_with_tz
+            except ValueError:
+                try:
+                    model.date = datetime.datetime.fromisoformat(ifc_file_time_stamp)
+                except ValueError:
+                    pass
+                
+        # mvd
+        model.mvd = header_validation.get('mvd')
+        
+        app = header_validation.get('application_name')
+        
+        version = header_validation.get('version')
+        name = None if any(value in (None, "Not defined") for value in (app, version)) else app + ' ' + version
+        company_name = header_validation.get('company_name')
+        logger.debug(f'Detected Authoring Tool in file = {name}')
+        
+        validation_errors = header_validation.get('validation_errors', [])
+        invalid_marker_fields = ['originating_system', 'version', 'company_name', 'application_name']
+        if any(field in validation_errors for field in invalid_marker_fields):
+            model.status_header = Model.Status.INVALID
+        else:
+            # parsing was successful and model can be considered for scorecards
+            model.status_header = Model.Status.VALID
+            authoring_tool = AuthoringTool.find_by_full_name(full_name=name)
+            if (isinstance(authoring_tool, AuthoringTool)):
+                
+                if authoring_tool.company is None:
+                    company, _ = Company.objects.get_or_create(name=company_name)
+                    authoring_tool.company = company
+                    authoring_tool.save()
+                    logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
 
-        with transaction.atomic():
+                model.produced_by = authoring_tool
+                logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-            model.status_signatures = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID 
-
-            def create_outcome(di):
-                return ValidationOutcome(
-                    severity=ValidationOutcome.OutcomeSeverity.ERROR if di.get("signature") == "invalid" else ValidationOutcome.OutcomeSeverity.PASSED,
-                    outcome_code=ValidationOutcome.ValidationOutcomeCode.VALUE_ERROR if di.get("signature") == "invalid" else ValidationOutcome.ValidationOutcomeCode.PASSED,
-                    observed=di,
-                    feature=json.dumps({'digital_signature': 1}),
-                    validation_task = task
+            elif authoring_tool is None:
+                company, _ = Company.objects.get_or_create(name=company_name)
+                authoring_tool, _ = AuthoringTool.objects.get_or_create(
+                    company=company,
+                    name=app,
+                    version=version
                 )
-
-            ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
-
-            model.save(update_fields=['status_signatures'])
-
-            if success:
-                reason = 'Digital signature check completed'
-                task.mark_as_completed(reason)
-                return {'is_valid': True, 'reason': reason}
+                model.produced_by = authoring_tool
+                logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
             else:
-                reason = f"Script returned exit code {proc.returncode} and {proc.stderr}"
-                task.mark_as_completed(reason)
-                return {'is_valid': False, 'reason': reason}
+                model.produced_by = None
+                logger.warning(f'Retrieved multiple Authoring Tool from DB: {authoring_tool} - could not assign any')  
+                        
+        # update header validation
+        model.header_validation = header_validation
+        model.save(update_fields=['status_header', 'header_validation'])
+        model.save()
+        
+        
+        # update Task info and return
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
 
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+    
 
+@validation_task_runner(ValidationTask.Type.DIGITAL_SIGNATURES)
+def digital_signatures_subtask(self, task, request, file_path, **kwargs):
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
+    check_program = [sys.executable, check_script, file_path]
+    log_program(self.__qualname__, check_program)
+    
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
+    
+    output = list(map(json.loads, filter(None, map(lambda s: s.strip(), proc.stdout.split("\n")))))
+    success = proc.returncode >= 0
+    valid = all(m['signature'] != "invalid" for m in output)
+    
+    with transaction.atomic():
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def bsdd_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+        # create or retrieve Model info
+        model = get_or_create_ifc_model(request.id)
+        model.status_signatures = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID 
 
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.BSDD)
-
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "check_bsdd.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(id)]
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-        # check bSDD
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT,
-                env=os.environ.copy()
+        def create_outcome(di):
+            return ValidationOutcome(
+                severity=ValidationOutcome.OutcomeSeverity.ERROR if di.get("signature") == "invalid" else ValidationOutcome.OutcomeSeverity.PASSED,
+                outcome_code=ValidationOutcome.ValidationOutcomeCode.VALUE_ERROR if di.get("signature") == "invalid" else ValidationOutcome.ValidationOutcomeCode.PASSED,
+                observed=di,
+                feature=json.dumps({'digital_signature': 1}),
+                validation_task = task
             )
-            task.set_process_details(None, check_program)  # run() has no pid...
 
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
+        ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
+        model.save(update_fields=['status_signatures'])
 
-        if proc.returncode is not None and proc.returncode != 0:
-            error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-            task.mark_as_failed(error_message)
-            raise RuntimeError(error_message)
+        if success:
+            reason = 'Digital signature check completed'
+            task.mark_as_completed(reason)
+            return {'is_valid': True, 'reason': reason}
+        else:
+            reason = f"Script returned exit code {proc.returncode} and {proc.stderr}"
+            task.mark_as_completed(reason)
+            return {'is_valid': False, 'reason': reason}
 
-        raw_output = proc.stdout
 
-        logger.info(f'Output for {self.__name__}: {raw_output}')
+@validation_task_runner(ValidationTask.Type.BSDD)
+def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_bsdd.py")
+    check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id)]
+    log_program(self.__qualname__, check_program)
+    
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
+    
+    if proc.returncode is not None and proc.returncode != 0:
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
+    
+    raw_output = proc.stdout 
+    logger.info(f'Output for {self.__name__}: {raw_output}')
 
-        with transaction.atomic():
+    with transaction.atomic():
 
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
+        # create or retrieve Model info
+        model = get_or_create_ifc_model(request.id)
 
-            # update Validation Outcomes
-            json_output = json.loads(raw_output)
-            for message in json_output['messages']:
+        # update Validation Outcomes
+        json_output = json.loads(raw_output)
+        for message in json_output['messages']:
 
-                outcome = task.outcomes.create(
-                    severity=[c[0] for c in ValidationOutcome.OutcomeSeverity.choices if c[1] == (message['severity'])][0],
-                    outcome_code=[c[0] for c in ValidationOutcome.ValidationOutcomeCode.choices if c[1] == (message['outcome'])][0],
-                    observed=message['message'],
-                    feature=json.dumps({
-                        'rule': message['rule'] if 'rule' in message else None,
-                        'category': message['category'] if 'category' in message else None,
-                        'dictionary': message['dictionary'] if 'dictionary' in message else None,
-                        'class': message['class'] if 'class' in message else None,
-                        'instance_id': message['instance_id'] if 'instance_id' in message else None
-                    })                    
+            outcome = task.outcomes.create(
+                severity=[c[0] for c in ValidationOutcome.OutcomeSeverity.choices if c[1] == (message['severity'])][0],
+                outcome_code=[c[0] for c in ValidationOutcome.ValidationOutcomeCode.choices if c[1] == (message['outcome'])][0],
+                observed=message['message'],
+                feature=json.dumps({
+                    'rule': message['rule'] if 'rule' in message else None,
+                    'category': message['category'] if 'category' in message else None,
+                    'dictionary': message['dictionary'] if 'dictionary' in message else None,
+                    'class': message['class'] if 'class' in message else None,
+                    'instance_id': message['instance_id'] if 'instance_id' in message else None
+                })                    
+            )
+
+            if 'instance_id' in message and message['instance_id'] is not None:
+                instance, _ = model.instances.get_or_create(
+                    stepfile_id = message['instance_id'],
+                    model=model
                 )
+                outcome.instance = instance
+                outcome.save()
+        
+        # update Model info
+        agg_status = task.determine_aggregate_status()
+        model.status_bsdd = agg_status
+        model.save(update_fields=['status_bsdd'])
 
-                if 'instance_id' in message and message['instance_id'] is not None:
-                    instance, _ = model.instances.get_or_create(
-                        stepfile_id = message['instance_id'],
-                        model=model
-                    )
-                    outcome.instance = instance
-                    outcome.save()
-            
-            # update Model info
-            agg_status = task.determine_aggregate_status()
-            model.status_bsdd = agg_status
-            model.save(update_fields=['status_bsdd'])
-
-            # update Task info and return
-            is_valid = agg_status != Model.Status.INVALID
-            reason = f"agg_status = {Model.Status(agg_status).label}\nmessages = {json_output['messages']}"
-            task.mark_as_completed(reason)
-            return {'is_valid': is_valid, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+        # update Task info and return
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f"agg_status = {Model.Status(agg_status).label}\nmessages = {json_output['messages']}"
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
 
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def normative_rules_ia_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+@validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
+def industry_practices_subtask(self, task, request, file_path):
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
+    check_program = [
+        sys.executable,
+        check_script,
+        '--file-name', file_path,
+        '--task-id', str(task.id),
+        '--rule-type', 'INDUSTRY_PRACTICE'
+    ]
+    log_program(self.__qualname__, check_program)
 
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
 
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.NORMATIVE_IA)
+    if proc.returncode is not None and proc.returncode != 0:
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
 
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
+    raw_output = proc.stdout
 
-        task.mark_as_initiated()
+    with transaction.atomic():
+        model = get_or_create_ifc_model(request.id)
+        agg_status = task.determine_aggregate_status()
+        model.status_industry_practices = agg_status
+        model.save(update_fields=['status_industry_practices'])
 
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'IMPLEMENTER_AGREEMENT']
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-        # check Gherkin IA
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT,
-                env=os.environ.copy()
-            )
-            task.set_process_details(None, check_program)  # run() has no pid...
-
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-        if proc.returncode is not None and proc.returncode != 0:
-            error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-            task.mark_as_failed(error_message)
-            raise RuntimeError(error_message)
-
-        raw_output = proc.stdout
-
-        with transaction.atomic():
-
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-
-            # update Model info
-            agg_status = task.determine_aggregate_status()
-            logger.debug(f'Aggregate status for {self.__qualname__}: {agg_status}')
-            model.status_ia = agg_status
-            model.save(update_fields=['status_ia'])
-
-            # update Task info and return
-            is_valid = agg_status != Model.Status.INVALID
-            reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
-            task.mark_as_completed(reason)
-            return {'is_valid': is_valid, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
 
 
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def normative_rules_ip_validation_subtask(self, prev_result, id, file_name, *args, **kwargs):
+def run_gherkin_subtask(self, task, request, file_path, gherkin_task_type, status_field, extra_args=None):
+    check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
+    check_program = [
+        sys.executable,
+        check_script,
+        '--file-name', file_path,
+        '--task-id', str(task.id),
+        '--rule-type', gherkin_task_type
+    ]
+    if extra_args:
+        check_program += extra_args
 
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
+    log_program(self.__qualname__, check_program)
 
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.NORMATIVE_IP)
+    proc = run_task(
+        task=task,
+        check_program = check_program,
+        task_name = self.name.split(".")[-1]
+    )
 
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
+    if proc.returncode is not None and proc.returncode != 0:
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
 
-        task.mark_as_initiated()
+    raw_output = proc.stdout
 
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'INFORMAL_PROPOSITION']
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
+    with transaction.atomic():
+        model = get_or_create_ifc_model(request.id)
+        agg_status = task.determine_aggregate_status()
+        setattr(model, status_field, agg_status)
+        model.save(update_fields=[status_field])
 
-        # check Gherkin IP
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT
-            )
-            task.set_process_details(None, check_program)  # run() has no pid...
-
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-        if proc.returncode is not None and proc.returncode != 0:
-            error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-            task.mark_as_failed(error_message)
-            raise RuntimeError(error_message)
-
-        raw_output = proc.stdout
-
-        with transaction.atomic():
-
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-
-            # update Model info
-            agg_status = task.determine_aggregate_status()
-            model.status_ip = agg_status
-            model.save(update_fields=['status_ip'])
-
-            # update Task info and return
-            is_valid = agg_status != Model.Status.INVALID
-            reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
-            task.mark_as_completed(reason)
-            return {'is_valid': is_valid, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
-
-
-@shared_task(bind=True)
-@log_execution
-@requires_django_user_context
-@update_progress
-def industry_practices_subtask(self, prev_result, id, file_name, *args, **kwargs):
-
-    # fetch request info
-    request = ValidationRequest.objects.get(pk=id)
-    file_path = get_absolute_file_path(request.file.name)
-
-    # add task
-    task = ValidationTask.objects.create(request=request, type=ValidationTask.Type.INDUSTRY_PRACTICES)
-
-    prev_result_succeeded = prev_result is not None and prev_result['is_valid'] is True
-    if prev_result_succeeded:
-
-        task.mark_as_initiated()
-
-        # determine program/script to run
-        check_script = os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py")
-        check_program = [sys.executable, check_script, '--file-name', file_path, '--task-id', str(task.id), '--rule-type', 'INDUSTRY_PRACTICE']
-        logger.debug(f'Command for {self.__qualname__}: {" ".join(check_program)}')
-
-        # check Gherkin IP
-        try:
-            # note: use run instead of Popen b/c PIPE output can be very big...
-            proc = subprocess.run(
-                check_program,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                timeout=TASK_TIMEOUT_LIMIT
-            )
-            task.set_process_details(None, check_program)  # run() has no pid...
-
-        except subprocess.TimeoutExpired as err:
-            task.mark_as_failed(err)
-            raise
-
-        except Exception as err:
-            task.mark_as_failed(err)
-            raise
-
-        if proc.returncode is not None and proc.returncode != 0:
-            error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-            task.mark_as_failed(error_message)
-            raise RuntimeError(error_message)
-
-        raw_output = proc.stdout
-
-        with transaction.atomic():
-
-            # create or retrieve Model info
-            model = get_or_create_ifc_model(id)
-
-            # update Model info
-            agg_status = task.determine_aggregate_status()
-            model.status_industry_practices = agg_status
-            model.save(update_fields=['status_industry_practices'])
-
-            # update Task info and return
-            is_valid = agg_status != Model.Status.INVALID
-            reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
-            task.mark_as_completed(reason)
-            return {'is_valid': is_valid, 'reason': reason}
-
-    else:
-        reason = f'Skipped as prev_result = {prev_result}.'
-        task.mark_as_skipped(reason)
-        return {'is_valid': None, 'reason': reason}
+        is_valid = agg_status != Model.Status.INVALID
+        reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
+        task.mark_as_completed(reason)
+        return {'is_valid': is_valid, 'reason': reason}
