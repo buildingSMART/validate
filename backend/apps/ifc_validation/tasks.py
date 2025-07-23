@@ -6,6 +6,7 @@ import functools
 import json
 import ifcopenshell
 import typing
+import contextlib
 
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
@@ -25,20 +26,7 @@ from .email_tasks import *
 
 task_registry = TaskRegistry(TASK_CONFIGS)
 logger = get_task_logger(__name__)
-    
-PROGRESS_INCREMENTS = {
-    'instance_completion_subtask': 5,
-    'syntax_validation_subtask': 5,
-    'header_syntax_validation_subtask': 5,
-    'header_validation_subtask': 10,
-    'prerequisites_subtask': 10,
-    'schema_validation_subtask': 10,
-    'digital_signatures_subtask': 5,
-    'bsdd_validation_subtask': 0,
-    'normative_rules_ia_validation_subtask': 20,
-    'normative_rules_ip_validation_subtask': 20,
-    'industry_practices_subtask': 10
-}
+
 
 assert sum(cfg.increment for cfg in TASK_CONFIGS.values()) == 100
 
@@ -51,6 +39,7 @@ def run_task(
     task: ValidationTask,
     check_program: typing.List[str],
 ) -> subprocess.CompletedProcess[str]:
+    logger.debug(f'Command for {task.type}: {" ".join(check_program)}')
     task.set_process_details(None, check_program)
     try:
         proc = subprocess.run(
@@ -65,7 +54,7 @@ def run_task(
         return proc
     
     except subprocess.TimeoutExpired as err:
-        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task_type}")
+        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task.type}")
         task.mark_as_failed(err)
         raise ValidationTimeoutError(f"Task {task.type} timed out") from err
 
@@ -83,12 +72,21 @@ def run_task(
         logger.exception(f"Unexpected error in task {task.id} : {task.type}")
         task.mark_as_failed(err)
         raise ValidationSubprocessError(f"Unknown error during validation task {task.id}: {task.type}") from err
-
-def log_program(taskname, check_program):
-    logger.debug(f'Command for {taskname}: {" ".join(check_program)}')
     
 def get_task_type(name):
     return name.split(".")[-1]
+
+def check_proc_success_or_fail(proc, task):
+    if proc.returncode is not None and proc.returncode != 0:
+        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        task.mark_as_failed(error_message)
+        raise RuntimeError(error_message)
+    return proc.stdout
+    
+@contextlib.contextmanager
+def with_model(request_id):
+    with transaction.atomic():
+        yield get_or_create_ifc_model(request_id)
 
 def get_internal_result(task_type, prev_result, is_valid, reason):
     prev_result = prev_result or {}
@@ -359,21 +357,19 @@ def instance_completion_subtask(self, task, prev_result, request, file_path, *ar
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
 def normative_rules_ia_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     check_program = task_registry['normative_rules_ia_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
+    logger.info(f'qualname : {self.__qualname__}')
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ia')
 
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
 def normative_rules_ip_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     check_program = task_registry['normative_rules_ip_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ip')
 
 
 @validation_task_runner(ValidationTask.Type.PREREQUISITES)
 def prerequisites_subtask(self, task, prev_result, request, file_path, **kwargs):
     check_program = task_registry['prerequisites_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_prereq')
 
 
@@ -381,13 +377,11 @@ def prerequisites_subtask(self, task, prev_result, request, file_path, **kwargs)
 @validation_task_runner(ValidationTask.Type.SYNTAX)
 def syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     check_program = task_registry['syntax_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
     return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_syntax')
 
 @validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
 def header_syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     check_program = task_registry['header_syntax_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
     return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_header_syntax')
     
 
@@ -401,8 +395,7 @@ def run_syntax_subtask(self, task, prev_result, request, file_path, check_progra
     error_output = proc.stderr
     success = (len(list(filter(None, output.split("\n")))) == 0) and len(error_output) == 0
 
-    with transaction.atomic():
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
 
         if success:
             setattr(model, model_status_field, Model.Status.VALID)
@@ -444,7 +437,6 @@ def run_syntax_subtask(self, task, prev_result, request, file_path, check_progra
 def schema_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry['schema_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
@@ -462,8 +454,7 @@ def schema_validation_subtask(self, task, prev_result, request, file_path, *args
     success = proc.returncode >= 0
     valid = len(output) == 0
 
-    with transaction.atomic():
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
 
         if valid:
             model.status_schema = Model.Status.VALID
@@ -528,8 +519,6 @@ def schema_validation_subtask(self, task, prev_result, request, file_path, *args
 def header_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry['header_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
-    
     proc = run_task(
         task=task,
         check_program = check_program,
@@ -543,9 +532,7 @@ def header_validation_subtask(self, task, prev_result, request, file_path, **kwa
         except json.JSONDecodeError:
             continue 
 
-    with transaction.atomic():
-        # create or retrieve Model info
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
         agg_status = task.determine_aggregate_status()
         model.status_prereq = agg_status
         model.size = os.path.getsize(file_path)
@@ -553,7 +540,6 @@ def header_validation_subtask(self, task, prev_result, request, file_path, **kwa
         
         model.schema = header_validation.get('schema_identifier')
         logger.debug(f'The schema identifier = {header_validation.get("schema")}')
-        
         # time_stamp 
         if ifc_file_time_stamp := header_validation.get('time_stamp', False):
             try:
@@ -618,9 +604,8 @@ def header_validation_subtask(self, task, prev_result, request, file_path, **kwa
                         
         # update header validation
         model.header_validation = header_validation
-        model.save(update_fields=['status_header', 'header_validation'])
+        model.save(update_fields=['status_header', 'header_validation']) 
         model.save()
-        
         
         # update Task info and return
         is_valid = agg_status != Model.Status.INVALID
@@ -638,7 +623,6 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
     check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
     
     check_program = [sys.executable, check_script, file_path]
-    log_program(self.__qualname__, check_program)
     
     proc = run_task(
         task=task,
@@ -649,10 +633,7 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
     success = proc.returncode >= 0
     valid = all(m['signature'] != "invalid" for m in output)
     
-    with transaction.atomic():
-
-        # create or retrieve Model info
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
         model.status_signatures = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID 
 
         def create_outcome(di):
@@ -667,7 +648,6 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
         ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
         model.save(update_fields=['status_signatures'])
-        is_valid = True
         if success:
             reason = 'Digital signature check completed'
             task.mark_as_completed(reason)
@@ -685,25 +665,16 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
 def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry['bsdd_validation_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
     
     proc = run_task(
         task=task,
         check_program = check_program,
     )
     
-    if proc.returncode is not None and proc.returncode != 0:
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-        task.mark_as_failed(error_message)
-        raise RuntimeError(error_message)
-    
-    raw_output = proc.stdout 
+    raw_output = check_proc_success_or_fail(proc, task) 
     logger.info(f'Output for {self.__name__}: {raw_output}')
 
-    with transaction.atomic():
-
-        # create or retrieve Model info
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
 
         # update Validation Outcomes
         json_output = json.loads(raw_output)
@@ -749,22 +720,14 @@ def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, 
 def industry_practices_subtask(self, task, prev_result, request, file_path):
     task_type = get_task_type(self.name)
     check_program = task_registry['industry_practices_subtask'].check_program(file_path, task.id)
-    log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
         check_program = check_program,
     )
 
-    if proc.returncode is not None and proc.returncode != 0:
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-        task.mark_as_failed(error_message)
-        raise RuntimeError(error_message)
-
-    raw_output = proc.stdout
-
-    with transaction.atomic():
-        model = get_or_create_ifc_model(request.id)
+    raw_output = check_proc_success_or_fail(proc, task)
+    with with_model(request.id) as model:
         agg_status = task.determine_aggregate_status()
         model.status_industry_practices = agg_status
         model.save(update_fields=['status_industry_practices'])
@@ -779,22 +742,15 @@ def industry_practices_subtask(self, task, prev_result, request, file_path):
 
 def run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, status_field):
     task_type = get_task_type(self.name)
-    log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
         check_program = check_program
     )
 
-    if proc.returncode is not None and proc.returncode != 0:
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-        task.mark_as_failed(error_message)
-        raise RuntimeError(error_message)
+    raw_output = check_proc_success_or_fail(proc, task)
 
-    raw_output = proc.stdout
-
-    with transaction.atomic():
-        model = get_or_create_ifc_model(request.id)
+    with with_model(request.id) as model:
         agg_status = task.determine_aggregate_status()
         setattr(model, status_field, agg_status)
         model.save(update_fields=[status_field])
