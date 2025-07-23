@@ -19,10 +19,11 @@ from core.settings import DJANGO_DB_BULK_CREATE_BATCH_SIZE
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
 from apps.ifc_validation_models.models import *
-from apps.ifc_validation.task_configs import TASK_CONFIGS
+from apps.ifc_validation.task_configs import TASK_CONFIGS, TaskRegistry
 
 from .email_tasks import *
 
+task_registry = TaskRegistry(TASK_CONFIGS)
 logger = get_task_logger(__name__)
     
 PROGRESS_INCREMENTS = {
@@ -49,7 +50,6 @@ class ValidationIntegrityError(ValidationSubprocessError): pass
 def run_task(
     task: ValidationTask,
     check_program: typing.List[str],
-    task_name: str
 ) -> subprocess.CompletedProcess[str]:
     task.set_process_details(None, check_program)
     try:
@@ -61,30 +61,43 @@ def run_task(
             timeout=TASK_TIMEOUT_LIMIT,
             env= os.environ.copy()
         )
+        logger.info(f'test run task task name {task.type}, task value : {task}')
         return proc
     
     except subprocess.TimeoutExpired as err:
-        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task_name}")
+        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task_type}")
         task.mark_as_failed(err)
-        raise ValidationTimeoutError(f"Task {task_name} timed out") from err
+        raise ValidationTimeoutError(f"Task {task.type} timed out") from err
 
     except ifcopenshell.Error as err:
-        logger.exception(f"Ifcopenshell error in task {task.id} : {task_name}")
+        logger.exception(f"Ifcopenshell error in task {task.id} : {task.type}")
         task.mark_as_failed(err)
-        raise ValidationOpenShellError(f"IFC parsing or validation failed during task {task_name}") from err
+        raise ValidationOpenShellError(f"IFC parsing or validation failed during task {task.type}") from err
 
     except IntegrityError as err:
-        logger.exception(f"Database integrity error in task {task.id} : {task_name}")
+        logger.exception(f"Database integrity error in task {task.id} : {task.type}")
         task.mark_as_failed(err)
-        raise ValidationIntegrityError(f"Database error during task {task_name}") from err
+        raise ValidationIntegrityError(f"Database error during task {task.type}") from err
 
     except Exception as err:
-        logger.exception(f"Unexpected error in task {task.id} : {task_name}")
+        logger.exception(f"Unexpected error in task {task.id} : {task.type}")
         task.mark_as_failed(err)
-        raise ValidationSubprocessError(f"Unknown error during validation task {task.id}: {task_name}") from err
+        raise ValidationSubprocessError(f"Unknown error during validation task {task.id}: {task.type}") from err
 
 def log_program(taskname, check_program):
     logger.debug(f'Command for {taskname}: {" ".join(check_program)}')
+    
+def get_task_type(name):
+    return name.split(".")[-1]
+
+def get_internal_result(task_type, prev_result, is_valid, reason):
+    prev_result = prev_result or {}
+    current_result = {
+        'is_valid': is_valid,
+        'reason': reason
+    }
+    return {**prev_result, task_type: current_result}
+
 
 def update_progress(func):
     @functools.wraps(func)
@@ -94,15 +107,15 @@ def update_progress(func):
             request_id = kwargs.get("id")
             # @nb not the most efficient because we fetch the ValidationRequest anew, but
             # assuming django will cache this efficiently enough for us to keep the code clean
-            config = TASK_CONFIGS.get(func.__name__)
             request = ValidationRequest.objects.get(pk=request_id)
-            increment = config.increment
+            increment = task_registry[func.__name__].increment
             request.progress = min(request.progress + increment, 100)
             request.save()
         except Exception as e:
             print(f"Error updating progress for {func.__name__}: {e}")
         return return_value        
     return wrapper
+
 
 
 @functools.lru_cache(maxsize=1024)
@@ -238,23 +251,33 @@ def validation_task_runner(task_type):
         @update_progress
         @functools.wraps(func)
         def wrapper(self, prev_result, id, file_name, *args, **kwargs):
-            if args and isinstance(args[0], dict) and "is_valid" in args[0]:
-                prev_result = args[0]
-            else:
-                prev_result = {"is_valid": True}
-                
+        
             
+            # default celery output for parallel tasks is a list, 
+            if isinstance(prev_result, list):
+                merged_result = {}
+                for result in prev_result:
+                    if isinstance(result, dict):
+                        merged_result.update(result)
+                prev_result = merged_result
+            block_current_task = any(
+                    not prev_result.get(blocker, {}).get('is_valid', True)
+                    for blocker in task_registry.get_blockers_of(get_task_type(self.name))
+                )
             request = ValidationRequest.objects.get(pk=id)
             file_path = get_absolute_file_path(request.file.name)
             task = ValidationTask.objects.create(request=request, type=task_type)
 
-            if prev_result is not None and prev_result.get('is_valid') is True:
+            if not block_current_task:
                 task.mark_as_initiated()
-                return func(self, task, request, file_path, *args, **kwargs)
+                return func(self, task, prev_result, request, file_path, *args, **kwargs)
             else:
                 reason = f'Skipped as prev_result = {prev_result}.'
                 task.mark_as_skipped(reason)
-                return {'is_valid': None, 'reason': reason}
+                is_valid = None
+                return get_internal_result(
+                    task_type, prev_result, is_valid, reason
+                )
         return wrapper
     return decorator
 
@@ -304,12 +327,12 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 
 
 @validation_task_runner(ValidationTask.Type.INSTANCE_COMPLETION)
-def instance_completion_subtask(self, task, request, file_path, *args, **kwargs):
+def instance_completion_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
     try:
         ifc_file = ifcopenshell.open(file_path)
     except:
         reason = f'Failed to open {file_path}. Likely previous tasks also failed.'
-        task.marked_as_completed(reason)
+        task.mark_as_completed(reason)
         return {'is_valid': None, 'reason': reason}
     
     if ifc_file:
@@ -327,49 +350,52 @@ def instance_completion_subtask(self, task, request, file_path, *args, **kwargs)
             # update Task info and return
             reason = f'Updated {instance_count:,} ModelInstance record(s)'
             task.mark_as_completed(reason)
-            return {'is_valid': True, 'reason': reason}
-
+            current_result = { # last result, result does not need to contain previous results
+                'is_valid': True, 
+                'reason': reason
+            }
+            return current_result
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
-def normative_rules_ia_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['normative_rules_ia_validation_subtask'].check_program(file_path, task.id)
+def normative_rules_ia_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+    check_program = task_registry['normative_rules_ia_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
-    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ia')
+    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ia')
 
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
-def normative_rules_ip_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['normative_rules_ip_validation_subtask'].check_program(file_path, task.id)
+def normative_rules_ip_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+    check_program = task_registry['normative_rules_ip_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
-    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ip')
+    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ip')
 
 
 @validation_task_runner(ValidationTask.Type.PREREQUISITES)
-def prerequisites_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['prerequisites_subtask'].check_program(file_path, task.id)
+def prerequisites_subtask(self, task, prev_result, request, file_path, **kwargs):
+    check_program = task_registry['prerequisites_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
-    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_prereq')
+    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_prereq')
 
 
 
 @validation_task_runner(ValidationTask.Type.SYNTAX)
-def syntax_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['syntax_validation_subtask'].check_program(file_path, task.id)
+def syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+    check_program = task_registry['syntax_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
-    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_syntax')
+    return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_syntax')
 
 @validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
-def header_syntax_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['header_syntax_validation_subtask'].check_program(file_path, task.id)
+def header_syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+    check_program = task_registry['header_syntax_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
-    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_header_syntax')
+    return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_header_syntax')
     
 
-def run_syntax_subtask(self, task, request, file_path, check_program, model_status_field):
+def run_syntax_subtask(self, task, prev_result, request, file_path, check_program, model_status_field):
+    task_type = get_task_type(self.name)
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
     output = proc.stdout
     error_output = proc.stderr
@@ -393,36 +419,36 @@ def run_syntax_subtask(self, task, request, file_path, check_program, model_stat
                 observed=list(filter(None, error_output.split("\n")))[-1]
             )
         else:
-            messages = json.loads(output)
-            setattr(model, model_status_field, Model.Status.INVALID)
-            task.outcomes.create(
-                severity=ValidationOutcome.OutcomeSeverity.ERROR,
-                outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
-                observed=messages.get("message")
-            )
+            for msg in json.loads(output):
+                setattr(model, model_status_field, Model.Status.INVALID)
+                task.outcomes.create(
+                    severity=ValidationOutcome.OutcomeSeverity.ERROR,
+                    outcome_code=ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR,
+                    observed=msg.get("message")
+                )
 
         model.save(update_fields=[model_status_field])
 
-        if success:
+        is_valid = success
+        if is_valid:
             reason = "No IFC syntax error(s)."
-            task.mark_as_completed(reason)
-            return {'is_valid': True, 'reason': reason}
         else:
             reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
-            task.mark_as_completed(reason)
-            return {'is_valid': False, 'reason': reason}
+        task.mark_as_completed(reason)
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
         
 
 @validation_task_runner(ValidationTask.Type.SCHEMA)
-def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
-    
-    check_program = TASK_CONFIGS['schema_validation_subtask'].check_program(file_path, task.id)
+def schema_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
+    task_type = get_task_type(self.name)
+    check_program = task_registry['schema_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
     def is_schema_error(line):
         try:
@@ -486,28 +512,29 @@ def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
 
         model.save(update_fields=['status_schema'])
 
-        if success:
+        is_valid = success
+        if is_valid:
             reason = "No IFC schema errors."
             task.mark_as_completed(reason)
-            return {'is_valid': True, 'reason': reason}
         else:
             reason = f"'ifcopenshell.validate' returned exit code {proc.returncode} and {len(output):,} errors."
             task.mark_as_completed(reason)
-            return {'is_valid': False, 'reason': reason}
-
+        
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
 
 @validation_task_runner(ValidationTask.Type.HEADER)
-def header_validation_subtask(self, task, request, file_path, **kwargs):
-    check_program = TASK_CONFIGS['header_validation_subtask'].check_program(file_path, task.id)
+def header_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+    task_type = get_task_type(self.name)
+    check_program = task_registry['header_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
-    
-    
+     
     header_validation = {}
     stdout_lines = proc.stdout.splitlines()
     for line in stdout_lines:
@@ -599,12 +626,15 @@ def header_validation_subtask(self, task, request, file_path, **kwargs):
         is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
         task.mark_as_completed(reason)
-        return {'is_valid': is_valid, 'reason': reason}
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
 
     
 
 @validation_task_runner(ValidationTask.Type.DIGITAL_SIGNATURES)
-def digital_signatures_subtask(self, task, request, file_path, **kwargs):
+def digital_signatures_subtask(self, task, prev_result, request, file_path, **kwargs):
+    task_type = get_task_type(self.name)
     check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
     
     check_program = [sys.executable, check_script, file_path]
@@ -613,7 +643,6 @@ def digital_signatures_subtask(self, task, request, file_path, **kwargs):
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
     
     output = list(map(json.loads, filter(None, map(lambda s: s.strip(), proc.stdout.split("\n")))))
@@ -638,26 +667,29 @@ def digital_signatures_subtask(self, task, request, file_path, **kwargs):
         ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
         model.save(update_fields=['status_signatures'])
-
+        is_valid = True
         if success:
             reason = 'Digital signature check completed'
             task.mark_as_completed(reason)
-            return {'is_valid': True, 'reason': reason}
+            is_valid = True
         else:
             reason = f"Script returned exit code {proc.returncode} and {proc.stderr}"
             task.mark_as_completed(reason)
-            return {'is_valid': False, 'reason': reason}
+            is_valid = False
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
 
 
 @validation_task_runner(ValidationTask.Type.BSDD)
-def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
-    check_program = TASK_CONFIGS['bsdd_validation_subtask'].check_program(file_path, task.id)
+def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
+    task_type = get_task_type(self.name)
+    check_program = task_registry['bsdd_validation_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
     
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
     
     if proc.returncode is not None and proc.returncode != 0:
@@ -707,18 +739,21 @@ def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
         is_valid = agg_status != Model.Status.INVALID
         reason = f"agg_status = {Model.Status(agg_status).label}\nmessages = {json_output['messages']}"
         task.mark_as_completed(reason)
-        return {'is_valid': is_valid, 'reason': reason}
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
+
 
 
 @validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
-def industry_practices_subtask(self, task, request, file_path):
-    check_program = TASK_CONFIGS['industry_practices_subtask'].check_program(file_path, task.id)
+def industry_practices_subtask(self, task, prev_result, request, file_path):
+    task_type = get_task_type(self.name)
+    check_program = task_registry['industry_practices_subtask'].check_program(file_path, task.id)
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
         check_program = check_program,
-        task_name = self.name.split(".")[-1]
     )
 
     if proc.returncode is not None and proc.returncode != 0:
@@ -737,16 +772,18 @@ def industry_practices_subtask(self, task, request, file_path):
         is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
         task.mark_as_completed(reason)
-        return {'is_valid': is_valid, 'reason': reason}
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
 
 
-def run_gherkin_subtask(self, task, request, file_path, check_program, status_field):
+def run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, status_field):
+    task_type = get_task_type(self.name)
     log_program(self.__qualname__, check_program)
 
     proc = run_task(
         task=task,
-        check_program = check_program,
-        task_name = self.name.split(".")[-1]
+        check_program = check_program
     )
 
     if proc.returncode is not None and proc.returncode != 0:
@@ -765,4 +802,6 @@ def run_gherkin_subtask(self, task, request, file_path, check_program, status_fi
         is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
         task.mark_as_completed(reason)
-        return {'is_valid': is_valid, 'reason': reason}
+        return get_internal_result(
+            task_type, prev_result, is_valid, reason
+        )
