@@ -74,3 +74,10 @@ fetch-modules:
 	git submodule foreach git clean -f .
 	git submodule foreach git reset --hard
 	git submodule update --remote --recursive
+
+# runs end-to-end tests against a local instance of the Validation Service DB
+e2e-test: start-infra
+	cd e2e && npm install && npm run install-playwright && npm run test
+
+e2e-test-report: start-infra
+	cd e2e && npm install && npm run install-playwright && npm run test && npm run test:report
