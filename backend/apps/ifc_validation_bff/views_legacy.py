@@ -645,7 +645,8 @@ def report_error(request):
         return create_redirect_response(login=True)
 
     # add to default log
-    error = request.data
-    logger.info(f"Received error report: {error}")
+    if request and hasattr(request, 'data'):
+        error = request.data
+        logger.info(f"Received error report: {error}")
 
     return HttpResponse(content='OK')
