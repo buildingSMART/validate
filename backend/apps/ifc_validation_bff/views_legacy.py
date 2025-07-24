@@ -304,6 +304,13 @@ def upload(request):
         
         set_user_context(user)
 
+        referrer = request.headers["Referer"]
+        if referrer is not None:
+            if ("http://localhost" in referrer) or ("buildingsmart.org" in referrer):
+                captured_channel = "WEBUI"
+            else:
+                captured_channel = "API"
+
         # parse files
         # can be POST-ed back as file or file[0] or files ...
         files = request.FILES.getlist('file')
@@ -319,7 +326,8 @@ def upload(request):
                 instance = ValidationRequest.objects.create(
                     file=f,
                     file_name=f.name,
-                    size=f.size
+                    size=f.size,
+                    channel=captured_channel,
                 )
 
                 transaction.on_commit(lambda: ifc_file_validation_task.delay(instance.id, instance.file_name))    
