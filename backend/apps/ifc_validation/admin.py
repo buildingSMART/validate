@@ -57,11 +57,11 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
-        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed", "channel" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "created", "created_by", "updated", "updated_by"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
