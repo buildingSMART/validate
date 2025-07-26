@@ -79,7 +79,7 @@ jobs:
           cd backend
           source venv/bin/activate
           pip install --upgrade pip
-          pip install -r requirements.txt
+          find . -name 'requirements.txt' -exec pip install -r {} \;
 
       - name: Install ifcopenshell package (temp)
         run: |
