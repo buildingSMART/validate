@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import typing
 import sys
 import os
-from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import ValidationTask, Model
 
 def execute_check(*args: str) -> list:
     return [sys.executable, *args]
@@ -59,7 +59,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'header_syntax_validation_subtask': TaskConfig(
         type=ValidationTask.Type.HEADER_SYNTAX,
         increment=5,
-        model_field='status_header_syntax',
+        model_field=Model.status_header_syntax,
         check_program=check_header_syntax,
         blocks=[
             'header_validation_subtask',
@@ -77,7 +77,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'header_validation_subtask': TaskConfig(
         type=ValidationTask.Type.HEADER,
         increment=10,
-        model_field='status_header',
+        model_field=Model.status_header,
         check_program=check_validate_header,
         blocks = [],
         execution_stage="serial",
@@ -85,7 +85,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'syntax_validation_subtask': TaskConfig(
         type=ValidationTask.Type.SYNTAX,
         increment=5,
-        model_field='status_syntax',
+        model_field=Model.status_syntax,
         check_program=check_syntax,
         blocks=[
             'digital_signatures_subtask',
@@ -100,7 +100,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'prerequisites_subtask': TaskConfig(
         type=ValidationTask.Type.PREREQUISITES,
         increment=10,
-        model_field='status_prereq',
+        model_field=Model.status_prereq,
         check_program=check_gherkin_prereq,
         blocks=[
             'digital_signatures_subtask',
@@ -115,7 +115,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'schema_validation_subtask': TaskConfig(
         type=ValidationTask.Type.SCHEMA,
         increment=10,
-        model_field='status_schema',
+        model_field=Model.status_schema,
         check_program=check_schema,
         blocks = [], 
         execution_stage="parallel",
@@ -123,7 +123,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'digital_signatures_subtask': TaskConfig(
         type=ValidationTask.Type.DIGITAL_SIGNATURES,
         increment=5,
-        model_field='status_signatures',
+        model_field=Model.status_signatures,
         check_program=check_signatures,
         blocks = [], 
         execution_stage="parallel",
@@ -131,7 +131,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'bsdd_validation_subtask': TaskConfig(
         type=ValidationTask.Type.BSDD,
         increment=0,
-        model_field='status_bsdd',
+        model_field=Model.status_bsdd,
         check_program=check_bsdd,
         blocks = [], 
         execution_stage="parallel",
@@ -139,14 +139,14 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'normative_rules_ia_validation_subtask': TaskConfig(
         type=ValidationTask.Type.NORMATIVE_IA,
         increment=20,
-        model_field='status_ia',
+        model_field=Model.status_ia,
         check_program=check_gherkin_ia,
         blocks = [], 
         execution_stage="parallel",    ),
     'normative_rules_ip_validation_subtask': TaskConfig(
         type=ValidationTask.Type.NORMATIVE_IP,
         increment=20,
-        model_field='status_ip',
+        model_field=Model.status_ip,
         check_program=check_gherkin_ip,
         blocks = [], 
         execution_stage="parallel",
@@ -154,7 +154,7 @@ TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
     'industry_practices_subtask': TaskConfig(
         type=ValidationTask.Type.INDUSTRY_PRACTICES,
         increment=10,
-        model_field='status_industry_practices',
+        model_field=Model.status_industry_practices,
         check_program=check_gherkin_best_practice,
         blocks = [], 
         execution_stage="parallel",
