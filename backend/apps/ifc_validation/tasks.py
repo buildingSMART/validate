@@ -30,11 +30,6 @@ logger = get_task_logger(__name__)
 
 assert sum(cfg.increment for cfg in TASK_CONFIGS.values()) == 100
 
-class ValidationSubprocessError(Exception): pass
-class ValidationTimeoutError(ValidationSubprocessError): pass
-class ValidationOpenShellError(ValidationSubprocessError): pass
-class ValidationIntegrityError(ValidationSubprocessError): pass
-
 def run_task(
     task: ValidationTask,
     check_program: typing.List[str],
@@ -53,25 +48,10 @@ def run_task(
         logger.info(f'test run task task name {task.type}, task value : {task}')
         return proc
     
-    except subprocess.TimeoutExpired as err:
-        logger.exception(f"TimeoutExpired while running task {task.id} with command: {' '.join(check_program)} : {task.type}")
-        task.mark_as_failed(err)
-        raise ValidationTimeoutError(f"Task {task.type} timed out") from err
-
-    except ifcopenshell.Error as err:
-        logger.exception(f"Ifcopenshell error in task {task.id} : {task.type}")
-        task.mark_as_failed(err)
-        raise ValidationOpenShellError(f"IFC parsing or validation failed during task {task.type}") from err
-
-    except IntegrityError as err:
-        logger.exception(f"Database integrity error in task {task.id} : {task.type}")
-        task.mark_as_failed(err)
-        raise ValidationIntegrityError(f"Database error during task {task.type}") from err
-
     except Exception as err:
-        logger.exception(f"Unexpected error in task {task.id} : {task.type}")
+        logger.exception(f"{type(err).__name__} in task {task.id} : {task.type}")
         task.mark_as_failed(err)
-        raise ValidationSubprocessError(f"Unknown error during validation task {task.id}: {task.type}") from err
+        raise type(err)(f"Unknown error during validation task {task.id}: {task.type}") from err
     
 def get_task_type(name):
     return name.split(".")[-1]
