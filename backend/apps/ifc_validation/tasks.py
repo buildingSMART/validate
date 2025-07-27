@@ -21,15 +21,14 @@ from core.settings import DJANGO_DB_BULK_CREATE_BATCH_SIZE
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
 from apps.ifc_validation_models.models import *
-from apps.ifc_validation.task_configs import TASK_CONFIGS, TaskRegistry
+from apps.ifc_validation.task_configs import task_registry
 
 from .email_tasks import *
 
-task_registry = TaskRegistry(TASK_CONFIGS)
 logger = get_task_logger(__name__)
 
 
-assert sum(cfg.increment for cfg in TASK_CONFIGS.values()) == 100
+assert task_registry.total_increment() == 100
 
 def run_task(
     task: ValidationTask,
@@ -233,7 +232,8 @@ def validation_task_runner(task_type):
         
             
             # Chord results from parallel tasks arrive as a list of dicts; merge them into a single dict for consistency
-            prev_result = functools.reduce(operator.or_, filter(lambda x: isinstance(x, dict), prev_result), {})
+            if task_type == ValidationTask.Type.INSTANCE_COMPLETION:
+                prev_result = functools.reduce(operator.or_, filter(lambda x: isinstance(x, dict), prev_result), {})
             block_current_task = any(
                     not prev_result.get(blocker, {}).get('is_valid', True)
                     for blocker in task_registry.get_blockers_of(get_task_type(self.name))
@@ -332,32 +332,32 @@ def instance_completion_subtask(self, task, prev_result, request, file_path, *ar
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
 def normative_rules_ia_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
-    check_program = task_registry['normative_rules_ia_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     logger.info(f'qualname : {self.__qualname__}')
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ia')
 
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
 def normative_rules_ip_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
-    check_program = task_registry['normative_rules_ip_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ip')
 
 
 @validation_task_runner(ValidationTask.Type.PREREQUISITES)
 def prerequisites_subtask(self, task, prev_result, request, file_path, **kwargs):
-    check_program = task_registry['prerequisites_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_prereq')
 
 
 
 @validation_task_runner(ValidationTask.Type.SYNTAX)
 def syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
-    check_program = task_registry['syntax_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_syntax')
 
 @validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
 def header_syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
-    check_program = task_registry['header_syntax_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_header_syntax')
     
 
@@ -412,7 +412,7 @@ def run_syntax_subtask(self, task, prev_result, request, file_path, check_progra
 @validation_task_runner(ValidationTask.Type.SCHEMA)
 def schema_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
-    check_program = task_registry['schema_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
 
     proc = run_task(
         task=task,
@@ -494,7 +494,7 @@ def schema_validation_subtask(self, task, prev_result, request, file_path, *args
 @validation_task_runner(ValidationTask.Type.HEADER)
 def header_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
     task_type = get_task_type(self.name)
-    check_program = task_registry['header_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     proc = run_task(
         task=task,
         check_program = check_program,
@@ -640,7 +640,7 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
 @validation_task_runner(ValidationTask.Type.BSDD)
 def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
-    check_program = task_registry['bsdd_validation_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
     
     proc = run_task(
         task=task,
@@ -695,7 +695,7 @@ def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, 
 @validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
 def industry_practices_subtask(self, task, prev_result, request, file_path):
     task_type = get_task_type(self.name)
-    check_program = task_registry['industry_practices_subtask'].check_program(file_path, task.id)
+    check_program = task_registry[task.type].check_program(file_path, task.id)
 
     proc = run_task(
         task=task,

@@ -44,6 +44,8 @@ def check_gherkin_ip(file_path: str, task_id: int) -> list:
 def check_gherkin_best_practice(file_path: str, task_id: int) -> list:
     return check_gherkin(file_path, task_id, "INDUSTRY_PRACTICE")
 
+def check_instance_completion(file_path, task_id):
+    return []
 
 @dataclass
 class TaskConfig:
@@ -54,121 +56,42 @@ class TaskConfig:
     blocks: typing.Optional[typing.List[str]]
     execution_stage: str = "parallel"
 
-
-TASK_CONFIGS: typing.Dict[str, TaskConfig] = {
-    'header_syntax_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.HEADER_SYNTAX,
-        increment=5,
-        model_field=Model.status_header_syntax,
-        check_program=check_header_syntax,
-        blocks=[
-            'header_validation_subtask',
-            'syntax_validation_subtask',
-            'prerequisites_subtask',
-            'digital_signatures_subtask',
-            'schema_validation_subtask',
-            'normative_rules_ia_validation_subtask',
-            'normative_rules_ip_validation_subtask',
-            'industry_practices_subtask',
-            'instance_completion_subtask',
-        ],
-        execution_stage="serial",
-    ),
-    'header_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.HEADER,
-        increment=10,
-        model_field=Model.status_header,
-        check_program=check_validate_header,
-        blocks = [],
-        execution_stage="serial",
-    ),
-    'syntax_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.SYNTAX,
-        increment=5,
-        model_field=Model.status_syntax,
-        check_program=check_syntax,
-        blocks=[
-            'digital_signatures_subtask',
-            'schema_validation_subtask',
-            'normative_rules_ia_validation_subtask',
-            'normative_rules_ip_validation_subtask',
-            'industry_practices_subtask',
-            'instance_completion_subtask'
-        ],
-        execution_stage="serial",
-    ),
-    'prerequisites_subtask': TaskConfig(
-        type=ValidationTask.Type.PREREQUISITES,
-        increment=10,
-        model_field=Model.status_prereq,
-        check_program=check_gherkin_prereq,
-        blocks=[
-            'digital_signatures_subtask',
-            'schema_validation_subtask',
-            'normative_rules_ia_validation_subtask',
-            'normative_rules_ip_validation_subtask',
-            'industry_practices_subtask',
-            'instance_completion_subtask'
-        ],
-        execution_stage="serial",
-    ),
-    'schema_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.SCHEMA,
-        increment=10,
-        model_field=Model.status_schema,
-        check_program=check_schema,
-        blocks = [], 
-        execution_stage="parallel",
-    ),
-    'digital_signatures_subtask': TaskConfig(
-        type=ValidationTask.Type.DIGITAL_SIGNATURES,
-        increment=5,
-        model_field=Model.status_signatures,
-        check_program=check_signatures,
-        blocks = [], 
-        execution_stage="parallel",
-    ),
-    'bsdd_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.BSDD,
-        increment=0,
-        model_field=Model.status_bsdd,
-        check_program=check_bsdd,
-        blocks = [], 
-        execution_stage="parallel",
-    ),
-    'normative_rules_ia_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.NORMATIVE_IA,
-        increment=20,
-        model_field=Model.status_ia,
-        check_program=check_gherkin_ia,
-        blocks = [], 
-        execution_stage="parallel",    ),
-    'normative_rules_ip_validation_subtask': TaskConfig(
-        type=ValidationTask.Type.NORMATIVE_IP,
-        increment=20,
-        model_field=Model.status_ip,
-        check_program=check_gherkin_ip,
-        blocks = [], 
-        execution_stage="parallel",
-    ),
-    'industry_practices_subtask': TaskConfig(
-        type=ValidationTask.Type.INDUSTRY_PRACTICES,
-        increment=10,
-        model_field=Model.status_industry_practices,
-        check_program=check_gherkin_best_practice,
-        blocks = [], 
-        execution_stage="parallel",
-    ),
-    'instance_completion_subtask': TaskConfig(
-        type=ValidationTask.Type.INSTANCE_COMPLETION,
-        increment=5,
-        model_field=None,
-        check_program=lambda file_path, task_id: [],
+# create blueprint
+def make_task(*, type, increment, field=None, check, stage="parallel"):
+    return TaskConfig(
+        type=type,
+        increment=increment,
+        model_field=getattr(Model, field) if field else None,
+        check_program=check,
         blocks=[],
-        execution_stage="final",
-    ),
-}
+        execution_stage=stage,
+    )
 
+# define task info for celery
+header_syntax       = make_task(type=ValidationTask.Type.HEADER_SYNTAX, increment=5, field='status_header_syntax', check=check_header_syntax, stage="serial")
+header              = make_task(type=ValidationTask.Type.HEADER,        increment=10, field='status_header',        check=check_validate_header, stage="serial")
+syntax              = make_task(type=ValidationTask.Type.SYNTAX,        increment=5,  field='status_syntax',        check=check_syntax, stage="serial")
+prereq              = make_task(type=ValidationTask.Type.PREREQUISITES, increment=10, field='status_prereq',        check=check_gherkin_prereq, stage="serial")
+schema              = make_task(type=ValidationTask.Type.SCHEMA,        increment=10, field='status_schema',        check=check_schema)
+digital_signatures  = make_task(type=ValidationTask.Type.DIGITAL_SIGNATURES, increment=5,  field='status_signatures', check=check_signatures)
+bsdd                = make_task(type=ValidationTask.Type.BSDD,          increment=0,  field='status_bsdd',          check=check_bsdd)
+normative_ia        = make_task(type=ValidationTask.Type.NORMATIVE_IA,  increment=20, field='status_ia',            check=check_gherkin_ia)
+normative_ip        = make_task(type=ValidationTask.Type.NORMATIVE_IP,  increment=20, field='status_ip',            check=check_gherkin_ip)
+industry_practices  = make_task(type=ValidationTask.Type.INDUSTRY_PRACTICES, increment=10, field='status_industry_practices', check=check_gherkin_best_practice)
+instance_completion = make_task(type=ValidationTask.Type.INSTANCE_COMPLETION, increment=5, field=None,                    check=check_instance_completion, stage="final")
+
+# block tasks on error
+post_tasks = [digital_signatures, schema, normative_ia, normative_ip, industry_practices, instance_completion]
+header_syntax.blocks = [header, syntax, prereq] + post_tasks
+syntax.blocks = post_tasks.copy()
+prereq.blocks = post_tasks.copy()
+
+# register
+ALL_TASKS = [
+    header_syntax, header, syntax, prereq,
+    schema, digital_signatures, bsdd,
+    normative_ia, normative_ip, industry_practices, instance_completion,
+]
 class TaskRegistry:
     def __init__(self, config_map: dict[str, TaskConfig]):
         self._configs = config_map
@@ -176,7 +99,7 @@ class TaskRegistry:
         self._by_task_type_name = {cfg.type.name: name for name, cfg in config_map.items()}
 
     def get_config_by_celery_name(self, name: str) -> TaskConfig:
-        return self._configs.get(name)
+        return self._configs[self.get_task_type_from_celery_name(name)]
 
     def get_celery_name_by_task_type(self, task_type: ValidationTask.Type) -> str:
         return self._by_task_type.get(task_type)
@@ -184,21 +107,28 @@ class TaskRegistry:
     def get_celery_name_by_task_type_name(self, task_type_name: str) -> str:
         return self._by_task_type_name.get(task_type_name)
 
-    def get_blocked_tasks(self, task_name: str) -> typing.List[str]:
-        return self._configs[task_name].blocks or []
+    def get_blocked_tasks(self, task_type: ValidationTask.Type) -> typing.List[TaskConfig]:
+        return self._configs[task_type].blocks or []
 
     def get_tasks_by_stage(self, stage: str) -> typing.List[str]:
-        return [name for name, cfg in self._configs.items() if cfg.execution_stage == stage]
+        return [cfg for cfg in self._configs.values() if cfg.execution_stage == stage]
 
-    def __getitem__(self, task_name: str) -> TaskConfig:
-        return self._configs[task_name]
+    def __getitem__(self, task_type: ValidationTask.Type) -> TaskConfig:
+        return self._configs[task_type]
     
-    def get_blockers_of(self, task_name: str) -> typing.List[str]:
+    def get_blockers_of(self, task_type: ValidationTask.Type) -> typing.List[ValidationTask.Type]:
         return [
-            blocker_name
-            for blocker_name, cfg in self._configs.items()
-            if task_name in (cfg.blocks or [])
+            blocker_type
+            for blocker_type, cfg in self._configs.items()
+            if any(block.type == task_type for block in cfg.blocks or [])
         ]
-
+        
     def all(self) -> dict[str, TaskConfig]:
         return self._configs
+    
+    def total_increment(self) -> int:
+        return sum(cfg.increment for cfg in self._configs.values())
+    
+task_registry = TaskRegistry({task.type: task for task in ALL_TASKS})
+
+# import pdb; pdb.set_trace()
