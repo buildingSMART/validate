@@ -7,6 +7,7 @@ import json
 import ifcopenshell
 import typing
 import contextlib
+import operator
 
 from celery import shared_task, chain, chord, group
 from celery.utils.log import get_task_logger
@@ -231,13 +232,8 @@ def validation_task_runner(task_type):
         def wrapper(self, prev_result, id, file_name, *args, **kwargs):
         
             
-            # default celery output for parallel tasks is a list, 
-            if isinstance(prev_result, list):
-                merged_result = {}
-                for result in prev_result:
-                    if isinstance(result, dict):
-                        merged_result.update(result)
-                prev_result = merged_result
+            # Chord results from parallel tasks arrive as a list of dicts; merge them into a single dict for consistency
+            prev_result = functools.reduce(operator.or_, filter(lambda x: isinstance(x, dict), prev_result), {})
             block_current_task = any(
                     not prev_result.get(blocker, {}).get('is_valid', True)
                     for blocker in task_registry.get_blockers_of(get_task_type(self.name))
