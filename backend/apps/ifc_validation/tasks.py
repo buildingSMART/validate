@@ -77,25 +77,6 @@ def get_internal_result(task_type, prev_result, is_valid, reason):
     return {**prev_result, task_type: current_result}
 
 
-def update_progress(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        return_value = func(self, *args, **kwargs)
-        try:
-            request_id = kwargs.get("id")
-            # @nb not the most efficient because we fetch the ValidationRequest anew, but
-            # assuming django will cache this efficiently enough for us to keep the code clean
-            request = ValidationRequest.objects.get(pk=request_id)
-            increment = task_registry[func.__name__].increment
-            request.progress = min(request.progress + increment, 100)
-            request.save()
-        except Exception as e:
-            print(f"Error updating progress for {func.__name__}: {e}")
-        return return_value        
-    return wrapper
-
-
-
 @functools.lru_cache(maxsize=1024)
 def get_absolute_file_path(file_name):
 
@@ -226,7 +207,6 @@ def validation_task_runner(task_type):
         @shared_task(bind=True)
         @log_execution
         @requires_django_user_context
-        @update_progress
         @functools.wraps(func)
         def wrapper(self, prev_result, id, file_name, *args, **kwargs):
         
@@ -241,6 +221,11 @@ def validation_task_runner(task_type):
             request = ValidationRequest.objects.get(pk=id)
             file_path = get_absolute_file_path(request.file.name)
             task = ValidationTask.objects.create(request=request, type=task_type)
+            
+            # update progress
+            increment = task_registry[task_type].increment
+            request.progress = min(request.progress + increment, 100)
+            request.save()
 
             if not block_current_task:
                 task.mark_as_initiated()
