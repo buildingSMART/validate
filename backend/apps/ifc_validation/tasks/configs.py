@@ -4,6 +4,8 @@ import sys
 import os
 from apps.ifc_validation_models.models import ValidationTask, Model
 
+checks_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "checks"))
+
 def execute_check(*args: str) -> list:
     return [sys.executable, *args]
 
@@ -17,17 +19,17 @@ def check_schema(file_path: str, task_id: int) -> list:
     return execute_check("-m", "ifcopenshell.validate", "--json", "--rules", "--fields", file_path)
 
 def check_validate_header(file_path: str, task_id: int) -> list:
-    return execute_check(os.path.join(os.path.dirname(__file__), "checks", "header_policy", "validate_header.py"), file_path)
+    return execute_check(os.path.join(checks_dir, "header_policy", "validate_header.py"), file_path)
 
 def check_signatures(file_path: str, task_id: int) -> list:
-    return execute_check(os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py"), file_path)
+    return execute_check(os.path.join(checks_dir, "signatures", "check_signatures.py"), file_path)
 
 def check_bsdd(file_path: str, task_id: int) -> list:
-    return execute_check(os.path.join(os.path.dirname(__file__), "checks", "check_bsdd.py"),
+    return execute_check(os.path.join(checks_dir, "check_bsdd.py"),
                         "--file-name", file_path, "--task-id", str(task_id))
 
 def check_gherkin(file_path: str, task_id: int, rule_type: str) -> list:
-    return execute_check(os.path.join(os.path.dirname(__file__), "checks", "check_gherkin.py"),
+    return execute_check(os.path.join(checks_dir, "check_gherkin.py"),
                         "--file-name", file_path,
                         "--task-id", str(task_id),
                         "--rule-type", rule_type)

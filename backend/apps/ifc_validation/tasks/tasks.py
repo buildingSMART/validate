@@ -21,7 +21,7 @@ from core.settings import DJANGO_DB_BULK_CREATE_BATCH_SIZE
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT, MEDIA_ROOT
 from apps.ifc_validation_models.decorators import requires_django_user_context
 from apps.ifc_validation_models.models import *
-from apps.ifc_validation.task_configs import task_registry
+from .configs import task_registry
 
 from .email_tasks import *
 

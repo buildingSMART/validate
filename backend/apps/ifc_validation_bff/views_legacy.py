@@ -21,7 +21,7 @@ from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
 from apps.ifc_validation_models.models import UserAdditionalInfo
 
-from apps.ifc_validation.tasks import ifc_file_validation_task
+from apps.ifc_validation.tasks.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
 from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
