@@ -68,14 +68,6 @@ def with_model(request_id):
     with transaction.atomic():
         yield get_or_create_ifc_model(request_id)
 
-def get_internal_result(task_type, prev_result, is_valid, reason):
-    prev_result = prev_result or {}
-    current_result = {
-        'is_valid': is_valid,
-        'reason': reason
-    }
-    return {**prev_result, task_type: current_result}
-
 
 @functools.lru_cache(maxsize=1024)
 def get_absolute_file_path(file_name):
@@ -208,7 +200,8 @@ def validation_task_runner(task_type):
         @log_execution
         @requires_django_user_context
         @functools.wraps(func)
-        def wrapper(self, prev_result, id, file_name, *args, **kwargs):
+        def wrapper(self, *args, **kwargs):
+            id = kwargs.get('id')
             
             request = ValidationRequest.objects.get(pk=id)
             file_path = get_absolute_file_path(request.file.name)
@@ -218,26 +211,23 @@ def validation_task_runner(task_type):
             task = ValidationTask.objects.create(request=request, type=task_type)
             
             model = request.model
-            block_current_task = any(
-                getattr(model, task_registry[blocker].status_field.name) == Model.Status.INVALID
-                for blocker in task_registry.get_blockers_of(task_type)
-            )
+            invalid_blockers = list(filter(
+                lambda b: getattr(model, task_registry[b].status_field.name) == Model.Status.INVALID,
+                task_registry.get_blockers_of(task_type)
+            ))
             
             # update progress
             increment = task_registry[task_type].increment
             request.progress = min(request.progress + increment, 100)
             request.save()
 
-            if not block_current_task:
+            if not invalid_blockers:
                 task.mark_as_initiated()
-                return func(self, task, prev_result, request, file_path, *args, **kwargs)
+                return func(self, task, request, file_path)
             else:
-                reason = f'Skipped as prev_result = {prev_result}.'
+                reason = f"Skipped due to fail in blocking tasks: {', '.join(invalid_blockers)}"
+                logger.debug(reason)
                 task.mark_as_skipped(reason)
-                is_valid = None
-                return get_internal_result(
-                    task_type, prev_result, is_valid, reason
-                )
         return wrapper
     return decorator
 
@@ -287,7 +277,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
 
 
 @validation_task_runner(ValidationTask.Type.INSTANCE_COMPLETION)
-def instance_completion_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
+def instance_completion_subtask(self, task, request, file_path, *args, **kwargs):
     try:
         ifc_file = ifcopenshell.open(file_path)
     except:
@@ -317,37 +307,37 @@ def instance_completion_subtask(self, task, prev_result, request, file_path, *ar
             return current_result
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
-def normative_rules_ia_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+def normative_rules_ia_validation_subtask(self, task, request, file_path):
     check_program = task_registry[task.type].check_program(file_path, task.id)
     logger.info(f'qualname : {self.__qualname__}')
-    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ia')
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ia')
 
 
 @validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
-def normative_rules_ip_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+def normative_rules_ip_validation_subtask(self, task, request, file_path):
     check_program = task_registry[task.type].check_program(file_path, task.id)
-    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_ip')
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_ip')
 
 
 @validation_task_runner(ValidationTask.Type.PREREQUISITES)
-def prerequisites_subtask(self, task, prev_result, request, file_path, **kwargs):
+def prerequisites_subtask(self, task, request, file_path):
     check_program = task_registry[task.type].check_program(file_path, task.id)
-    return run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, 'status_prereq')
+    return run_gherkin_subtask(self, task, request, file_path, check_program, 'status_prereq')
 
 
 
 @validation_task_runner(ValidationTask.Type.SYNTAX)
-def syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+def syntax_validation_subtask(self, task, request, file_path):
     check_program = task_registry[task.type].check_program(file_path, task.id)
-    return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_syntax')
+    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_syntax')
 
 @validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
-def header_syntax_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+def header_syntax_validation_subtask(self, task, request, file_path):
     check_program = task_registry[task.type].check_program(file_path, task.id)
-    return run_syntax_subtask(self, task, prev_result, request, file_path, check_program, 'status_header_syntax')
+    return run_syntax_subtask(self, task, request, file_path, check_program, 'status_header_syntax')
     
 
-def run_syntax_subtask(self, task, prev_result, request, file_path, check_program, model_status_field):
+def run_syntax_subtask(self, task, request, file_path, check_program, model_status_field):
     task_type = get_task_type(self.name)
     proc = run_task(
         task=task,
@@ -390,13 +380,10 @@ def run_syntax_subtask(self, task, prev_result, request, file_path, check_progra
         else:
             reason = f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
         task.mark_as_completed(reason)
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
         
 
 @validation_task_runner(ValidationTask.Type.SCHEMA)
-def schema_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
+def schema_validation_subtask(self, task, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry[task.type].check_program(file_path, task.id)
 
@@ -465,20 +452,12 @@ def schema_validation_subtask(self, task, prev_result, request, file_path, *args
 
         model.save(update_fields=['status_schema'])
 
-        is_valid = success
-        if is_valid:
-            reason = "No IFC schema errors."
-            task.mark_as_completed(reason)
-        else:
-            reason = f"'ifcopenshell.validate' returned exit code {proc.returncode} and {len(output):,} errors."
-            task.mark_as_completed(reason)
-        
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
+        reason = "No IFC schema errors." if success else f"'ifcopenshell.validate' returned exit code {proc.returncode} and {len(output):,} errors."
+        task.mark_as_completed(reason)
+
 
 @validation_task_runner(ValidationTask.Type.HEADER)
-def header_validation_subtask(self, task, prev_result, request, file_path, **kwargs):
+def header_validation_subtask(self, task, request, file_path, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry[task.type].check_program(file_path, task.id)
     proc = run_task(
@@ -570,17 +549,13 @@ def header_validation_subtask(self, task, prev_result, request, file_path, **kwa
         model.save()
         
         # update Task info and return
-        is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
         task.mark_as_completed(reason)
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
 
     
 
 @validation_task_runner(ValidationTask.Type.DIGITAL_SIGNATURES)
-def digital_signatures_subtask(self, task, prev_result, request, file_path, **kwargs):
+def digital_signatures_subtask(self, task, request, file_path, **kwargs):
     task_type = get_task_type(self.name)
     check_script = os.path.join(os.path.dirname(__file__), "checks", "signatures", "check_signatures.py")
     
@@ -610,21 +585,12 @@ def digital_signatures_subtask(self, task, prev_result, request, file_path, **kw
         ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
         model.save(update_fields=['status_signatures'])
-        if success:
-            reason = 'Digital signature check completed'
-            task.mark_as_completed(reason)
-            is_valid = True
-        else:
-            reason = f"Script returned exit code {proc.returncode} and {proc.stderr}"
-            task.mark_as_completed(reason)
-            is_valid = False
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
+        reason = 'Digital signature check completed' if success else f"Script returned exit code {proc.returncode} and {proc.stderr}"
+        task.mark_as_completed(reason)
 
 
 @validation_task_runner(ValidationTask.Type.BSDD)
-def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, **kwargs):
+def bsdd_validation_subtask(self, task, request, file_path, *args, **kwargs):
     task_type = get_task_type(self.name)
     check_program = task_registry[task.type].check_program(file_path, task.id)
     
@@ -669,17 +635,13 @@ def bsdd_validation_subtask(self, task, prev_result, request, file_path, *args, 
         model.save(update_fields=['status_bsdd'])
 
         # update Task info and return
-        is_valid = agg_status != Model.Status.INVALID
         reason = f"agg_status = {Model.Status(agg_status).label}\nmessages = {json_output['messages']}"
         task.mark_as_completed(reason)
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
 
 
 
 @validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
-def industry_practices_subtask(self, task, prev_result, request, file_path):
+def industry_practices_subtask(self, task, request, file_path):
     task_type = get_task_type(self.name)
     check_program = task_registry[task.type].check_program(file_path, task.id)
 
@@ -694,15 +656,10 @@ def industry_practices_subtask(self, task, prev_result, request, file_path):
         model.status_industry_practices = agg_status
         model.save(update_fields=['status_industry_practices'])
 
-        is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
         task.mark_as_completed(reason)
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
 
-
-def run_gherkin_subtask(self, task, prev_result, request, file_path, check_program, status_field):
+def run_gherkin_subtask(self, task, request, file_path, check_program, status_field):
     task_type = get_task_type(self.name)
 
     proc = run_task(
@@ -717,9 +674,5 @@ def run_gherkin_subtask(self, task, prev_result, request, file_path, check_progr
         setattr(model, status_field, agg_status)
         model.save(update_fields=[status_field])
 
-        is_valid = agg_status != Model.Status.INVALID
         reason = f'agg_status = {Model.Status(agg_status).label}\nraw_output = {raw_output}'
         task.mark_as_completed(reason)
-        return get_internal_result(
-            task_type, prev_result, is_valid, reason
-        )
