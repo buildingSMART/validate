@@ -209,18 +209,19 @@ def validation_task_runner(task_type):
         @requires_django_user_context
         @functools.wraps(func)
         def wrapper(self, prev_result, id, file_name, *args, **kwargs):
-        
             
-            # Chord results from parallel tasks arrive as a list of dicts; merge them into a single dict for consistency
-            if task_type == ValidationTask.Type.INSTANCE_COMPLETION:
-                prev_result = functools.reduce(operator.or_, filter(lambda x: isinstance(x, dict), prev_result), {})
-            block_current_task = any(
-                    not prev_result.get(blocker, {}).get('is_valid', True)
-                    for blocker in task_registry.get_blockers_of(get_task_type(self.name))
-                )
             request = ValidationRequest.objects.get(pk=id)
             file_path = get_absolute_file_path(request.file.name)
+            
+            # Always create the task record, even if it will be skipped due to blocking conditions,
+            # so it is logged and its status can be marked as 'skipped'
             task = ValidationTask.objects.create(request=request, type=task_type)
+            
+            model = request.model
+            block_current_task = any(
+                getattr(model, task_registry[blocker].status_field.name) == Model.Status.INVALID
+                for blocker in task_registry.get_blockers_of(task_type)
+            )
             
             # update progress
             increment = task_registry[task_type].increment
