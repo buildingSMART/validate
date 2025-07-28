@@ -9,7 +9,7 @@ none:
 	@echo
 
 venv:
-	test -d $(VIRTUAL_ENV) || python3.11 -m venv $(VIRTUAL_ENV)
+	test -d $(VIRTUAL_ENV) || python3.11 -m venv $(VIRTUAL_ENV) 
 
 install: venv
 	$(PIP) install --upgrade pip

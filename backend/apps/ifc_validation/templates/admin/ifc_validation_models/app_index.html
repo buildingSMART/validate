@@ -1,0 +1,285 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block bodyclass %}{{ block.super }} app-{{ app_label }}{% endblock %}
+
+{% if not is_popup %}
+  {% block breadcrumbs %}
+    <div class="breadcrumbs">
+      <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a> &rsaquo;
+      {% for app in app_list %}
+        {{ app.name }}
+      {% endfor %}
+    </div>
+  {% endblock %}
+{% endif %}
+{% block content %}
+<div style="float: left">
+  <div id="content-main">
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  </div>
+
+  <div id="content-statistics">
+    <h1>Statistics</h1>
+    <style>
+      .kpi-tile {
+        padding: 1rem;
+        background: #333;
+        color: #fff;
+        border-radius: 8px;
+        text-align: center;
+        width: 250px;
+        margin: 1rem auto;
+      }
+      .kpi-tile p {
+        font-size: 2rem;
+        margin: 0.5rem 0 0;
+      }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+    <script
+      src="https://code.jquery.com/jquery-3.7.1.min.js"
+      integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+      crossorigin="anonymous">
+    </script>
+    <form id="filterForm">
+      <span id="year-wrapper">
+        <label for="year">Choose a year:</label>
+        <select name="year" id="year"></select>
+      </span>
+      <input type="submit" value="Load" name="_load">
+      <label for="period">Granularity:</label>
+      <select id="period" name="period">
+        <option value="month" selected>Months</option>
+        <option value="week">Weeks</option>
+        <option value="day">Days</option>
+        <option value="total">Total</option>
+        <option value="quarter">Quarters</option>
+      </select>
+      <span id="lookback" class="ml-2">
+        &nbsp;|&nbsp;
+        <label for="window" title="Show only the most recent N periods">Last</label>
+      
+        <input id="window" name="window"
+               type="number" min="1" step="1"
+               placeholder="N"
+               style="width:4rem;">
+      
+        <span id="window-unit">months</span>
+      </span>
+      
+    </form>
+
+    <div id="totals" class="my-3"></div>
+
+    <div id="charts"></div>
+
+    <script>
+      (function ($) {
+        "use strict";
+
+        // ------------------------------------------------------------------
+        // CHARTS
+        // ------------------------------------------------------------------
+        const chartDefs = [
+          { id: "requestsChart",          type: "bar",  endpoint: "requests",               stacked: true },
+          { id: "durationPerRequestChart",type: "line", endpoint: "duration-per-request",   tooltip: ctx => `${ctx.parsed.y} m` },
+          { id: "durationPerTaskChart",   type: "bar",  endpoint: "duration-per-task",      stacked: true },
+          { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
+          { id: "avgSizeChart",           type: "line", endpoint: "avg-size" },
+          { id: "userRegistrationsChart", type: "bar",  endpoint: "user-registrations",     tooltip: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}` },
+          { id: "usageByVendorChart",     type: "bar",  endpoint: "usage-by-vendor",        stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
+          { id: "modelsByVendorChart",    type: "bar",  endpoint: "models-by-vendor",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
+          { id: "topToolsChart",          type: "bar",  endpoint: "top-tools",              horizontal: true, tooltip: ctx => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}` },
+          { id: "toolsCountChart",        type: "bar",  endpoint: "tools-count",            tooltip: ctx => `${ctx.parsed.y} tool${ctx.parsed.y === 1 ? "" : "s"}` }
+        ];
+
+        const charts = {}; // Chart instances keyed by id
+
+        // ------------------------------------------------------------------
+        // HELPERS
+        // ------------------------------------------------------------------
+        function createCanvases() {
+          const $container = $("#charts");
+          $container.empty(); 
+          chartDefs.forEach(def => {
+            $("<canvas>", { id: def.id, class: "my-4" }).appendTo($container);
+          });
+        }
+
+        const $period  = $("#period");
+        const $window  = $("#window");
+        const $unitLbl = $("#window-unit");
+
+        function updateUnitLabel() {
+          const p = $period.val();
+          if (p === "total") {
+            $("#lookback").hide();
+            $("#year-wrapper").hide();
+          } else {
+            $("#lookback").show();
+            $("#year-wrapper").show();
+            $unitLbl.text(
+              p === "week" ? "weeks" :
+              p === "day" ? "days" :
+              p === "quarter" ? "quarters" :
+              "months"
+            );
+          }
+        }
+        function buildOptions(def) {
+          const base = {
+            responsive: true,
+            plugins: { title: { display: false, text: "" } }
+          };
+
+          if (def.stacked) {
+            base.scales = { x: { stacked: true }, y: { stacked: true } };
+          }
+          if (def.horizontal) {
+            base.indexAxis = "y";
+          }
+          if (def.tooltip) {
+            base.plugins.tooltip = { callbacks: { label: def.tooltip } };
+          }
+          return base;
+        }
+
+        function initCharts() {
+          Object.keys(charts).forEach(id => delete charts[id]); 
+          chartDefs.forEach(def => {
+            const ctx = document.getElementById(def.id).getContext("2d");
+            charts[def.id] = new Chart(ctx, {
+              type: def.type,
+              data: {},           // filled with backend API fetches
+              options: buildOptions(def)
+            });
+          });
+        }
+
+        function showTile(def, title, contentHTML) {
+          $("#" + def.id).replaceWith(`
+            <div class="kpi-tile" id="${def.id}">
+              <h3>${title}</h3>
+              ${contentHTML}
+            </div>
+          `);
+        }
+
+        function loadChart(chart, endpoint, def) {
+          $.getJSON(endpoint)
+            .done(({ title, data }) => {
+              const isTotal = $period.val() === "total";
+
+              if (def.id === "durationPerRequestChart" && isTotal) {
+                showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
+                return;
+              }
+
+              if (def.id === "avgSizeChart" && isTotal) {
+                showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
+                return;
+              }
+
+              if (def.id === "userRegistrationsChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const total = data.datasets[0].data[0];
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${total} user${total === 1 ? "" : "s"}</strong></p>
+                  </div>
+                `);
+                return;
+              }
+
+
+              if (def.id === "usageByVendorChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const [endUsers, vendors] = data.datasets[0].data;
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${endUsers}</strong> end-users<br><strong>${vendors}</strong> vendors</p>
+                  </div>
+                `);
+                return;
+              }
+
+              if (def.id === "toolsCountChart" && isTotal) {
+                const $canvas = $("#" + def.id);
+                const total = data.datasets[0].data[0];
+                $canvas.replaceWith(`
+                  <div class="kpi-tile" id="${def.id}">
+                    <h3>${title}</h3>
+                    <p><strong>${total} tool${total === 1 ? "" : "s"}</strong></p>
+                  </div>
+                `);
+                return;
+              }
+              
+        
+              chart.data = data;
+              chart.options.plugins.title.text = title;
+              chart.options.plugins.title.display = true;
+              chart.update();
+            })
+            .fail(() => console.error("Failed to fetch chart data from " + endpoint));
+        }
+
+        function loadAllCharts(year) {
+          const period = $period.val();
+          const windowVal = $window.val();              
+        
+          chartDefs.forEach(def => {
+            let url = `/api/chart/${def.endpoint}/${year}/?period=${period}`;
+            if (windowVal) {                            // send only if entered N
+              url += `&window=${windowVal}`;
+            }
+            loadChart(charts[def.id], url, def); 
+          });
+        }
+
+        // ------------------------------------------------------------------
+        // BOOTSTRAP
+        // ------------------------------------------------------------------
+        $(function () {
+          // Populate year dropdown
+          $.getJSON("/api/chart/filter-options/", ({ options }) => {
+            const $year = $("#year");
+            options.forEach(opt => $year.append(new Option(opt, opt)));
+            $.getJSON("/api/chart/totals/", data => {
+              $("#totals").html(
+                `<strong>${data.users}</strong> users&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.files}</strong> files processed&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.tools}</strong> tools observed`
+              );
+            });
+            createCanvases();   // 1. inject canvases
+            initCharts();       // 2. create empty Chart.js instances
+            updateUnitLabel(); 
+            loadAllCharts($year.children().first().val()); // 3. load first year
+          });
+
+          $("#filterForm").on("submit", e => {
+            e.preventDefault();
+            loadAllCharts($("#year").val());
+          });
+          $("#period").on("change", () => {
+            loadAllCharts($("#year").val());
+          });  
+          $period.on("change", () => {
+            updateUnitLabel();  
+            createCanvases();            
+            initCharts();               
+            loadAllCharts($("#year").val());
+          });
+          $window.on("change", () => loadAllCharts($("#year").val()));         
+        });
+
+      })(jQuery);
+    </script>
+  </div>
+</div>
+{% endblock %}
