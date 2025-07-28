@@ -99,6 +99,11 @@ MIDDLEWARE = [
     "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
+if DEVELOPMENT:
+    MIDDLEWARE += [
+        "debug_toolbar.middleware.DebugToolbarMiddleware",
+    ]
+
 SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 
 CORS_ALLOW_CREDENTIALS = True
