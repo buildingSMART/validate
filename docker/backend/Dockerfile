@@ -30,11 +30,11 @@ RUN set -ex && \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# install requirements
-ADD ./backend/requirements.txt /app/backend/requirements.txt
+# copy code and install requirements
+ADD ./backend /app/backend
 RUN --mount=type=cache,target=/root/.cache \
     pip install --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r /app/backend/requirements.txt && \    
+    find /app/backend -name 'requirements.txt' -exec pip install --no-cache-dir -r {} \; && \
     # use version of ifcopenshell with desired schema parsing
     # TODO: revert to pyPI when schema parsing is published in the future
     wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e13ba76-linux64.zip" && \
@@ -46,11 +46,8 @@ RUN --mount=type=cache,target=/root/.cache \
     find /         -type d -name __pycache__  -prune -exec rm -rf {} \; && \
     find /         -type d -name tests        -prune -exec rm -rf {} \; && \
     find /opt/venv -type f -name "*.ifc"      -prune -exec rm -rf {} \; && \
-    find /opt/venv -type f -name "*.pyc"      -prune -exec rm -rf {} \;
-
-# copy code
-ADD ./backend /app/backend
-RUN rm -f /app/backend/.env || true
+    find /opt/venv -type f -name "*.pyc"      -prune -exec rm -rf {} \; && \
+    rm -f /app/backend/.env || true
 
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
