@@ -210,12 +210,14 @@ def validation_task_runner(task_type):
             # so it is logged and its status can be marked as 'skipped'
             task = ValidationTask.objects.create(request=request, type=task_type)
             
-            model = request.model
-            invalid_blockers = list(filter(
-                lambda b: getattr(model, task_registry[b].status_field.name) == Model.Status.INVALID,
-                task_registry.get_blockers_of(task_type)
-            ))
-            
+            if model := request.model:
+                invalid_blockers = list(filter(
+                    lambda b: getattr(model, task_registry[b].status_field.name) == Model.Status.INVALID,
+                    task_registry.get_blockers_of(task_type)
+                ))
+            else: # for testing, we're not instantiating a model
+                invalid_blockers = []
+                
             # update progress
             increment = task_registry[task_type].increment
             request.progress = min(request.progress + increment, 100)
