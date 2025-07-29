@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-import typing
+from typing import List, Optional, Callable
 import sys
 import os
 from apps.ifc_validation_models.models import ValidationTask, Model
@@ -53,17 +53,19 @@ def check_instance_completion(file_path, task_id):
 class TaskConfig:
     type: str
     increment: int
-    model_field: str
-    check_program: typing.Callable[[str], list]
-    blocks: typing.Optional[typing.List[str]]
+    status_field: Optional[str]
+    check_program: Callable[[str], list]
+    blocks: Optional[List[str]]
     execution_stage: str = "parallel"
+    run: Callable | None = None
+
 
 # create blueprint
 def make_task(*, type, increment, field=None, check, stage="parallel"):
     return TaskConfig(
         type=type,
         increment=increment,
-        model_field=getattr(Model, field) if field else None,
+        status_field=Model._meta.get_field(field) if field else None,
         check_program=check,
         blocks=[],
         execution_stage=stage,
@@ -109,16 +111,16 @@ class TaskRegistry:
     def get_celery_name_by_task_type_name(self, task_type_name: str) -> str:
         return self._by_task_type_name.get(task_type_name)
 
-    def get_blocked_tasks(self, task_type: ValidationTask.Type) -> typing.List[TaskConfig]:
+    def get_blocked_tasks(self, task_type: ValidationTask.Type) -> List[TaskConfig]:
         return self._configs[task_type].blocks or []
 
-    def get_tasks_by_stage(self, stage: str) -> typing.List[str]:
+    def get_tasks_by_stage(self, stage: str) -> List[str]:
         return [cfg for cfg in self._configs.values() if cfg.execution_stage == stage]
 
     def __getitem__(self, task_type: ValidationTask.Type) -> TaskConfig:
         return self._configs[task_type]
     
-    def get_blockers_of(self, task_type: ValidationTask.Type) -> typing.List[ValidationTask.Type]:
+    def get_blockers_of(self, task_type: ValidationTask.Type) -> List[ValidationTask.Type]:
         return [
             blocker_type
             for blocker_type, cfg in self._configs.items()
