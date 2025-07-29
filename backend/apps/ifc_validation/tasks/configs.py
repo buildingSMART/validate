@@ -134,5 +134,3 @@ class TaskRegistry:
         return sum(cfg.increment for cfg in self._configs.values())
     
 task_registry = TaskRegistry({task.type: task for task in ALL_TASKS})
-
-# import pdb; pdb.set_trace()
