@@ -13,7 +13,7 @@ import glob
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import ensure_csrf_cookie, requires_csrf_token
+from django.views.decorators.csrf import requires_csrf_token
 
 from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
@@ -114,6 +114,7 @@ def get_feature_filename(feature_code):
     rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
     return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
 
+
 @functools.lru_cache(maxsize=1024)
 def get_feature_url(feature_code):
     """
@@ -202,7 +203,7 @@ def format_request(request):
 
 
 #@login_required - doesn't work as OAuth is not integrated with Django
-@ensure_csrf_cookie
+@requires_csrf_token
 def me(request):
     
     # return user or redirect response
@@ -245,6 +246,7 @@ def me(request):
         return create_redirect_response(login=True)
 
 
+@requires_csrf_token
 def models_paginated(request, start: int, end: int):
 
     # fetch current user
@@ -302,6 +304,13 @@ def upload(request):
         
         set_user_context(user)
 
+        referrer = request.headers["Referer"]
+        if referrer is not None:
+            if ("http://localhost" in referrer) or ("buildingsmart.org" in referrer):
+                captured_channel = "WEBUI"
+            else:
+                captured_channel = "API"
+
         # parse files
         # can be POST-ed back as file or file[0] or files ...
         files = request.FILES.getlist('file')
@@ -317,7 +326,8 @@ def upload(request):
                 instance = ValidationRequest.objects.create(
                     file=f,
                     file_name=f.name,
-                    size=f.size
+                    size=f.size,
+                    channel=captured_channel,
                 )
 
                 transaction.on_commit(lambda: ifc_file_validation_task.delay(instance.id, instance.file_name))    
@@ -403,6 +413,7 @@ def revalidate(request, ids: str):
     })
 
 
+@requires_csrf_token
 def report(request, id: str):
 
     report_type = request.GET.get('type')
@@ -633,7 +644,17 @@ def report(request, id: str):
     return response
 
 
-def report_error(request, path):
+@requires_csrf_token
+def report_error(request):
 
-    # TODO
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+
+    # add to default log
+    if request and hasattr(request, 'data'):
+        error = request.data
+        logger.info(f"Received error report: {error}")
+
     return HttpResponse(content='OK')

@@ -57,15 +57,15 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
         ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
-        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed" ]}),
+        ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed", "channel" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "created", "created_by", "updated", "updated_by"]
-    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "created", "created_by", "updated", "updated_by"] 
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
+    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "model__produced_by", "created_by", "created_by__useradditionalinfo__is_vendor", "created_by__useradditionalinfo__is_vendor_self_declared", ('created', AdvancedDateFilter)]
+    list_filter = ["status", "deleted", "model__produced_by", "channel", "created_by", "created_by__useradditionalinfo__is_vendor", "created_by__useradditionalinfo__is_vendor_self_declared", ('created', AdvancedDateFilter)]
     search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]

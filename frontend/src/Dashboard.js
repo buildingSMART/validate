@@ -1,19 +1,20 @@
+import { useEffect, useState, useContext } from 'react';
+
+import Grid from '@mui/material/Grid';
+import Box from '@mui/material/Box';
+
 import Dz from './Dz'
 import ResponsiveAppBar from './ResponsiveAppBar'
 import DashboardTable from './DashboardTable'
 import Disclaimer from './Disclaimer';
 import Footer from './Footer';
-
-import Grid from '@mui/material/Grid';
 import VerticalLinearStepper from './VerticalLinearStepper'
-import Box from '@mui/material/Box';
 import SideMenu from './SideMenu';
 import FeedbackWidget from './FeedbackWidget';
 import SelfDeclarationDialog from './SelfDeclarationDialog';
 
-import { useEffect, useState, useContext } from 'react';
-
 import { FETCH_PATH } from './environment'
+import { getCookieValue } from './Cookies';
 import { PageContext } from './Page';
 
 function Dashboard() {
@@ -25,7 +26,7 @@ function Dashboard() {
   const context = useContext(PageContext);
 
   useEffect(() => {
-    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include' })
+    fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include', 'x-csrf-token': getCookieValue('csrftoken') })
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {
