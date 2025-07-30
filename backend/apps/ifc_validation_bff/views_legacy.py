@@ -13,7 +13,7 @@ import glob
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
 from django.contrib.auth.models import User
-from django.views.decorators.csrf import requires_csrf_token
+from django.views.decorators.csrf import requires_csrf_token, ensure_csrf_cookie
 
 from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
@@ -203,6 +203,7 @@ def format_request(request):
 
 
 #@login_required - doesn't work as OAuth is not integrated with Django
+@ensure_csrf_cookie
 @requires_csrf_token
 def me(request):
     
@@ -246,6 +247,7 @@ def me(request):
         return create_redirect_response(login=True)
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def models_paginated(request, start: int, end: int):
 
@@ -266,6 +268,7 @@ def models_paginated(request, start: int, end: int):
     return JsonResponse(response_data)
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def download(request, id: int):
 
@@ -290,6 +293,7 @@ def download(request, id: int):
         return HttpResponseNotFound()
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def upload(request):
 
@@ -345,6 +349,7 @@ def upload(request):
         return HttpResponseBadRequest()
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def delete(request, ids: str):
 
@@ -379,6 +384,7 @@ def delete(request, ids: str):
         return HttpResponseBadRequest()
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def revalidate(request, ids: str):
 
@@ -413,6 +419,7 @@ def revalidate(request, ids: str):
     })
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def report(request, id: str):
 
@@ -644,6 +651,7 @@ def report(request, id: str):
     return response
 
 
+@ensure_csrf_cookie
 @requires_csrf_token
 def report_error(request):
 
