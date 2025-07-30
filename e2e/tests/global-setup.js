@@ -9,4 +9,4 @@ async function globalSetup(config) {
   console.log('✅ Global setup completed');
 }
 
-module.exports = globalSetup;
+export default globalSetup;
