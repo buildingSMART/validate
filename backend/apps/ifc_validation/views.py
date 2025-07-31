@@ -4,7 +4,7 @@ import logging
 
 from django.db import transaction
 from core.utils import get_client_ip_address
-from core.settings import MAX_FILES_PER_UPLOAD
+from core.settings import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE_IN_MB
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -139,7 +139,12 @@ class ValidationRequestListAPIView(APIView):
                     f.seek(0, 2)
                     file_length = f.tell()
                     file_name = uploaded_file['file_name']
-                    logger.info(f"file_length for uploaded file {file_name} = {file_length}")
+                    logger.info(f"file_length for uploaded file {file_name} = {file_length} ({file_length / (1024*1024)} MB)")
+
+                    # apply file size limit
+                    if file_length > MAX_FILE_SIZE_IN_MB * 1024 * 1024:
+                        data = {'message': f"File size exceeds allowed file size limit ({MAX_FILE_SIZE_IN_MB} MB)."}
+                        return Response(data, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
 
                     # can't use this, file hasn't been saved yet
                     #file = os.path.join(MEDIA_ROOT, uploaded_file['file_name'])                   
