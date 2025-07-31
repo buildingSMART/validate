@@ -11,7 +11,7 @@ from collections import defaultdict
 import glob
 
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound
+from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound, HttpResponseNotAllowed
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import requires_csrf_token, ensure_csrf_cookie
 
@@ -248,8 +248,10 @@ def me(request):
 
 
 @ensure_csrf_cookie
-@requires_csrf_token
 def models_paginated(request, start: int, end: int):
+
+    if request.method != "GET":
+        return HttpResponseNotAllowed()
 
     # fetch current user
     user = get_current_user(request)
@@ -269,8 +271,10 @@ def models_paginated(request, start: int, end: int):
 
 
 @ensure_csrf_cookie
-@requires_csrf_token
 def download(request, id: int):
+
+    if request.method != "GET":
+        return HttpResponseNotAllowed()
 
     # fetch current user
     user = get_current_user(request)
@@ -296,6 +300,10 @@ def download(request, id: int):
 @ensure_csrf_cookie
 @requires_csrf_token
 def upload(request):
+
+    if request.method != "POST":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed()
 
     if request.method == "POST" and request.FILES:
         
@@ -344,14 +352,15 @@ def upload(request):
         return JsonResponse(response)
 
         #return HttpResponse(status=200) # TODO - this theoretically should be a 201_CREATED... 
-    else:
-        logger.error(f'Received invalid request: {request}')
-        return HttpResponseBadRequest()
 
 
 @ensure_csrf_cookie
 @requires_csrf_token
 def delete(request, ids: str):
+
+    if request.method != "DELETE":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed()
 
     # fetch current user
     user = get_current_user(request)
@@ -379,14 +388,14 @@ def delete(request, ids: str):
             'id': ids,
         })
 
-    else:
-        logger.error(f'Received invalid request: {request}')
-        return HttpResponseBadRequest()
-
 
 @ensure_csrf_cookie
 @requires_csrf_token
 def revalidate(request, ids: str):
+
+    if request.method != "POST":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed()
 
      # fetch current user
     user = get_current_user(request)
@@ -420,8 +429,11 @@ def revalidate(request, ids: str):
 
 
 @ensure_csrf_cookie
-@requires_csrf_token
 def report(request, id: str):
+
+    if request.method != "GET":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed()
 
     report_type = request.GET.get('type')
     
@@ -654,6 +666,10 @@ def report(request, id: str):
 @ensure_csrf_cookie
 @requires_csrf_token
 def report_error(request):
+
+    if request.method != "POST":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed()
 
     # fetch current user
     user = get_current_user(request)
