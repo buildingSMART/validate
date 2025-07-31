@@ -13,6 +13,9 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.decorators import throttle_classes
 from drf_spectacular.utils import extend_schema
 
 from apps.ifc_validation_models.models import set_user_context
@@ -34,6 +37,7 @@ class ValidationRequestDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationrequest_get')
     def get(self, request, id, *args, **kwargs):
@@ -78,6 +82,16 @@ class ValidationRequestListAPIView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
+    throttle_classes = [UserRateThrottle, ScopedRateThrottle]
+    throttle_scope = 'submit_validation_request'
+
+    def get_throttles(self):
+
+        """
+        Applies scoped throttling only for POST requests (aka submitting a new Validation Request).
+        """    
+        logger.info('*** ' + self.request.method)
+        return [ScopedRateThrottle()] if self.request.method == 'POST' else [UserRateThrottle()]
 
     @extend_schema(operation_id='validationrequest_list')
     def get(self, request, *args, **kwargs):
@@ -156,6 +170,7 @@ class ValidationTaskDetailAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationtask_get')
     def get(self, request, id, *args, **kwargs):
@@ -181,6 +196,7 @@ class ValidationTaskListAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationtask_list')
     def get(self, request, *args, **kwargs):
@@ -211,6 +227,7 @@ class ValidationOutcomeDetailAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationoutcome_get')
     def get(self, request, id, *args, **kwargs):
@@ -236,6 +253,7 @@ class ValidationOutcomeListAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationoutcome_list')
     def get(self, request, *args, **kwargs):
@@ -270,6 +288,7 @@ class ModelDetailAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='model_get')
     def get(self, request, id, *args, **kwargs):
@@ -295,6 +314,7 @@ class ModelListAPIView(APIView):
     authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='model_list')
     def get(self, request, *args, **kwargs):
