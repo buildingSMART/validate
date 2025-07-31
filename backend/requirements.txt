@@ -1,52 +1,52 @@
 # django
-django
-djangorestframework
-django-filter
-django-cors-headers
-django-cleanup
-django-sql-explorer
-drf-spectacular
-drf-spectacular[sidecar]
+django==5.2.4
+djangorestframework==3.16.0
+django-filter==25.1
+django-cors-headers==4.7.0
+django-cleanup==9.0.0
+django-sql-explorer==5.3
+drf-spectacular==0.28.0
+drf-spectacular[sidecar]==0.28.0
 
 # celery
-django-celery-results
-django-celery-beat
-celery
-celery[redis]
+django-celery-results==2.6.0
+django-celery-beat==2.8.1
+celery==5.5.3
+celery[redis]==5.5.3
 
 # servers + utils
-redis
-psycopg2-binary
-psycopg[pool]
-sqlalchemy
-sqlalchemy-utils
-gunicorn
-gevent
-psutil
-python-dotenv
-markdown
-authlib
+redis==5.2.1
+psycopg2-binary==2.9.10
+psycopg[pool]==3.2.6
+sqlalchemy==2.0.42
+sqlalchemy-utils==0.41.2
+gunicorn==23.0.0
+gevent==25.5.1
+psutil==7.0.0
+python-dotenv==1.1.1
+markdown==3.8.2
+authlib==1.3.1
 
 # bsi
-lark-parser
-packaging
-pyparsing
-behave
-pytest
-pydantic
-pyspellchecker
-requests
-pydot
-numpy
-rtree
-networkx
-pyyaml
-mpmath
-shapely
-python-ranges
+lark-parser==0.12.0
+packaging==25.0
+pyparsing==3.2.3
+behave==1.2.6
+pytest==8.4.1
+pydantic==2.11.7
+pyspellchecker==0.8.3
+requests==2.32.4
+pydot==4.0.1
+numpy==2.2.6
+rtree==1.4.0
+networkx==3.4.2
+pyyaml==6.0.2
+mpmath==1.3.0
+shapely==2.1.1
+python-ranges==1.2.2
 pyproj==3.7.1
 
 # dev
-django-debug-toolbar
-flake8
-deprecated
+django-debug-toolbar==6.0.0
+flake8==7.3.0
+deprecated==1.2.18
