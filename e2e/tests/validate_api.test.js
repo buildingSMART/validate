@@ -30,7 +30,7 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(201);
     });
 
-    test('POST without a trailing slash accepts a valid file', async ({ request }) => {
+    test('POST without trailing slash accepts valid file', async ({ request }) => {
 
         // try to post a valid file
         const file_path = 'e2e/fixtures/valid_file.ifc';
