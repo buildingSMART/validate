@@ -49,4 +49,3 @@ pyproj==3.7.1
 # dev
 django-debug-toolbar==6.0.0
 flake8==7.3.0
-deprecated==1.2.18
