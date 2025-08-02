@@ -77,6 +77,107 @@ test.describe('API - ValidationRequest', () => {
         expect(await response.json()).toEqual({ message: 'File size exceeds allowed file size limit (256 MB).' });
     });
 
+    test('POST rejects empty file', async ({ request }) => {
+
+        // try to post an empty file
+        const file_name = 'empty_file.ifc';
+        const empty_buffer = Buffer.alloc(0, 0); // 0 bytes of dummy data
+        const file = new File([empty_buffer], file_name);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('file_name', file_name);
+
+        let hash = btoa(TEST_CREDENTIALS);
+        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: {
+                'Authorization': `Basic ${hash}`,
+            },
+            multipart: form
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+        expect(await response.json()).toEqual({ file: [ 'The submitted file is empty.' ] });
+    });
+
+    test('POST rejects empty file name', async ({ request }) => {
+
+        // try to post a file with empty filename
+        const file_name = '';
+        const file_path = 'e2e/fixtures/valid_file.ifc'; // valid content
+        const file = new File([readFileSync(file_path)], file_name);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('file_name', file_name);
+
+        let hash = btoa(TEST_CREDENTIALS);
+        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: {
+                'Authorization': `Basic ${hash}`,
+            },
+            multipart: form
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+        expect(await response.json()).toStrictEqual({
+            "file": [ "The submitted data was not a file. Check the encoding type on the form." ], 
+            "file_name": [ "This field is required." ]
+        });
+    });
+
+    test('POST only accepts *.ifc files', async ({ request }) => {
+
+        // try to post a file with invalid filename/ext
+        const file_name = 'invalid_file';
+        const file_path = 'e2e/fixtures/valid_file.ifc'; // valid content
+        const file = new File([readFileSync(file_path)], file_name);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('file_name', file_name);
+
+        let hash = btoa(TEST_CREDENTIALS);
+        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: {
+                'Authorization': `Basic ${hash}`,
+            },
+            multipart: form
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+        expect(await response.json()).toEqual({ file_name: "File name must end with '.ifc'." });
+    });
+
+    test('POST only accepts a single file (for now)', async ({ request }) => {
+
+        // try to post two valid files
+        const file_path = 'e2e/fixtures/valid_file.ifc';
+        const file_name = basename(file_path);
+        const file = new File([readFileSync(file_path)], file_name);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('file_name', file_name);
+        form.append('file', file);
+        form.append('file_name', file_name);
+
+        let hash = btoa(TEST_CREDENTIALS);
+        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: {
+                'Authorization': `Basic ${hash}`,
+            },
+            multipart: form
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+        expect(await response.json()).toEqual({ message: 'Only one file can be uploaded at a time.' });
+    });
+
     test('GET returns a list', async ({ request }) => {
 
         // try to post a valid file
@@ -145,6 +246,30 @@ test.describe('API - ValidationRequest', () => {
         expect(data.length).toBeGreaterThan(0);
         expect(data[0]).toHaveProperty('public_id');
         expect(data[0]).toHaveProperty('file_name');
+    });
+
+    test('PUT is not supported', async ({ request }) => {
+
+        // try to post a valid file
+        const file_path = 'e2e/fixtures/valid_file.ifc';
+        const file_name = basename(file_path);
+        const file = new File([readFileSync(file_path)], file_name);
+        const form = new FormData();
+        form.append('file', file);
+        form.append('file_name', file_name);
+
+        let hash = btoa(TEST_CREDENTIALS);
+        const response = await request.put(`${BASE_URL}/api/validationrequest/`, {
+            headers: {
+                'Authorization': `Basic ${hash}`,
+            },
+            multipart: form
+        });
+
+        // check if the response is correct - 405 Method Not allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405); 
+        expect(await response.json()).toEqual({ detail: 'Method \"PUT\" not allowed.' });
     });
 
 });
