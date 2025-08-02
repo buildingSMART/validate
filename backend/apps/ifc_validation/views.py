@@ -90,7 +90,6 @@ class ValidationRequestListAPIView(APIView):
         """
         Applies scoped throttling only for POST requests (aka submitting a new Validation Request).
         """    
-        logger.info('*** ' + self.request.method)
         return [ScopedRateThrottle()] if self.request.method == 'POST' else [UserRateThrottle()]
 
     @extend_schema(operation_id='validationrequest_list')
@@ -132,6 +131,11 @@ class ValidationRequestListAPIView(APIView):
                         if file_i is not None: files += file_i
                     logger.info(f"Received {len(files)} file(s) - files: {files}")
 
+                    # only accept one file (for now)
+                    if len(files) != 1:
+                        data = {'message': f"Only one file can be uploaded at a time."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
                     # retrieve file size and save
                     uploaded_file = serializer.validated_data
                     logger.info(f'uploaded_file = {uploaded_file}')
@@ -140,6 +144,11 @@ class ValidationRequestListAPIView(APIView):
                     file_length = f.tell()
                     file_name = uploaded_file['file_name']
                     logger.info(f"file_length for uploaded file {file_name} = {file_length} ({file_length / (1024*1024)} MB)")
+
+                    # check if file name ends with .ifc
+                    if not file_name.lower().endswith('.ifc'):
+                        data = {'file_name': "File name must end with '.ifc'."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
                     # apply file size limit
                     if file_length > MAX_FILE_SIZE_IN_MB * 1024 * 1024:
@@ -151,6 +160,9 @@ class ValidationRequestListAPIView(APIView):
                     #uploaded_file['size'] = os.path.getsize(file)
                     uploaded_file['size'] = file_length
                     instance = serializer.save()
+
+                    # scan for malicious content
+                    # TODO
 
                     # # submit task for background execution
                     def submit_task(instance):

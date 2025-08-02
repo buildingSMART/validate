@@ -156,7 +156,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
-        'submit_validation_request': '10/hour'
+        'submit_validation_request': '1000/hour' if DEVELOPMENT and DEBUG else '10/hour'
     }
 }
 
