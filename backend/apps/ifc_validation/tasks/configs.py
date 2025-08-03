@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import List, Optional, Callable
 from apps.ifc_validation_models.models import ValidationTask, Model
-from . import check_programs
+from . import check_programs # execution layer
 @dataclass
 class TaskConfig:
     type: str
     increment: int
     status_field: Optional[str]
-    check_program: Callable[[str], list]
+    check_program: Callable[[str, int], list]
     blocks: Optional[List[str]]
     execution_stage: str = "parallel"
     run: Callable | None = None
@@ -20,7 +20,7 @@ def make_task(*, type, increment, field=None, stage="parallel"):
     except AttributeError as err:
         raise ImportError(
         f"Missing executor function for task type '{type.name}'. "
-        f"Expected a function named 'check_{type.name.lower()}' in 'executors.py'."
+        f"Expected a function named 'check_{type.name.lower()}' in 'check_programs.py'."
     )
     return TaskConfig(
         type=type,
