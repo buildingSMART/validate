@@ -73,6 +73,8 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 413 Payload Too Large
         expect(response.statusText()).toBe('Request Entity Too Large');
         expect(response.status()).toBe(413); 
+
+        // check if the error details are correct
         expect(await response.json()).toEqual({ message: 'File size exceeds allowed file size limit (256 MB).' });
     });
 
@@ -92,6 +94,8 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
+
+        // check if the json body is correct
         const data = await response.json();
         expect(data).toBeInstanceOf(Array);
         expect(data.length).toBeGreaterThan(0);
@@ -115,6 +119,8 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
+
+        // check if the json body is correct
         const data = await response.json();
         expect(data).toBeInstanceOf(Array);
         expect(data.length).toBeGreaterThan(0);
