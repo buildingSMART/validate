@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Callable
 from apps.ifc_validation_models.models import ValidationTask, Model
 from . import check_programs # execution layer
+from . import processing # processing layer
+
 @dataclass
 class TaskConfig:
     type: str
@@ -10,18 +12,23 @@ class TaskConfig:
     check_program: Callable[[str, int], list]
     blocks: Optional[List[str]]
     execution_stage: str = "parallel"
-    run: Callable | None = None
-
+    process_results: Callable | None = None
 
 # create blueprint
 def make_task(*, type, increment, field=None, stage="parallel"):
-    try:
-        check_program = getattr(check_programs, f'check_{type.name.lower()}') #e.g. check_header_syntax(), must be always the 'check' followed by the ValidationTask.Type 
-    except AttributeError as err:
-        raise ImportError(
-        f"Missing executor function for task type '{type.name}'. "
-        f"Expected a function named 'check_{type.name.lower()}' in 'check_programs.py'."
-    )
+    def _load_function(module, prefix, type):
+        func_name = f"{prefix}_{type.name.lower()}"
+        try:
+            return getattr(module, func_name)
+        except AttributeError:
+            raise ImportError(
+                f"Missing `{prefix}` function for task type '{type.name}'. "
+                f"Expected `{func_name}()` in `{module.__name__}.py`."
+            ) from None
+
+    check_program = _load_function(check_programs, "check", type)
+    process_results = _load_function(processing, "process", type)
+        
     return TaskConfig(
         type=type,
         increment=increment,
@@ -29,9 +36,10 @@ def make_task(*, type, increment, field=None, stage="parallel"):
         check_program=check_program,
         blocks=[],
         execution_stage=stage,
+        process_results = process_results
     )
 
-# define task info for celery
+# define task info
 header_syntax       = make_task(type=ValidationTask.Type.HEADER_SYNTAX, increment=5, field='status_header_syntax', stage="serial")
 header              = make_task(type=ValidationTask.Type.HEADER,        increment=10, field='status_header',      stage="serial")
 syntax              = make_task(type=ValidationTask.Type.SYNTAX,        increment=5,  field='status_syntax',      stage="serial")

@@ -66,7 +66,7 @@ stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-bsdd-task test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3

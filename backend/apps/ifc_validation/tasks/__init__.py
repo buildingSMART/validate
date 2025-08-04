@@ -1,4 +1,8 @@
-from .tasks import (
+from .context import TaskContext
+from .utils import with_model, get_absolute_file_path, get_or_create_ifc_model
+from .logger import logger
+
+from .task_runner import (
     ifc_file_validation_task, 
     header_syntax_validation_subtask, 
     header_validation_subtask, 

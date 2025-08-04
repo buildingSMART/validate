@@ -1,5 +1,4 @@
 from celery import shared_task
-from celery.utils.log import get_task_logger
 from django.template.loader import render_to_string
 
 from core.utils import log_execution
@@ -8,9 +7,6 @@ from core.utils import get_title_from_html
 from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL, ENVIRONMENT
 
 from apps.ifc_validation_models.models import ValidationRequest
-
-logger = get_task_logger(__name__)
-
 
 def status_combine(*args):
     statuses = "-pvnwi"
