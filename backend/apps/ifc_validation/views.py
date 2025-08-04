@@ -12,7 +12,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.decorators import throttle_classes
@@ -33,7 +32,6 @@ logger = logging.getLogger(__name__)
 class ValidationRequestDetailAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
-    authentication_classes = [SessionAuthentication, TokenAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
@@ -78,7 +76,6 @@ class ValidationRequestDetailAPIView(APIView):
 class ValidationRequestListAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
-    authentication_classes = [SessionAuthentication, TokenAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
@@ -132,6 +129,11 @@ class ValidationRequestListAPIView(APIView):
                         if file_i is not None: files += file_i
                     logger.info(f"Received {len(files)} file(s) - files: {files}")
 
+                    # only accept one file (for now)
+                    if len(files) != 1:
+                        data = {'message': f"Only one file can be uploaded at a time."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
                     # retrieve file size and save
                     uploaded_file = serializer.validated_data
                     logger.info(f'uploaded_file = {uploaded_file}')
@@ -140,6 +142,11 @@ class ValidationRequestListAPIView(APIView):
                     file_length = f.tell()
                     file_name = uploaded_file['file_name']
                     logger.info(f"file_length for uploaded file {file_name} = {file_length} ({file_length / (1024*1024)} MB)")
+
+                    # check if file name ends with .ifc
+                    if not file_name.lower().endswith('.ifc'):
+                        data = {'file_name': "File name must end with '.ifc'."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
 
                     # apply file size limit
                     if file_length > MAX_FILE_SIZE_IN_MB * 1024 * 1024:
@@ -172,7 +179,6 @@ class ValidationRequestListAPIView(APIView):
 class ValidationTaskDetailAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
     throttle_classes = [UserRateThrottle]
@@ -198,7 +204,6 @@ class ValidationTaskDetailAPIView(APIView):
 class ValidationTaskListAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
     throttle_classes = [UserRateThrottle]
@@ -229,7 +234,6 @@ class ValidationTaskListAPIView(APIView):
 class ValidationOutcomeDetailAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
     throttle_classes = [UserRateThrottle]
@@ -255,7 +259,6 @@ class ValidationOutcomeDetailAPIView(APIView):
 class ValidationOutcomeListAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
     throttle_classes = [UserRateThrottle]
@@ -290,7 +293,6 @@ class ValidationOutcomeListAPIView(APIView):
 class ModelDetailAPIView(APIView):
 
     queryset = Model.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
     throttle_classes = [UserRateThrottle]
@@ -316,7 +318,6 @@ class ModelDetailAPIView(APIView):
 class ModelListAPIView(APIView):
 
     queryset = Model.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
     throttle_classes = [UserRateThrottle]
