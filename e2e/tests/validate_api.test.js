@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { basename } from 'path';
+import { statSync } from 'fs';
 
 const BASE_URL = 'http://localhost:8000';
 const TEST_CREDENTIALS = 'root:root';
@@ -13,10 +14,20 @@ function createAuthHeader(credentials) {
     };
 }
 
+function findAndReadFileSync(filepath) {
+    
+    if (statSync(filepath, { throwIfNoEntry: false })?.isFile()) {
+        return readFileSync(filepath);        
+    } else if (statSync('e2e/' + filepath, { throwIfNoEntry: false })?.isFile()) {
+        return readFileSync('e2e/' + filepath);
+    }
+    throw new Error(`File does not exist: ${filepath}`);
+}
+
 function createFormData(filePath, fileName = undefined) {
 
     const name = fileName ?? basename(filePath);
-    const file = new File([readFileSync(filePath)], name);
+    const file = new File([findAndReadFileSync(filePath)], name);
     const form = new FormData();
     form.append('file', file);
     form.append('file_name', name);
@@ -26,9 +37,9 @@ function createFormData(filePath, fileName = undefined) {
 function createFormDataForTwoFiles(filePath1, filePath2) {
 
     const name1 = basename(filePath1);
-    const file1 = new File([readFileSync(filePath1)], name1);
+    const file1 = new File([findAndReadFileSync(filePath1)], name1);
     const name2 = basename(filePath2);
-    const file2 = new File([readFileSync(filePath2)], name2);
+    const file2 = new File([findAndReadFileSync(filePath2)], name2);
 
     const form = new FormData();
     form.append('file', file1);
@@ -56,7 +67,7 @@ test.describe('API - ValidationRequest', () => {
         // try to post a valid file
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/valid_file.ifc')
+            multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // check if the response is correct - 201 Created
@@ -69,7 +80,7 @@ test.describe('API - ValidationRequest', () => {
         // try to post a valid file
         const response = await request.post(`${BASE_URL}/api/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/valid_file.ifc')
+            multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // check if the response is correct - 201 Created
@@ -98,7 +109,7 @@ test.describe('API - ValidationRequest', () => {
         // try to post an empty file
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/empty_file.ifc')
+            multipart: createFormData('fixtures/empty_file.ifc')
         });
 
         // check if the response is correct - 400 Bad Request
@@ -112,7 +123,7 @@ test.describe('API - ValidationRequest', () => {
         // try to post a file with empty filename
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/valid_file.ifc', '')
+            multipart: createFormData('fixtures/valid_file.ifc', '')
         });
 
         // check if the response is correct - 400 Bad Request
@@ -129,7 +140,7 @@ test.describe('API - ValidationRequest', () => {
         // try to post a file with invalid file extension
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/invalid_file_extension')
+            multipart: createFormData('fixtures/invalid_file_extension')
         });
 
         // check if the response is correct - 400 Bad Request
@@ -144,8 +155,8 @@ test.describe('API - ValidationRequest', () => {
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormDataForTwoFiles(
-                'e2e/fixtures/valid_file.ifc', 
-                'e2e/fixtures/valid_file2.ifc'
+                'fixtures/valid_file.ifc', 
+                'fixtures/valid_file2.ifc'
             )
         });
 
@@ -159,7 +170,7 @@ test.describe('API - ValidationRequest', () => {
 
         // try to post a valid file but without authorization header
         const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
-            multipart: createFormData('e2e/fixtures/valid_file.ifc')
+            multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // check if the response is correct - 401 Unauthorized
@@ -172,7 +183,7 @@ test.describe('API - ValidationRequest', () => {
         // post a valid file
         let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/valid_file.ifc')
+            multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
@@ -197,7 +208,7 @@ test.describe('API - ValidationRequest', () => {
         // post a valid file
         let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
-            multipart: createFormData('e2e/fixtures/valid_file.ifc')
+            multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
