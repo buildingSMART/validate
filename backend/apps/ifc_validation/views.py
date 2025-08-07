@@ -87,7 +87,6 @@ class ValidationRequestListAPIView(APIView):
         """
         Applies scoped throttling only for POST requests (aka submitting a new Validation Request).
         """    
-        logger.info('*** ' + self.request.method)
         return [ScopedRateThrottle()] if self.request.method == 'POST' else [UserRateThrottle()]
 
     @extend_schema(operation_id='validationrequest_list')
@@ -100,6 +99,10 @@ class ValidationRequestListAPIView(APIView):
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
         user_requests = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
+        public_id = self.request.query_params.get('public_id', None)
+        if public_id:
+            user_requests = user_requests.filter(id=ValidationRequest.to_private_id(public_id))
+
         serializer = self.serializer_class(user_requests, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

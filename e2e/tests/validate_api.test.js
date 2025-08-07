@@ -178,6 +178,85 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(401);
     });
 
+    test('GET returns a single instance', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('public_id');
+        expect(data['public_id']).toBe(public_id);
+    });
+
+    test('GET with trailing slash returns a single instance', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('public_id');
+        expect(data['public_id']).toBe(public_id);
+    });
+
+    test('GET with "public_id" query param returns a list with one object', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Array);
+        expect(data.length).toBe(1);
+        expect(data[0]).toHaveProperty('public_id');
+        expect(data[0]['public_id']).toBe(public_id);
+    });
+
     test('GET returns a list', async ({ request }) => {
 
         // post a valid file
