@@ -10,9 +10,6 @@ on:
       - development
     paths-ignore:
       - 'README.md'
-  pull_request:
-    branches:
-      - development
   workflow_dispatch:
 
 jobs:
