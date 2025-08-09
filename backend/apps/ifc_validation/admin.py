@@ -26,6 +26,7 @@ from apps.ifc_validation_models.models import Version
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
+from .filters import ProducedByAdvancedFilter, ModelProducedByAdvancedFilter, CreatedByAdvancedFilter
 
 from core import utils
 from core.filters import AdvancedDateFilter
@@ -65,7 +66,15 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "model__produced_by", "channel", "created_by", "created_by__useradditionalinfo__is_vendor", "created_by__useradditionalinfo__is_vendor_self_declared", ('created', AdvancedDateFilter)]
+    list_filter = [
+        "status", 
+        "deleted", 
+        ModelProducedByAdvancedFilter, 
+        "channel", 
+        CreatedByAdvancedFilter, 
+        "created_by__useradditionalinfo__is_vendor", 
+        "created_by__useradditionalinfo__is_vendor_self_declared", 
+        ('created', AdvancedDateFilter)]
     search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
@@ -363,7 +372,12 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
-    list_filter = ['schema', 'produced_by', ('date', AdvancedDateFilter), ('created', AdvancedDateFilter)]
+    list_filter = [
+        'schema', 
+        ProducedByAdvancedFilter,
+        ('date', AdvancedDateFilter), 
+        ('created', AdvancedDateFilter)
+    ]
     
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
