@@ -59,11 +59,12 @@ def send_acknowledgement_admin_email_task(id, file_name):
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
         'PUBLIC_URL': PUBLIC_URL,
-        'ENVIRONMENT': ENVIRONMENT
+        'ENVIRONMENT': ENVIRONMENT,
+        'CHANNEL': request.channel
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_ack_admin_email.html", merge_data)
-    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
+    body_text = f"User submitted {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending

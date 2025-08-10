@@ -1,0 +1,23 @@
+{
+  "name": "validate-e2e",
+  "description": "End-to-end tests for the IFC Validation Service using Playwright",
+  "version": "0.7.8",
+  "scripts": {
+    "test": "playwright test --reporter=line",
+    "test:html": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "install-playwright": "playwright install"
+  },
+  "author": "buildingSMART.org",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.54.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "type": "module"
+}

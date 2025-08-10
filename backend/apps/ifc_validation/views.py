@@ -4,7 +4,7 @@ import logging
 
 from django.db import transaction
 from core.utils import get_client_ip_address
-from core.settings import MAX_FILES_PER_UPLOAD
+from core.settings import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE_IN_MB
 
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -12,7 +12,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication, TokenAuthentication
+from rest_framework.throttling import UserRateThrottle
+from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.decorators import throttle_classes
 from drf_spectacular.utils import extend_schema
 
 from apps.ifc_validation_models.models import set_user_context
@@ -30,10 +32,10 @@ logger = logging.getLogger(__name__)
 class ValidationRequestDetailAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
-    authentication_classes = [SessionAuthentication, TokenAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationrequest_get')
     def get(self, request, id, *args, **kwargs):
@@ -74,10 +76,19 @@ class ValidationRequestDetailAPIView(APIView):
 class ValidationRequestListAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
-    authentication_classes = [SessionAuthentication, TokenAuthentication, BasicAuthentication]
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
+    throttle_classes = [UserRateThrottle, ScopedRateThrottle]
+    throttle_scope = 'submit_validation_request'
+
+    def get_throttles(self):
+
+        """
+        Applies scoped throttling only for POST requests (aka submitting a new Validation Request).
+        """    
+        logger.info('*** ' + self.request.method)
+        return [ScopedRateThrottle()] if self.request.method == 'POST' else [UserRateThrottle()]
 
     @extend_schema(operation_id='validationrequest_list')
     def get(self, request, *args, **kwargs):
@@ -118,6 +129,11 @@ class ValidationRequestListAPIView(APIView):
                         if file_i is not None: files += file_i
                     logger.info(f"Received {len(files)} file(s) - files: {files}")
 
+                    # only accept one file (for now)
+                    if len(files) != 1:
+                        data = {'message': f"Only one file can be uploaded at a time."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
                     # retrieve file size and save
                     uploaded_file = serializer.validated_data
                     logger.info(f'uploaded_file = {uploaded_file}')
@@ -125,7 +141,17 @@ class ValidationRequestListAPIView(APIView):
                     f.seek(0, 2)
                     file_length = f.tell()
                     file_name = uploaded_file['file_name']
-                    logger.info(f"file_length for uploaded file {file_name} = {file_length}")
+                    logger.info(f"file_length for uploaded file {file_name} = {file_length} ({file_length / (1024*1024)} MB)")
+
+                    # check if file name ends with .ifc
+                    if not file_name.lower().endswith('.ifc'):
+                        data = {'file_name': "File name must end with '.ifc'."}
+                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+
+                    # apply file size limit
+                    if file_length > MAX_FILE_SIZE_IN_MB * 1024 * 1024:
+                        data = {'message': f"File size exceeds allowed file size limit ({MAX_FILE_SIZE_IN_MB} MB)."}
+                        return Response(data, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
 
                     # can't use this, file hasn't been saved yet
                     #file = os.path.join(MEDIA_ROOT, uploaded_file['file_name'])                   
@@ -153,9 +179,9 @@ class ValidationRequestListAPIView(APIView):
 class ValidationTaskDetailAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationtask_get')
     def get(self, request, id, *args, **kwargs):
@@ -178,9 +204,9 @@ class ValidationTaskDetailAPIView(APIView):
 class ValidationTaskListAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationtask_list')
     def get(self, request, *args, **kwargs):
@@ -208,9 +234,9 @@ class ValidationTaskListAPIView(APIView):
 class ValidationOutcomeDetailAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationoutcome_get')
     def get(self, request, id, *args, **kwargs):
@@ -233,9 +259,9 @@ class ValidationOutcomeDetailAPIView(APIView):
 class ValidationOutcomeListAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='validationoutcome_list')
     def get(self, request, *args, **kwargs):
@@ -267,9 +293,9 @@ class ValidationOutcomeListAPIView(APIView):
 class ModelDetailAPIView(APIView):
 
     queryset = Model.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='model_get')
     def get(self, request, id, *args, **kwargs):
@@ -292,9 +318,9 @@ class ModelDetailAPIView(APIView):
 class ModelListAPIView(APIView):
 
     queryset = Model.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
+    throttle_classes = [UserRateThrottle]
 
     @extend_schema(operation_id='model_list')
     def get(self, request, *args, **kwargs):

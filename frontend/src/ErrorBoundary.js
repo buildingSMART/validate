@@ -1,7 +1,9 @@
 import React from "react";
 import Grid from '@mui/material/Grid';
 import Link from '@mui/material/Link';
+
 import { FETCH_PATH } from './environment'
+import { getCookieValue } from './Cookies';
 
 const ErrorMessage = () => {
   return <Grid
@@ -32,7 +34,22 @@ export default class ErrorBoundary extends React.Component {
   };
 
   componentDidCatch = (error, info) => {
-    fetch(`${FETCH_PATH}/api/report_error/${error.name}/${error.message}/${info.componentStack}`)
+
+    this.setState({ error, info });
+
+    fetch(`${FETCH_PATH}/api/report_error`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'x-csrf-token': getCookieValue('csrftoken') 
+      },
+      body: JSON.stringify({
+        name: error.name,
+        message: error.message,
+        componentStack: info.componentStack
+      }),
+      credentials: 'include'
+    });
   };
 
   render() {

@@ -74,3 +74,33 @@ fetch-modules:
 	git submodule foreach git clean -f .
 	git submodule foreach git reset --hard
 	git submodule update --remote --recursive
+
+# runs end-to-end tests against a local instance of the Validation Service DB
+e2e-test: start-infra
+	cd e2e && npm install && npm run install-playwright && npm run test
+
+e2e-test-report: start-infra
+	cd e2e && npm install && npm run install-playwright && npm run test:html && npm run test:report
+
+BRANCH   ?= main                 
+SUBTREES := \
+    backend/apps/ifc_validation/checks/ifc_gherkin_rules \
+    backend/apps/ifc_validation/checks/ifc_gherkin_rules/ifc_validation_models \
+    backend/apps/ifc_validation_models
+
+# Pulls the specified branch (default: 'main') for the main repo and all relevant submodules. 
+# The default branch is main unless specified otherwise (e.g. 'make checkout BRANCH=development')
+.PHONY: checkout
+checkout:
+	@echo "==> root repo   (branch: $(BRANCH))"
+	@git checkout -q $(BRANCH) && git pull
+
+	@echo "==> sub-repos   (branch: $(BRANCH))"
+	@set -e; for d in $(SUBTREES); do \
+	    echo "   → $$d"; \
+	    ( cd $$d && git checkout -q $(BRANCH) && git pull ); \
+	done
+
+	@echo "==> signatures/store (always on main)"
+	@( cd backend/apps/ifc_validation/checks/signatures/store && \
+	   git checkout -q main && git pull )

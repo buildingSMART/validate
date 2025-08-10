@@ -9,7 +9,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 
 from .views_auth import login, logout, callback, whoami
 
-from core.settings import MEDIA_ROOT, MEDIA_URL, STATIC_URL, STATIC_ROOT
+from core.settings import MEDIA_ROOT, MEDIA_URL, STATIC_URL, STATIC_ROOT, DEVELOPMENT
 
 
 urlpatterns = [
@@ -34,10 +34,12 @@ urlpatterns = [
     path('login/',           login, name='login'),
     path('logout/',          logout, name='logout'),
     path('callback/',        callback, name='callback'),
-
-    # Debug toolbar
-    path("__debug__/",       include("debug_toolbar.urls")),
 ]
+
+if DEVELOPMENT:
+    urlpatterns += [
+        path("__debug__/", include("debug_toolbar.urls")),
+    ]
 
 # securely serve uploaded files
 # note: Django's default static() only works in DEBUG mode
