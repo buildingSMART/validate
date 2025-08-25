@@ -11,15 +11,15 @@ from . import chart_views as charts
 urlpatterns = [
 
     # REST API
-    # using re_path to make trailing slashs optional
-    re_path(r'validationrequest/?$',      ValidationRequestListAPIView.as_view()),
-    re_path(r'validationrequest/<str:id>/?$', ValidationRequestDetailAPIView.as_view()),
-    re_path(r'validationtask/?$',             ValidationTaskListAPIView.as_view()),
-    re_path(r'validationtask/<str:id>/?$',    ValidationTaskDetailAPIView.as_view()),
-    re_path(r'validationoutcome/?$',          ValidationOutcomeListAPIView.as_view()),
-    re_path(r'validationoutcome/<str:id>/?$', ValidationOutcomeDetailAPIView.as_view()),
-    re_path(r'model/?$',                      ModelListAPIView.as_view()),
-    re_path(r'model/<str:id>/?$',             ModelDetailAPIView.as_view()),
+    # using re_path to make trailing slashes optional
+    re_path(r'validationrequest/?$',                ValidationRequestListAPIView.as_view()),
+    re_path(r'validationrequest/(?P<id>[\w-]+)/?$', ValidationRequestDetailAPIView.as_view()),
+    re_path(r'validationtask/?$',                   ValidationTaskListAPIView.as_view()),
+    re_path(r'validationtask/(?P<id>[\w-]+)/?$',    ValidationTaskDetailAPIView.as_view()),
+    re_path(r'validationoutcome/?$',                ValidationOutcomeListAPIView.as_view()),
+    re_path(r'validationoutcome/(?P<id>[\w-]+)/?$', ValidationOutcomeDetailAPIView.as_view()),
+    re_path(r'model/?$',                            ModelListAPIView.as_view()),
+    re_path(r'model/(?P<id>[\w-]+)/?$',             ModelDetailAPIView.as_view()),
 
     # Django Admin charts
     path("chart/filter-options/", charts.get_filter_options),
