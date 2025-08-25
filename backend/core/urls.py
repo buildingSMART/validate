@@ -34,9 +34,6 @@ urlpatterns = [
     path('login/',           login, name='login'),
     path('logout/',          logout, name='logout'),
     path('callback/',        callback, name='callback'),
-
-    # Debug toolbar
-    path("__debug__/",       include("debug_toolbar.urls")),
 ]
 
 if DEVELOPMENT:
