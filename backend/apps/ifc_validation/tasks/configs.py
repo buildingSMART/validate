@@ -13,6 +13,10 @@ class TaskConfig:
     blocks: Optional[List[str]]
     execution_stage: str = "parallel"
     process_results: Callable | None = None
+    
+    @property
+    def celery_task_name(self) -> str:
+        return f"apps.ifc_validation.tasks.{self.type.name.lower()}_subtask"
 
 # create blueprint
 def make_task(*, type, increment, field=None, stage="parallel"):

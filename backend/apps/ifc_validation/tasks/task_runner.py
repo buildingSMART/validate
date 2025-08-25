@@ -91,71 +91,71 @@ def on_workflow_failed(self, *args, **kwargs):
     send_failure_admin_email_task.delay(id=id, file_name=request.file_name)
     
 
-def validation_task_runner(task_type):
-    def decorator(func):
-        @shared_task(bind=True)
-        @log_execution
-        @requires_django_user_context
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            id = kwargs.get('id')
+def task_factory(task_type):
+    config = task_registry[task_type]
+    
+    @shared_task(bind=True, name=config.celery_task_name)
+    @log_execution
+    @requires_django_user_context
+    def validation_subtask_runner(self, *args, **kwargs):
+    
+        id = kwargs.get('id')
+        
+        request = ValidationRequest.objects.get(pk=id)
+        file_path = get_absolute_file_path(request.file.name)
+        
+        # Always create the task record, even if it will be skipped due to blocking conditions,
+        # so it is logged and its status can be marked as 'skipped'
+        task = ValidationTask.objects.create(request=request, type=task_type)
+        
+        if model := request.model:
+            invalid_blockers = list(filter(
+                lambda b: getattr(model, task_registry[b].status_field.name) == Model.Status.INVALID,
+                task_registry.get_blockers_of(task_type)
+            ))
+        else: # for testing, we're not instantiating a model
+            invalid_blockers = []
+        
+        # update progress
+        increment = config.increment
+        request.progress = min(request.progress + increment, 100)
+        request.save()
+
+        # run or skip
+        if not invalid_blockers:
+            task.mark_as_initiated()
             
-            request = ValidationRequest.objects.get(pk=id)
-            file_path = get_absolute_file_path(request.file.name)
-            
-            # Always create the task record, even if it will be skipped due to blocking conditions,
-            # so it is logged and its status can be marked as 'skipped'
-            task = ValidationTask.objects.create(request=request, type=task_type)
-            
-            if model := request.model:
-                invalid_blockers = list(filter(
-                    lambda b: getattr(model, task_registry[b].status_field.name) == Model.Status.INVALID,
-                    task_registry.get_blockers_of(task_type)
+            # Execution Layer
+            try:
+                context = config.check_program(TaskContext(
+                    config=config,
+                    task=task,
+                    request=request,
+                    file_path=file_path,
                 ))
-            else: # for testing, we're not instantiating a model
-                invalid_blockers = []
-            
-            # get task configuration 
-            config = task_registry[task_type]
-            
-            # update progress
-            increment = config.increment
-            request.progress = min(request.progress + increment, 100)
-            request.save()
+            except Exception as err:
+                task.mark_as_failed(str(err))
+                logger.exception(f"Execution failed in task {task_type}: {task}")
+                return
 
-            if not invalid_blockers:
-                task.mark_as_initiated()
-                
-                # Execution Layer
-                try:
-                    context = config.check_program(TaskContext(
-                        config=config,
-                        task=task,
-                        request=request,
-                        file_path=file_path,
-                    ))
-                except Exception as err:
-                    task.mark_as_failed(str(err))
-                    logger.exception(f"Execution failed in task {task_type}: {task}")
-                    return
-
-                # Processing Layer / write to DB
-                try:
-                    reason = config.process_results(context)
-                    task.mark_as_completed(reason)
-                    logger.debug(f"Task {task_type} completed, reason: {reason}")
-                except Exception as err:
-                    task.mark_as_failed(str(err))
-                    logger.exception(f"Processing failed in task {task_type}: {err}")
-                    return
-                
-            # Handle skipped tasks              
-            else:
-                reason = f"Skipped due to fail in blocking tasks: {', '.join(invalid_blockers)}"
-                logger.debug(reason)
-                task.mark_as_skipped(reason)
-        return wrapper
-    return decorator
+            # Processing Layer / write to DB
+            try:
+                reason = config.process_results(context)
+                task.mark_as_completed(reason)
+                logger.debug(f"Task {task_type} completed, reason: {reason}")
+            except Exception as err:
+                task.mark_as_failed(str(err))
+                logger.exception(f"Processing failed in task {task_type}: {err}")
+                return
+            
+        # Handle skipped tasks              
+        else:
+            reason = f"Skipped due to fail in blocking tasks: {', '.join(invalid_blockers)}"
+            logger.debug(reason)
+            task.mark_as_skipped(reason)
+            
+    validation_subtask_runner.__doc__ = f"Validation task for {task_type} generated by the task_factory func."    
+    return validation_subtask_runner
 
 
 @shared_task(bind=True)
@@ -202,35 +202,24 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow.apply_async()
 
 
-@validation_task_runner(ValidationTask.Type.INSTANCE_COMPLETION)
-def instance_completion_subtask(): pass
+instance_completion_subtask = task_factory(ValidationTask.Type.INSTANCE_COMPLETION)
 
-@validation_task_runner(ValidationTask.Type.NORMATIVE_IA)
-def normative_rules_ia_validation_subtask(): pass
+normative_rules_ia_validation_subtask = task_factory(ValidationTask.Type.NORMATIVE_IA)
 
-@validation_task_runner(ValidationTask.Type.NORMATIVE_IP)
-def normative_rules_ip_validation_subtask(): pass
+normative_rules_ip_validation_subtask = task_factory(ValidationTask.Type.NORMATIVE_IP)
 
-@validation_task_runner(ValidationTask.Type.PREREQUISITES)
-def prerequisites_subtask(): pass
+prerequisites_subtask = task_factory(ValidationTask.Type.PREREQUISITES)
 
-@validation_task_runner(ValidationTask.Type.SYNTAX)
-def syntax_validation_subtask(): pass
+syntax_validation_subtask = task_factory(ValidationTask.Type.SYNTAX)
 
-@validation_task_runner(ValidationTask.Type.HEADER_SYNTAX)
-def header_syntax_validation_subtask(): pass
+header_syntax_validation_subtask = task_factory(ValidationTask.Type.HEADER_SYNTAX)
 
-@validation_task_runner(ValidationTask.Type.SCHEMA)
-def schema_validation_subtask(): pass
+schema_validation_subtask = task_factory(ValidationTask.Type.SCHEMA)
 
-@validation_task_runner(ValidationTask.Type.HEADER)
-def header_validation_subtask(): pass
+header_validation_subtask = task_factory(ValidationTask.Type.HEADER)
 
-@validation_task_runner(ValidationTask.Type.DIGITAL_SIGNATURES)
-def digital_signatures_subtask(): pass
+digital_signatures_subtask = task_factory(ValidationTask.Type.DIGITAL_SIGNATURES)
 
-@validation_task_runner(ValidationTask.Type.BSDD)
-def bsdd_validation_subtask(): pass
+bsdd_validation_subtask = task_factory(ValidationTask.Type.BSDD)
 
-@validation_task_runner(ValidationTask.Type.INDUSTRY_PRACTICES)
-def industry_practices_subtask(): pass
+industry_practices_subtask = task_factory(ValidationTask.Type.INDUSTRY_PRACTICES)
