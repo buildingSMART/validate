@@ -62,7 +62,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
@@ -87,7 +87,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
                 When(completed__isnull=True, then=Now() - F('started')),
                 default=F('completed') - F('started'),
                 output_field=DurationField()
-            )
+            ),
+            _queue_time=Case( 
+                When(started__isnull=False, then=F('started') - F('created')),
+                default=None,
+                output_field=DurationField()
+            ),
         )
         return queryset
 
@@ -137,6 +142,22 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
+    
+    @admin.display(description="Queue (sec)")
+    def queue_time_text(self, obj):
+        if not obj._queue_time:
+            return None
+        sec = obj._queue_time.total_seconds()
+        if sec > 3600:
+            color = "#b91c1c"  
+        elif sec > 60:
+            color = "#d97706"  
+        else:
+            color = "#16a34a"  
+
+        sec_str = f"{sec:.1f}"
+        return format_html('<b style="color:{}">{}</b>', color, sec_str)
+    queue_time_text.admin_order_field = '_queue_time'
 
     @admin.display(description="Is Vendor ?", boolean=True)
     def is_vendor(self, obj):
@@ -300,7 +321,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
     ]
 
-    list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
+    list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "queue_time_text", "duration_text", "created", "updated"]
     readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "created", "updated"]
     date_hierarchy = "created"
 
@@ -314,7 +335,12 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
                 When(ended__isnull=True, then=Now() - F('started')),
                 default=F('ended') - F('started'),
                 output_field=DurationField()
-            )
+            ),
+            _queue_time=Case(  
+                When(started__isnull=False, then=F('started') - F('created')),
+                default=None,
+                output_field=DurationField()
+            ),
         )
         return queryset
     
@@ -339,7 +365,24 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
     def duration_text(self, obj):
 
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
+    
     duration_text.admin_order_field = '_duration'
+    
+    @admin.display(description="Queue (sec)")
+    def queue_time_text(self, obj):
+        if not obj._queue_time:
+            return None
+        sec = obj._queue_time.total_seconds()
+        if sec > 3600:
+            color = "#b91c1c"  
+        elif sec > 60:
+            color = "#d97706"  
+        else:
+            color = "#16a34a"  
+
+        sec_str = f"{sec:.1f}"
+        return format_html('<b style="color:{}">{}</b>', color, sec_str)
+    queue_time_text.admin_order_field = '_queue_time'
 
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
