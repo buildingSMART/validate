@@ -1,1 +1,0 @@
-"remote committed content"
