@@ -612,13 +612,13 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         )
     company_link.admin_order_field = 'useradditionalinfo__company'
     
-    @admin.display(description="Is Vendor?")
+    @admin.display(description="Is Vendor?", boolean=True)
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
     is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
 
-    @admin.display(description="Is Vendor (self-declared)?")
+    @admin.display(description="Is Vendor (self-declared)?", boolean=True)
     def is_vendor_self_declared(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor_self_declared
