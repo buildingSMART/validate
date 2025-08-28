@@ -164,7 +164,11 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'IFC Validation Service API (PREVIEW)',
-    'DESCRIPTION': 'API for the buildingSMART Validation Service',
+    'DESCRIPTION': (
+        'API for the buildingSMART Validation Service.\n\n'
+        '[API Quickstart Documentation]'
+        '(https://github.com/buildingSMART/validate/blob/docs/gh-pages/docs/dev/api_quickstart.md)'
+    ),
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
 
