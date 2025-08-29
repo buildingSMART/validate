@@ -26,6 +26,7 @@ urlpatterns = [
     path("chart/requests/<int:year>/", charts.get_requests_chart),
     path("chart/duration-per-request/<int:year>/", charts.get_duration_per_request_chart),
     path("chart/duration-per-task/<int:year>/", charts.get_duration_per_task_chart),
+    path("chart/uploads-per-2h/<int:year>/", charts.get_uploads_per_2h_chart),
     path("chart/processing-status/<int:year>/", charts.get_processing_status_chart),
     path("chart/avg-size/<int:year>/", charts.get_avg_size_chart),
     path("chart/user-registrations/<int:year>/", charts.get_user_registrations_chart),
@@ -34,4 +35,7 @@ urlpatterns = [
     path("chart/top-tools/<int:year>/", charts.get_top_tools_chart),
     path("chart/tools-count/<int:year>/", charts.get_tools_count_chart),
     path("chart/totals/", charts.get_totals),
+    path("chart/queue-p95/<int:year>/", charts.get_queue_p95_chart),
+    path("chart/stuck-per-day/<int:year>/", charts.get_stuck_per_day_chart),
+    path("chart/uploads-per-weekday/<int:year>/", charts.get_uploads_per_weekday_chart),
 ]
