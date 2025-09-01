@@ -16,6 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
+      - name: Install docker
+        run: apt-get install docker
       - name: start-infra
         run: docker compose -f docker-compose.infra_only.yml up -d
       - name: change directories
