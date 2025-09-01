@@ -1,10 +1,10 @@
 import sys
 from pydantic import Field, field_validator, model_validator
 from typing import Tuple, Any, Optional
+from dateutil.parser import isoparse
 import ifcopenshell
-from ifcopenshell import validate, SchemaError, simple_spf
+from ifcopenshell import validate, simple_spf
 import re
-from datetime import datetime
 from packaging.version import parse, InvalidVersion
 
 import logging 
@@ -44,7 +44,7 @@ def ifcopenshell_pre_validation(file):
 
 def is_valid_iso8601(dt_str: str) -> bool:
     try:
-        datetime.fromisoformat(dt_str)
+        isoparse(dt_str)
         return True
     except ValueError:
         return False
@@ -193,6 +193,7 @@ class HeaderStructure(ConfiguredBaseModel):
         r"[0-5]\d"                        # Seconds: 00-59
         r"(?:\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)?$"  # Optional fractional seconds and timezone
     )   
+        import pdb; pdb.set_trace()
         if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
             values.data['validation_errors'].append(values.field_name)
         return v
