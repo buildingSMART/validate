@@ -15,6 +15,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
+      - name: get docker
+        run: curl -fsSL https://get.docker.com -o get-docker.sh
+      - name: install docker
+        run: sh ./get-docker.sh
       - name: start-infra
         run: docker compose -f docker-compose.infra_only.yml up -d
       - name: change directories
