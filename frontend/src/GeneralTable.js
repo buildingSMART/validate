@@ -41,6 +41,22 @@ function prettyPrintNumber(number) {
   }
 }
 
+const markWhiteSpace = v => {
+  if (v == null) return '-';
+  const s = String(v);
+  const t = s.trim();
+  if (!t) return '-';
+  const hasLead = s !== s.trimStart();
+  const hasTrail = s !== s.trimEnd();
+  if (!hasLead && !hasTrail) return s;
+
+  return (
+    <span data-edge-ws="true" style={{ whiteSpace: 'pre', textDecoration: 'underline wavy', textDecorationColor: '#d32f2f' }}>
+      {hasLead ? '◻' : ''}{s}{hasTrail ? '◻' : ''}
+    </span>
+  );
+};
+
 function preprocessData(data, type) {
   const validationErrors = data["model"]["header_validation"]?.["validation_errors"] || [];
 
@@ -87,13 +103,15 @@ function preprocessData(data, type) {
     [warningIconWithLink("File Date", "time_stamp"), data["model"]["header_validation"]?.["time_stamp"] || "-"],
   ];
 
+  const hv = data?.model?.header_validation ?? {}; 
+
   // return additional information for header validation report
   if (type === "file") {
     rows.push([warningIconWithLink("Originating System", "originating_system"), data["model"]["header_validation"]?.["originating_system"] || "-"]);
     rows.push([warningIconWithLink("Preprocessor Version", "preprocessor_version"), data["model"]["header_validation"]?.["preprocessor_version"] || "-"]);
-    rows.push([warningIconWithLink("Company Name", "company_name"), data["model"]["header_validation"]?.["company_name"] || "-"]);
-    rows.push([warningIconWithLink("Application Name", "application_name"), data["model"]["header_validation"]?.["application_name"] || "-"]);
-    rows.push([warningIconWithLink("Application Version", "version"), data["model"]["header_validation"]?.["version"] || "-"]);
+    rows.push([warningIconWithLink('Company Name','company_name'),        markWhiteSpace(hv.company_name)]);
+    rows.push([warningIconWithLink('Application Name','application_name'), markWhiteSpace(hv.application_name)]);
+    rows.push([warningIconWithLink('Application Version','version'),       markWhiteSpace(hv.version)]);
     rows.push([warningIconWithLink("Author", "author"), data["model"]["header_validation"]?.["author"] || "-"]);
     rows.push([warningIconWithLink("Organization", "organization"), data["model"]["header_validation"]?.["organization"] || "-"]);
   }

@@ -1,10 +1,10 @@
 import sys
 from pydantic import Field, field_validator, model_validator
 from typing import Tuple, Any, Optional
+from dateutil.parser import isoparse
 import ifcopenshell
-from ifcopenshell import validate, SchemaError, simple_spf
+from ifcopenshell import validate, simple_spf
 import re
-from datetime import datetime
 from packaging.version import parse, InvalidVersion
 
 import logging 
@@ -44,7 +44,7 @@ def ifcopenshell_pre_validation(file):
 
 def is_valid_iso8601(dt_str: str) -> bool:
     try:
-        datetime.fromisoformat(dt_str)
+        isoparse(dt_str)
         return True
     except ValueError:
         return False
@@ -193,6 +193,7 @@ class HeaderStructure(ConfiguredBaseModel):
         r"[0-5]\d"                        # Seconds: 00-59
         r"(?:\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)?$"  # Optional fractional seconds and timezone
     )   
+        import pdb; pdb.set_trace()
         if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
             values.data['validation_errors'].append(values.field_name)
         return v
@@ -201,8 +202,11 @@ class HeaderStructure(ConfiguredBaseModel):
         
     @field_validator('company_name', 'application_name')
     def check_non_empty_fields(cls, v, values):
-        # The only constraint so far is that the field must not be empty and not contain dashes
-        if not v or v.strip() == "" or '-' in v:
+        # The only constraints so far is that the field: 
+        # - must not be empty 
+        # - must not contain dashes
+        # - must not contain trailing and/or leading whitespaces
+        if not (v and v == v.strip() and '-' not in v):
             values.data['validation_errors'].append(values.field_name)
         return v
     
@@ -212,6 +216,8 @@ class HeaderStructure(ConfiguredBaseModel):
         if v:         
             try:
                 parse(v)
+                if v.strip() != v:
+                    values.data['validation_errors'].append(values.field_name)
             except InvalidVersion:
                 values.data['validation_errors'].append(values.field_name)
         return v
