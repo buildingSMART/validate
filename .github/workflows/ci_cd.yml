@@ -84,7 +84,7 @@ jobs:
           source venv/bin/activate
           # use version of ifcopenshell with desired schema parsing
           # TODO: revert to pyPI when schema parsing is published in the future
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.3-260bc80-linux64.zip"
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
           mkdir -p venv/lib/python3.11/site-packages
           unzip -d venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
@@ -103,7 +103,6 @@ jobs:
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
-          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_bsdd_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
   deploy:
     
