@@ -201,8 +201,11 @@ class HeaderStructure(ConfiguredBaseModel):
         
     @field_validator('company_name', 'application_name')
     def check_non_empty_fields(cls, v, values):
-        # The only constraint so far is that the field must not be empty and not contain dashes
-        if not v or v.strip() == "" or '-' in v:
+        # The only constraints so far is that the field: 
+        # - must not be empty 
+        # - must not contain dashes
+        # - must not contain trailing and/or leading whitespaces
+        if not (v and v == v.strip() and '-' not in v):
             values.data['validation_errors'].append(values.field_name)
         return v
     
@@ -212,6 +215,8 @@ class HeaderStructure(ConfiguredBaseModel):
         if v:         
             try:
                 parse(v)
+                if v.strip() != v:
+                    values.data['validation_errors'].append(values.field_name)
             except InvalidVersion:
                 values.data['validation_errors'].append(values.field_name)
         return v
