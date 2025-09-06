@@ -39,6 +39,10 @@ jobs:
           sleep 10
           docker compose -f docker-compose.infra_only.yml ps
           
+      - name: Install frontend dependencies (required for webServer)
+        run: npm install
+        working-directory: ./frontend
+        
       - name: Install e2e dependencies (replicating make e2e-test)
         run: npm install
         working-directory: ./e2e
