@@ -4,6 +4,7 @@ on:
     branches: [ main, development ]
   pull_request:
     branches: [ main, development ]
+
 jobs:
   playwright:
     name: 'Playwright Tests'
@@ -11,19 +12,49 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.55.0-noble
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: lts/*
-      - name: get docker
-        run: curl -fsSL https://get.docker.com -o get-docker.sh
-      - name: install docker
-        run: sh ./get-docker.sh
-      - name: start-infra
+          
+      - name: Install Docker
+        run: |
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sh ./get-docker.sh
+          
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y make
+          
+      - name: Start infrastructure services (replicating start-infra)
         run: docker compose -f docker-compose.infra_only.yml up -d
-      - name: change directories
-        run: cd e2e
-      - name: Install dependencies
+        
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          sleep 10
+          docker compose -f docker-compose.infra_only.yml ps
+          
+      - name: Install e2e dependencies (replicating make e2e-test)
         run: npm install
-      - name: Run tests
-        run: npx playwright test
+        working-directory: ./e2e
+        
+      - name: Install Playwright browsers
+        run: npm run install-playwright
+        working-directory: ./e2e
+        
+      - name: Run Playwright tests
+        run: npm run test
+        working-directory: ./e2e
+        
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: e2e/test-results/
+          retention-days: 7
