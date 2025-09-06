@@ -20,6 +20,11 @@ jobs:
         with:
           node-version: lts/*
           
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
       - name: Install Docker
         run: |
           curl -fsSL https://get.docker.com -o get-docker.sh
@@ -28,7 +33,18 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y make
+          apt-get install -y make wget unzip
+          
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          test -d .dev/venv || python3.11 -m venv .dev/venv
+          .dev/venv/bin/pip install --upgrade pip
+          find . -name 'requirements.txt' -exec .dev/venv/bin/pip install -r {} \;
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
+          mkdir -p .dev/venv/lib/python3.11/site-packages
+          unzip -f -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+          rm /tmp/ifcopenshell_python.zip
           
       - name: Start infrastructure services (replicating start-infra)
         run: docker compose -f docker-compose.infra_only.yml up -d
