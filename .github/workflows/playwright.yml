@@ -39,13 +39,37 @@ jobs:
           sleep 10
           docker compose -f docker-compose.infra_only.yml ps
           
+      - name: Cache frontend dependencies
+        uses: actions/cache@v4
+        with:
+          path: frontend/node_modules
+          key: ${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-frontend-
+        
       - name: Install frontend dependencies (required for webServer)
         run: npm install
         working-directory: ./frontend
         
+      - name: Cache e2e dependencies
+        uses: actions/cache@v4
+        with:
+          path: e2e/node_modules
+          key: ${{ runner.os }}-e2e-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-
+        
       - name: Install e2e dependencies (replicating make e2e-test)
         run: npm install
         working-directory: ./e2e
+        
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
         
       - name: Install Playwright browsers
         run: npm run install-playwright
