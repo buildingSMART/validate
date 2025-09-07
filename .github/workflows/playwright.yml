@@ -47,6 +47,8 @@ jobs:
           mkdir -p .dev/venv/lib/python3.11/site-packages
           unzip -f -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
           rm /tmp/ifcopenshell_python.zip
+        env:
+          VIRTUAL_ENV: backend/.dev/venv
           
       - name: Start infrastructure services (replicating start-infra)
         run: docker compose -f docker-compose.infra_only.yml up -d
