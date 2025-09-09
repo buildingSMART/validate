@@ -56,6 +56,9 @@ urlpatterns = [
 
 if DEVELOPMENT:
     urlpatterns += [
+        # redirect root to admin
+        path("", lambda request: HttpResponseRedirect("/admin/")),
+        # load debug toolbar
         path("__debug__/", include("debug_toolbar.urls")),
     ]
 
