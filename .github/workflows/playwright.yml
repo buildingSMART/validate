@@ -35,28 +35,53 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y make wget unzip
+          apt-get install -y make wget unzip libpq-dev
           
+      - name: Cache backend dependencies
+        uses: actions/cache@v4
+        with:
+          path: backend/.dev/venv
+          key: ${{ runner.os }}-backend-${{ hashFiles('backend/**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-backend-
+        
       - name: Install backend dependencies
         run: |
           cd backend
           test -d .dev/venv || python3.11 -m venv .dev/venv
           .dev/venv/bin/pip install --upgrade pip
           find . -name 'requirements.txt' -exec .dev/venv/bin/pip install -r {} \;
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
-          mkdir -p .dev/venv/lib/python3.11/site-packages
-          unzip -f -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
-          rm /tmp/ifcopenshell_python.zip
         env:
           VIRTUAL_ENV: backend/.dev/venv
-          
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: localhost
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
+
+      - name: Download and install ifcopenshell
+        run: |
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
+          mkdir -p .dev/venv/lib/python3.11/site-packages
+          unzip -o -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+          rm /tmp/ifcopenshell_python.zip
+          # Verify installation
+          ls -la .dev/venv/lib/python3.11/site-packages/
+          echo "Checking for ifcopenshell installation:"
+          find .dev/venv/lib/python3.11/site-packages -name "*ifcopenshell*" || echo "No ifcopenshell files found"
+        working-directory: ./backend
+
       - name: Start infrastructure services (replicating start-infra)
         run: docker compose -f docker-compose.infra_only.yml up -d
         
       - name: Wait for services to be ready
         run: |
-          echo "Waiting for services to start..."
-          sleep 10
+          echo "Waiting for PostgreSQL to be ready..."
+          timeout 60 bash -c 'until docker exec db pg_isready -U postgres; do sleep 2; done'
+          echo "Waiting for Redis to be ready..."
+          timeout 30 bash -c 'until docker exec redis redis-cli ping; do sleep 2; done'
+          echo "All services are ready!"
           docker compose -f docker-compose.infra_only.yml ps
           
       - name: Cache frontend dependencies
@@ -98,6 +123,13 @@ jobs:
       - name: Run Playwright tests
         run: npm run test
         working-directory: ./e2e
+        env:
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: localhost
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
         
       - name: Upload test results
         uses: actions/upload-artifact@v4
