@@ -11,7 +11,8 @@ def process_digital_signatures(context:TaskContext):
     output, success, valid = (context.result.get(k) for k in ("output", "success", "valid"))
     
     with with_model(context.request.id) as model:
-        model.status_signatures = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID 
+        agg_status = Model.Status.NOT_APPLICABLE if not output else Model.Status.VALID if valid else Model.Status.INVALID
+        setattr(model, context.config.status_field.name, agg_status)
 
         def create_outcome(di):
             return ValidationOutcome(
