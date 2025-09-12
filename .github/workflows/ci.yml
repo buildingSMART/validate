@@ -1,11 +1,11 @@
-name: Build & Deploy (CI/CD - DEV)
+name: Testing (CI - DEV)
 
 concurrency: 
   group: development
   cancel-in-progress: true
 
 on:
-  push:
+  pull_request:
     branches:
       - development
     paths-ignore:
@@ -103,70 +103,3 @@ jobs:
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
-
-  deploy:
-    
-    name: deploy to server
-    needs: [build_frontend, build_backend]
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment:
-      name: development
-     
-    steps:
-      - name: Set up SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-  
-      - name: Install sshpass
-        run: sudo apt-get install sshpass
-        
-      - name: Stop Docker containers
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make stop
-          ENDSSH
-
-      - name: Fetch sources & submodules
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
-          git submodule foreach --recursive 'git clean -fdx'
-          sudo make fetch-modules
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ./ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}
-          ./check-submodules.sh
-          ENDSSH
-      
-      - name: Set VERSION
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION="${{ vars.VERSION }}"
-          echo "Set VERSION to ${VERSION}"
-          echo "Commit hash ${COMMIT_HASH}"
-          echo "${VERSION}" > .VERSION          
-          ENDSSH
-
-      - name: Build Docker images
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make rebuild
-          ENDSSH
-
-      - name: Start Docker containers
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d
-          ENDSSH
