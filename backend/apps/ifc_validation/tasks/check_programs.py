@@ -186,7 +186,8 @@ def run_subprocess(
             stderr=subprocess.PIPE,
             text=True,
             timeout=TASK_TIMEOUT_LIMIT,
-            env= os.environ.copy()
+            env= os.environ.copy(),
+            check=True
         )
         logger.info(f'test run task task name {task.type}, task value : {task}')
         return proc
@@ -194,4 +195,4 @@ def run_subprocess(
     except Exception as err:
         logger.exception(f"{type(err).__name__} in task {task.id} : {task.type}")
         task.mark_as_failed(err)
-        raise type(err)(f"Unknown error during validation task {task.id}: {task.type}") from err
+        raise RuntimeError(f"Unknown error during validation task {task.id}: {task.type}") from err
