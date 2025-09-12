@@ -5,7 +5,8 @@ import subprocess
 from typing import List
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT
-from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import Model, ValidationTask
+from core.settings import ROCKSDB_FILE_SIZE_THRESHOLD_IN_MB
 
 from .logger import logger
 from .context import TaskContext
@@ -44,10 +45,51 @@ def is_schema_error(line):
     return True
 
 def check_schema(context:TaskContext):
-    proc = run_subprocess(
-        task = context.task, 
-        command = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", context.file_path ]
-    )
+    if context.rdb_file_path_if_exists == context.file_path:
+        # No conversion to RocksDB has been made
+        proc = run_subprocess(
+            task = context.task, 
+            command = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", context.file_path ]
+        )
+    else:
+        # We have a RocksDB file, which is functionally almost the same
+        # except that certain errors are only present in SPF which have
+        # been captured in a separate log file, which needs to be blended
+        # in into the stream of other messages.
+        proc = run_subprocess(
+            task = context.task, 
+            command=[
+                sys.executable,
+                "-c",
+                f"""
+import json
+import ifcopenshell
+from ifcopenshell.validate import *
+
+logger = json_logger()
+
+spf_filename = {json.dumps(context.file_path)}
+file = ifcopenshell.open({json.dumps(context.rdb_file_path_if_exists)})
+log_filename = {json.dumps(context.log_file_path_if_exists)}
+if log_filename:
+    log_content = open(log_filename).read()
+    if log_content:
+        # certain errors are only present when interacting with SPF, these
+        # are captured during the conversion to RocksDB and now emitted.
+        log_internal_cpp_errors(None, spf_filename, logger, log_content=log_content)
+
+validate(file, logger, True)
+
+def conv(x):
+    if isinstance(x, ifcopenshell.entity_instance):
+        return x.get_info(scalar_only=True)
+    else:
+        return str(x)
+
+for x in logger.statements:
+    print(json.dumps(x, default=conv))
+"""])
+
     output = list(filter(is_schema_error, proc.stdout.split("\n")))
     success = proc.returncode >= 0
     valid = len(output) == 0
@@ -108,7 +150,7 @@ def check_prerequisites(context:TaskContext):
         command = [
             sys.executable, 
             os.path.join(checks_dir, "check_gherkin.py"),
-            "--file-name", context.file_path, 
+            "--file-name", context.rdb_file_path_if_exists, 
             "--task-id", str(context.task.id), 
             "--rule-type", "CRITICAL", 
             "--purepythonparser"
@@ -124,7 +166,7 @@ def check_normative_ia(context:TaskContext):
         command = [
             sys.executable, 
             os.path.join(checks_dir, "check_gherkin.py"),
-            "--file-name", context.file_path, 
+            "--file-name", context.rdb_file_path_if_exists, 
             "--task-id", str(context.task.id), 
             "--rule-type", "IMPLEMENTER_AGREEMENT"
         ]
@@ -139,7 +181,7 @@ def check_normative_ip(context:TaskContext):
         command = [
             sys.executable, 
             os.path.join(checks_dir, "check_gherkin.py"),
-            "--file-name", context.file_path, 
+            "--file-name", context.rdb_file_path_if_exists, 
             "--task-id", str(context.task.id), 
             "--rule-type", "INFORMAL_PROPOSITION"
         ]
@@ -154,7 +196,7 @@ def check_industry_practices(context:TaskContext):
         command = [
             sys.executable, 
             os.path.join(checks_dir, "check_gherkin.py"),
-            "--file-name", context.file_path, 
+            "--file-name", context.rdb_file_path_if_exists, 
             "--task-id", str(context.task.id), 
             "--rule-type", "INDUSTRY_PRACTICE"
         ]
@@ -172,6 +214,34 @@ def check_proc_success_or_fail(proc, task):
         task.mark_as_failed(error_message)
         raise RuntimeError(error_message)
     return proc.stdout
+
+def check_rocksdb_conversion(context: TaskContext):
+    if os.path.getsize(context.file_path) > ROCKSDB_FILE_SIZE_THRESHOLD_IN_MB * 1024 * 1024:
+        rdb_file_path = '/tmp/' + os.path.basename(context.file_path) + '.rdb'
+        log_file_path = context.file_path + '.log'
+        try:
+            run_subprocess(
+                task = context.task, 
+                command=[
+                    sys.executable,
+                    "-c",
+                    f"""
+import ifcopenshell
+ifcopenshell.ifcopenshell_wrapper.set_log_format_json()
+ifcopenshell.convert_path_to_rocksdb(
+    {json.dumps(context.file_path)},
+    {json.dumps(rdb_file_path)})
+with open({json.dumps(log_file_path)}, 'w') as f:
+    f.write(ifcopenshell.get_log())
+"""
+                ]
+            )
+            context.result = Model.Status.VALID if os.path.exists(rdb_file_path) else Model.Status.INVALID
+        except:
+            context.result = Model.Status.INVALID
+    context.result = Model.Status.NOT_APPLICABLE
+    return context
+
 
 def run_subprocess(
     task: ValidationTask,
