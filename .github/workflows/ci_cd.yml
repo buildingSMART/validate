@@ -1,4 +1,4 @@
-name: Build & Deploy (CI/CD - DEV)
+name: ${{ github.event_name == 'pull_request' && 'CI (PR)' || 'Build & Deploy (CI/CD - DEV)' }}
 
 concurrency: 
   group: development
@@ -6,6 +6,11 @@ concurrency:
 
 on:
   push:
+    branches:
+      - development
+    paths-ignore:
+      - 'README.md'
+  pull_request:
     branches:
       - development
     paths-ignore:
