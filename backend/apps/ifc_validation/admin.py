@@ -26,7 +26,9 @@ from apps.ifc_validation_models.models import Version
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
-from .filters import ProducedByAdvancedFilter, ModelProducedByAdvancedFilter, CreatedByAdvancedFilter
+from .filters import ProducedByAdvancedFilter
+from .filters import ModelProducedByAdvancedFilter
+from .filters import CreatedByAdvancedFilter
 
 from core import utils
 from core.filters import AdvancedDateFilter
@@ -62,14 +64,15 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
     list_filter = [
         "status", 
         "deleted", 
-        ModelProducedByAdvancedFilter, 
+        "model__produced_by",
+        ModelProducedByAdvancedFilter,
         "channel", 
         CreatedByAdvancedFilter, 
         "created_by__useradditionalinfo__is_vendor", 
@@ -137,6 +140,17 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         )
     model_link.admin_order_field = 'model'
 
+    @admin.display(description="Created By")
+    def created_by_link(self, obj):
+        
+        link = reverse("admin:auth_user_change", args=[obj.created_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.created_by.username,
+        )
+    created_by_link.admin_order_field = 'created_by'
+
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
 
@@ -178,6 +192,11 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     def file_size_text(self, obj):
 
         return utils.format_human_readable_file_size(obj.size)
+
+    @admin.display(description="Channel")
+    def channel_text(self, obj):
+        return obj.get_channel_display().upper()
+    channel_text.admin_order_field = 'channel'
 
     @admin.action(
         description="Permanently delete selected Validation Requests",
@@ -321,7 +340,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": ["created", "updated"]})
     ]
 
-    list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "queue_time_text", "duration_text", "created", "updated"]
+    list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
     readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "created", "updated"]
     date_hierarchy = "created"
 
@@ -567,10 +586,14 @@ class AuthoringToolAdmin(BaseAdmin):
         ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
-    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests_link", "created", "updated"]
+    readonly_fields = ["id", "created", "updated"]
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
 
     @admin.display(description="Company")
     def company_link(self, obj):
@@ -586,14 +609,18 @@ class AuthoringToolAdmin(BaseAdmin):
         )
     company_link.admin_order_field = 'company'
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
-
     @admin.display(description="# Requests")
-    def nbr_of_requests(self, obj):
-        return obj.nbr_of_requests
-    nbr_of_requests.admin_order_field = 'nbr_of_requests'
+    def nbr_of_requests_link(self, obj):
+
+        link = reverse("admin:ifc_validation_models_validationrequest_changelist")
+        query_string = '?model__produced_by__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Validation Requests for this Authoring Tool">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_requests
+        )
+    nbr_of_requests_link.admin_order_field = 'nbr_of_requests'
 
 
 class UserAdditionalInfoInlineAdmin(admin.StackedInline):
@@ -613,7 +640,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests_link", "date_joined", "last_login"]
     list_filter = [
         'is_staff', 
         'is_superuser', 
@@ -668,9 +695,17 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
     is_vendor_self_declared.admin_order_field = 'useradditionalinfo__is_vendor_self_declared'
 
     @admin.display(description="# Requests")
-    def nbr_of_requests(self, obj):
-        return obj.nbr_of_requests
-    nbr_of_requests.admin_order_field = 'nbr_of_requests'
+    def nbr_of_requests_link(self, obj):
+
+        link = reverse("admin:ifc_validation_models_validationrequest_changelist")
+        query_string = '?created_by__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Validation Requests for this User">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_requests
+        )
+    nbr_of_requests_link.admin_order_field = 'nbr_of_requests'
 
     @admin.action(
         description="Remove Company & is_vendor status from selected users",
