@@ -13,7 +13,7 @@ def process_schema(context:TaskContext):
     with with_model(context.request.id) as model:
 
         if valid:
-            model.status_schema = Model.Status.VALID
+            setattr(model, context.config.status_field.name, Model.Status.VALID)
             context.task.outcomes.create(
                 severity=ValidationOutcome.OutcomeSeverity.PASSED,
                 outcome_code=ValidationOutcome.ValidationOutcomeCode.PASSED,
