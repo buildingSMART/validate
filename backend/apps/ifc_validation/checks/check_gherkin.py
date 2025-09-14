@@ -7,7 +7,7 @@ try:
 except:
     import apps.ifc_validation.checks.ifc_gherkin_rules as gherkin_rules  # tests
 
-def perform(ifc_fn, task_id, rule_type, verbose, purepythonparser=False):
+def perform(ifc_fn, task_id, rule_type, verbose, purepythonparser=False, only_header=False):
 
     try:
         
@@ -17,7 +17,8 @@ def perform(ifc_fn, task_id, rule_type, verbose, purepythonparser=False):
             rule_type=gherkin_rule_type,
             task_id=task_id,
             with_console_output=verbose,
-            purepythonparser=purepythonparser
+            purepythonparser=purepythonparser, 
+            only_header=only_header,
         )
         results = list(rules_run)
         return results
@@ -36,6 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("--rule-type", "-r", type=str, default='ALL')
     parser.add_argument("--verbose", "-v", action='store_true')
     parser.add_argument("--purepythonparser", "-p", action="store_true")
+    parser.add_argument("--only_header", "-p", action="store_true")
     args = parser.parse_args()
 
     perform(
@@ -43,5 +45,6 @@ if __name__ == "__main__":
         task_id=args.task_id,
         rule_type=args.rule_type,
         verbose=args.verbose,
-        purepythonparser=args.purepythonparser
+        purepythonparser=args.purepythonparser, 
+        only_header=args.only_header
     )
