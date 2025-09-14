@@ -7,6 +7,7 @@ from core.utils import get_client_ip_address
 from core.settings import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE_IN_MB
 
 from rest_framework import status
+from rest_framework.generics import ListAPIView, ListCreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -73,9 +74,7 @@ class ValidationRequestDetailAPIView(APIView):
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
-class ValidationRequestListAPIView(APIView):
-
-    queryset = ValidationRequest.objects.all()
+class ValidationRequestListAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
     serializer_class = ValidationRequestSerializer
@@ -83,7 +82,6 @@ class ValidationRequestListAPIView(APIView):
     throttle_scope = 'submit_validation_request'
 
     def get_throttles(self):
-
         """
         Applies scoped throttling only for POST requests (aka submitting a new Validation Request).
         """    
@@ -97,14 +95,18 @@ class ValidationRequestListAPIView(APIView):
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-        
-        user_requests = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False)
-        public_id = self.request.query_params.get('public_id', None)
-        if public_id:
-            user_requests = user_requests.filter(id=ValidationRequest.to_private_id(public_id))
+        return super().get(request, *args, **kwargs)
 
-        serializer = self.serializer_class(user_requests, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        qs = (
+            ValidationRequest.objects
+            .filter(created_by_id=self.request.user.id, deleted=False)
+            .order_by("-created")
+        )
+        public_id = self.request.query_params.get('public_id')
+        if public_id:
+            qs = qs.filter(id=ValidationRequest.to_private_id(public_id))
+        return qs
 
     @extend_schema(operation_id='validationrequest_create')
     def post(self, request, *args, **kwargs):
@@ -204,9 +206,8 @@ class ValidationTaskDetailAPIView(APIView):
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
-class ValidationTaskListAPIView(APIView):
+class ValidationTaskListAPIView(ListAPIView):
 
-    queryset = ValidationTask.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
     throttle_classes = [UserRateThrottle]
@@ -218,20 +219,24 @@ class ValidationTaskListAPIView(APIView):
         Returns a list of all Validation Tasks, optionally filtered by request_public_id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-        
-        user_tasks = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
-        
-        # parse query arguments
-        request_public_id = self.request.query_params.get('request_public_id', '').lower()
-        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
-        
-        # apply filter(s)
-        if request_public_ids:
-            user_tasks = [t for t in user_tasks if t.request_public_id in request_public_ids]
+        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' %(get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        return super().get(request, *args, **kwargs)
 
-        serializer = self.serializer_class(user_tasks, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        qs = (ValidationTask.objects
+              .filter(request__created_by_id=self.request.user.id,
+                      request__deleted=False)
+              .order_by("-id"))
+
+        # parse query arguments
+        req_param = self.request.query_params.get('request_public_id', '').lower()
+        if req_param:
+            
+        # apply filter(s)
+            pub_ids = [p.strip() for p in req_param.split(',') if p.strip()]
+            priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
+            qs = qs.filter(request_id__in=priv_ids)
+        return qs
 
 
 class ValidationOutcomeDetailAPIView(APIView):
@@ -259,9 +264,7 @@ class ValidationOutcomeDetailAPIView(APIView):
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
-class ValidationOutcomeListAPIView(APIView):
-
-    queryset = ValidationOutcome.objects.all()
+class ValidationOutcomeListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
     throttle_classes = [UserRateThrottle]
@@ -274,23 +277,29 @@ class ValidationOutcomeListAPIView(APIView):
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-        
-        user_outcomes = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False)
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        qs = ValidationOutcome.objects.filter(
+            validation_task__request__created_by=self.request.user,
+            validation_task__request__deleted=False,
+        )
 
         # parse query arguments
-        request_public_id = self.request.query_params.get('request_public_id', '').lower()
-        task_public_id = self.request.query_params.get('validation_task_public_id', '').lower()
-        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
-        task_public_ids = [id for id in (task_public_id.split(',') if task_public_id else [])]
-        
+        request_public_id = self.request.query_params.get("request_public_id", "").lower()
+        task_public_id = self.request.query_params.get("validation_task_public_id", "").lower()
         # apply filter(s)
-        if request_public_ids:
-            user_outcomes = [o for o in user_outcomes if o.validation_task.request_public_id in request_public_ids]
-        if task_public_ids:
-            user_outcomes = [o for o in user_outcomes if o.validation_task_public_id in task_public_ids]
+        if request_public_id:
+            ids = [pid.strip() for pid in request_public_id.split(",") if pid.strip()]
+            qs = qs.filter(validation_task__request__public_id__in=ids)
 
-        serializer = self.serializer_class(user_outcomes, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if task_public_id:
+            ids = [tid.strip() for tid in task_public_id.split(",") if tid.strip()]
+            qs = qs.filter(validation_task__public_id__in=ids)
+
+        return qs
+
+
 
 
 class ModelDetailAPIView(APIView):
@@ -318,9 +327,7 @@ class ModelDetailAPIView(APIView):
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
-class ModelListAPIView(APIView):
-
-    queryset = Model.objects.all()
+class ModelListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
     throttle_classes = [UserRateThrottle]
@@ -333,16 +340,20 @@ class ModelListAPIView(APIView):
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
-        
-        user_models = Model.objects.filter(request__created_by__id=request.user.id, request__deleted=False)
-        
-        # parse query arguments
-        request_public_id = self.request.query_params.get('request_public_id', '').lower()
-        request_public_ids = [id for id in (request_public_id.split(',') if request_public_id else [])]
-        
-        # apply filter(s)
-        if request_public_ids:
-            user_models = [m for m in user_models if m.request.public_id in request_public_ids]
+        return super().get(request, *args, **kwargs)
 
-        serializer = self.serializer_class(user_models, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def get_queryset(self):
+        qs = (Model.objects
+              .filter(request__created_by_id=self.request.user.id,
+                      request__deleted=False)
+              .order_by("-id"))
+
+        # parse query arguments
+        req_param = self.request.query_params.get('request_public_id', '').lower()
+
+        # apply filter(s)
+        if req_param:
+            pub_ids = [p.strip() for p in req_param.split(',') if p.strip()]
+            priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
+            qs = qs.filter(request_id__in=priv_ids)
+        return qs

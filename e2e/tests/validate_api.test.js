@@ -234,10 +234,14 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBe(1);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]['public_id']).toBe(public_id);
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(25);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]['public_id']).toBe(public_id);
+        // optional: check metadata wrapper
+        expect(data).toHaveProperty('metadata.result_set.total');
+        expect(data).toHaveProperty('metadata.result_set.limit');
     });
 
     test('GET returns a list', async ({ request }) => {
@@ -259,10 +263,13 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBeGreaterThan(0);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]).toHaveProperty('file_name');
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeGreaterThan(0);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]).toHaveProperty('file_name');
+        // optional metadata checks
+        expect(data).toHaveProperty('metadata.result_set.total');
     });
 
     test('GET without trailing slash returns a list', async ({ request }) => {
@@ -284,10 +291,14 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBeGreaterThan(0);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]).toHaveProperty('file_name');
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(25);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]['public_id']).toBe(public_id);
+        // optional: check metadata wrapper
+        expect(data).toHaveProperty('metadata.result_set.total');
+        expect(data).toHaveProperty('metadata.result_set.limit');
     });
 
     test('GET without authorization header returns 401', async ({ request }) => {

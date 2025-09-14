@@ -145,6 +145,8 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.MetadataLimitOffsetPagination",
+    "PAGE_SIZE": 25,
     'DEFAULT_PERMISSION_CLASSES':(
         # 'rest_framework.permissions.AllowAny',
         'rest_framework.permissions.IsAuthenticated',
