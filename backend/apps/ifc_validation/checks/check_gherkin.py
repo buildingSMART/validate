@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument("--rule-type", "-r", type=str, default='ALL')
     parser.add_argument("--verbose", "-v", action='store_true')
     parser.add_argument("--purepythonparser", "-p", action="store_true")
-    parser.add_argument("--only_header", "-p", action="store_true")
+    parser.add_argument("--only_header", "-h", action="store_true")
     args = parser.parse_args()
 
     perform(
