@@ -280,10 +280,12 @@ class ValidationOutcomeListAPIView(ListAPIView):
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = ValidationOutcome.objects.filter(
-            validation_task__request__created_by=self.request.user,
-            validation_task__request__deleted=False,
-        )
+        qs = (ValidationOutcome.objects
+            .filter(
+                validation_task__request__created_by=self.request.user,
+                validation_task__request__deleted=False,
+            )
+            .order_by("-created", "-id"))
 
         # parse query arguments
         request_public_id = self.request.query_params.get("request_public_id", "").lower()
