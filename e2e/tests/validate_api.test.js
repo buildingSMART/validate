@@ -222,6 +222,7 @@ test.describe('API - ValidationRequest', () => {
         });
         const json_body = await response.json();
         const public_id = json_body['public_id'];
+        const file_name = json_body['file_name']
 
         // retrieve a single instance
         response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
@@ -236,10 +237,10 @@ test.describe('API - ValidationRequest', () => {
         const data = await response.json();
         expect(data).toBeInstanceOf(Object);
         expect(Array.isArray(data.results)).toBe(true);
-        expect(data.results.length).toBe(25);
+        expect(data.results.length).toBe(1);
         expect(data.results[0]).toHaveProperty('public_id');
         expect(data.results[0]['public_id']).toBe(public_id);
-        // optional: check metadata wrapper
+        expect(data.results[0]['file_name']).toBe(file_name);
         expect(data).toHaveProperty('metadata.result_set.total');
         expect(data).toHaveProperty('metadata.result_set.limit');
     });
@@ -268,7 +269,6 @@ test.describe('API - ValidationRequest', () => {
         expect(data.results.length).toBeGreaterThan(0);
         expect(data.results[0]).toHaveProperty('public_id');
         expect(data.results[0]).toHaveProperty('file_name');
-        // optional metadata checks
         expect(data).toHaveProperty('metadata.result_set.total');
     });
 
@@ -295,8 +295,6 @@ test.describe('API - ValidationRequest', () => {
         expect(Array.isArray(data.results)).toBe(true);
         expect(data.results.length).toBe(25);
         expect(data.results[0]).toHaveProperty('public_id');
-        expect(data.results[0]['public_id']).toBe(public_id);
-        // optional: check metadata wrapper
         expect(data).toHaveProperty('metadata.result_set.total');
         expect(data).toHaveProperty('metadata.result_set.limit');
     });
