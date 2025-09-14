@@ -25,7 +25,7 @@ def check_syntax(context:TaskContext):
     return context
 
 def check_header_syntax(context:TaskContext):
-    proc = run_subprocess(context.task, [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", "--only_header", context.file_path])
+    proc = run_subprocess(context.task, [sys.executable, "-m", "ifcopenshell.simple_spf", "--json", "--only-header", context.file_path])
     output = proc.stdout 
     error_output = proc.stderr
     success = (len(list(filter(None, output.split("\n")))) == 0) and len(error_output) == 0
