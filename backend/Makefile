@@ -2,7 +2,7 @@
 
 VIRTUAL_ENV = .dev/venv
 PYTHON = $(VIRTUAL_ENV)/bin/python
-PIP = $(VIRTUAL_ENV)/bin/pip
+PIP = $(VIRTUAL_ENV)/bin/pip 
 
 none:
 	@echo "MAKE: Enter at least one target (venv, install, install-dev, start-backend, start-worker, clean)"
