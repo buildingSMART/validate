@@ -11,12 +11,12 @@ class MetadataLimitOffsetPagination(LimitOffsetPagination):
         offset = self.get_offset(self.request)
         total = getattr(self, 'count', None)
 
-        page_count = len(data)  
+        page_size = len(data)  
 
         return Response({
             "metadata": {
                 "result_set": {
-                    "count": page_count,       
+                    "page_size": page_size,       
                     "offset": offset or 0,
                     "limit": limit if limit is not None else self.default_limit,
                     "total": total
