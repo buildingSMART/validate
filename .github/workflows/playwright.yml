@@ -5,12 +5,56 @@ on:
   pull_request:
     branches: [ main, development ]
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+  pull-requests: write
+
 jobs:
   playwright:
     name: 'Playwright Tests'
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.55.0-noble
+    env:
+      DJANGO_DB: postgresql
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_NAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      VIRTUAL_ENV: backend/.dev/venv
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    services:
+      postgres:
+        image: postgres:16.8-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          --network-alias postgres
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7.2-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+        volumes:
+          - redis_data:/data
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -26,11 +70,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
-      - name: Install Docker
-        run: |
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sh ./get-docker.sh
           
       - name: Install system dependencies
         run: |
@@ -51,14 +90,6 @@ jobs:
           test -d .dev/venv || python3.11 -m venv .dev/venv
           .dev/venv/bin/pip install --upgrade pip
           find . -name 'requirements.txt' -exec .dev/venv/bin/pip install -r {} \;
-        env:
-          VIRTUAL_ENV: backend/.dev/venv
-          DJANGO_DB: postgresql
-          POSTGRES_HOST: localhost
-          POSTGRES_NAME: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_PORT: 5432
 
       - name: Download and install ifcopenshell
         run: |
@@ -72,18 +103,6 @@ jobs:
           find .dev/venv/lib/python3.11/site-packages -name "*ifcopenshell*" || echo "No ifcopenshell files found"
         working-directory: ./backend
 
-      - name: Start infrastructure services (replicating start-infra)
-        run: docker compose -f docker-compose.infra_only.yml up -d
-        
-      - name: Wait for services to be ready
-        run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          timeout 60 bash -c 'until docker exec db pg_isready -U postgres; do sleep 2; done'
-          echo "Waiting for Redis to be ready..."
-          timeout 30 bash -c 'until docker exec redis redis-cli ping; do sleep 2; done'
-          echo "All services are ready!"
-          docker compose -f docker-compose.infra_only.yml ps
-          
       - name: Cache frontend dependencies
         uses: actions/cache@v4
         with:
@@ -119,18 +138,35 @@ jobs:
       - name: Install Playwright browsers
         run: npm run install-playwright
         working-directory: ./e2e
-        
+
+      - name: Setup Django database, migrations, and superusers
+        run: |
+          cd backend
+          .dev/venv/bin/python manage.py makemigrations
+          .dev/venv/bin/python manage.py migrate
+          .dev/venv/bin/python manage.py collectstatic --noinput
+          DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
+          DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
+        env:
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: postgres
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
+          VIRTUAL_ENV: backend/.dev/venv
+
       - name: Run Playwright tests
         run: npm run test
         working-directory: ./e2e
         env:
           DJANGO_DB: postgresql
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: postgres
           POSTGRES_NAME: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_PORT: 5432
-        
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
