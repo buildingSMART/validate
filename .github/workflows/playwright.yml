@@ -168,9 +168,9 @@ jobs:
           VIRTUAL_ENV: backend/.dev/venv
 
       - name: Seed 30 ValidationRequests (for pagination)
-            run: |
-              cd backend
-              .dev/venv/bin/python manage.py shell <<'PY'
+        run: |
+          cd backend
+          .dev/venv/bin/python manage.py shell <<'PY'
           from django.contrib.auth import get_user_model
           from django.core.files.base import ContentFile
           from apps.ifc_validation.models import ValidationRequest
