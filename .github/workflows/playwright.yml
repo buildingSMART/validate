@@ -25,6 +25,10 @@ jobs:
       POSTGRES_PASSWORD: postgres
       POSTGRES_PORT: 5432
       MEDIA_ROOT: /tmp/files_storage
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: django-db
+      DJANGO_ALLOWED_HOSTS: "localhost 127.0.0.1"
+      DJANGO_TRUSTED_ORIGINS: "http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000 http://127.0.0.1:8000"
       POSTGRES_USER: postgres
       VIRTUAL_ENV: backend/.dev/venv
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
