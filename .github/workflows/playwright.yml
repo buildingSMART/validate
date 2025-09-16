@@ -1,9 +1,9 @@
 name: Playwright Tests
 on:
   push:
-    branches: [ main, development ]
+    branches: [ development ]
   pull_request:
-    branches: [ main, development ]
+    branches: [ development ]
 
 jobs:
   playwright:
@@ -11,6 +11,27 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.55.0-noble
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,15 +48,10 @@ jobs:
         with:
           python-version: '3.11'
           
-      - name: Install Docker
-        run: |
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sh ./get-docker.sh
-          
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y make wget unzip libpq-dev postgresql-client
+          apt-get install -y make wget unzip libpq-dev postgresql-client redis-tools netcat-openbsd
           
       - name: Cache backend dependencies
         uses: actions/cache@v4
@@ -52,13 +68,13 @@ jobs:
           .dev/venv/bin/pip install --upgrade pip
           find . -name 'requirements.txt' -exec .dev/venv/bin/pip install -r {} \;
         env:
-            VIRTUAL_ENV: backend/.dev/venv
-            DJANGO_DB: postgresql
-            POSTGRES_HOST: localhost
-            POSTGRES_NAME: postgres
-            POSTGRES_USER: postgres
-            POSTGRES_PASSWORD: postgres
-            POSTGRES_PORT: 5432
+          VIRTUAL_ENV: backend/.dev/venv
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: postgres
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
 
       - name: Download and install ifcopenshell
         run: |
@@ -66,37 +82,28 @@ jobs:
           mkdir -p .dev/venv/lib/python3.11/site-packages
           unzip -o -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
           rm /tmp/ifcopenshell_python.zip
-          # Verify installation
-          ls -la .dev/venv/lib/python3.11/site-packages/
-          echo "Checking for ifcopenshell installation:"
           find .dev/venv/lib/python3.11/site-packages -name "*ifcopenshell*" || echo "No ifcopenshell files found"
         working-directory: ./backend
 
-      - name: Start infrastructure services (replicating start-infra)
-        run: docker compose -f docker-compose.infra_only.yml up -d
-        
+      # NEW: wait on services (no docker compose)
       - name: Wait for services to be ready
         run: |
-          echo "Waiting for PostgreSQL to be ready..."
-          timeout 60 bash -c 'until docker exec db pg_isready -U postgres; do sleep 2; done'
-          echo "Waiting for Redis to be ready..."
-          timeout 30 bash -c 'until docker exec redis redis-cli ping; do sleep 2; done'
+          echo "Waiting for PostgreSQL..."
+          timeout 60 bash -c 'until pg_isready -h postgres -U postgres; do sleep 2; done'
+          echo "Waiting for Redis..."
+          timeout 30 bash -c 'until redis-cli -h redis ping | grep PONG; do sleep 2; done'
           echo "All services are ready!"
-          docker compose -f docker-compose.infra_only.yml ps
 
-      # --- added: writable MEDIA_ROOT for file uploads ---
       - name: Prepare MEDIA_ROOT
         run: |
-          export MEDIA_ROOT="${GITHUB_WORKSPACE}/.ci_media"
-          mkdir -p "$MEDIA_ROOT"
-          chmod -R 777 "$MEDIA_ROOT"
+          mkdir -p "${GITHUB_WORKSPACE}/.ci_media"
+          chmod -R 777 "${GITHUB_WORKSPACE}/.ci_media"
 
-      # --- added: run migrations (no seeds/users) ---
-      - name: Django migrate
+      - name: Django migrate (no seeds)
         working-directory: ./backend
         env:
           DJANGO_DB: postgresql
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: postgres
           POSTGRES_NAME: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -105,23 +112,40 @@ jobs:
         run: |
           .dev/venv/bin/python manage.py migrate
 
-      # --- added: start a Celery worker in background ---
       - name: Start Celery worker (background)
         working-directory: ./backend
         env:
           DJANGO_DB: postgresql
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: postgres
           POSTGRES_NAME: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_PORT: 5432
           MEDIA_ROOT: ${{ github.workspace }}/.ci_media
-          CELERY_BROKER_URL: redis://localhost:6379/0
+          CELERY_BROKER_URL: redis://redis:6379/0
           CELERY_RESULT_BACKEND: django-db
         run: |
           .dev/venv/bin/python -m celery --app=core worker --loglevel=INFO --concurrency=2 --task-events --hostname=worker@%n \
             > ../.celery_worker.log 2>&1 &
           echo $! > ../.celery_worker.pid
+
+      # NEW: start Django so Playwright can hit the API
+      - name: Start Django server (background)
+        working-directory: ./backend
+        env:
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: postgres
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
+          MEDIA_ROOT: ${{ github.workspace }}/.ci_media
+          DJANGO_TRUSTED_ORIGINS: http://localhost http://localhost:3000 http://127.0.0.1 http://127.0.0.1:3000
+        run: |
+          .dev/venv/bin/python manage.py runserver 0.0.0.0:8000 > ../.django.log 2>&1 &
+          echo $! > ../.django.pid
+          # wait for :8000 to accept connections
+          timeout 60 bash -c 'until nc -z localhost 8000; do sleep 1; done'
 
       - name: Cache frontend dependencies
         uses: actions/cache@v4
@@ -164,14 +188,15 @@ jobs:
         working-directory: ./e2e
         env:
           DJANGO_DB: postgresql
-          POSTGRES_HOST: localhost
+          POSTGRES_HOST: postgres
           POSTGRES_NAME: postgres
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_PORT: 5432
           MEDIA_ROOT: ${{ github.workspace }}/.ci_media
-          CELERY_BROKER_URL: redis://localhost:6379/0
+          CELERY_BROKER_URL: redis://redis:6379/0
           CELERY_RESULT_BACKEND: django-db
+          DJANGO_TRUSTED_ORIGINS: http://localhost http://localhost:3000 http://127.0.0.1 http://127.0.0.1:3000
         
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -181,11 +206,11 @@ jobs:
           path: e2e/test-results/
           retention-days: 7
 
-      # --- added: stop Celery worker (cleanup) ---
-      - name: Stop Celery worker
+      - name: Stop background processes
         if: always()
         working-directory: ./backend
         run: |
-          if [ -f ../.celery_worker.pid ]; then kill -TERM $(cat ../.celery_worker.pid) || true; fi
+          if [ -f ../.celery_worker.pid ]; then kill -TERM "$(cat ../.celery_worker.pid)" || true; fi
+          if [ -f ../.django.pid ]; then kill -TERM "$(cat ../.django.pid)" || true; fi
           sleep 2 || true
-          ps -ef | grep 'celery worker' | grep -v grep || true
+          ps -ef | grep -E 'celery worker|manage.py runserver' | grep -v grep || true
