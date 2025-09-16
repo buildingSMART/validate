@@ -173,7 +173,7 @@ jobs:
           .dev/venv/bin/python manage.py shell <<'PY'
           from django.contrib.auth import get_user_model
           from django.core.files.base import ContentFile
-          from apps.ifc_validation.models import ValidationRequest
+          from apps.ifc_validation_models.models import ValidationRequest
 
           User = get_user_model()
           user = User.objects.get(username="root")
