@@ -5,12 +5,12 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  push:
+    branches: [development]
+    paths-ignore:
+      - 'README.md'
   pull_request:
-    branches:
-      - development
-    push:
-    branches:
-      - development 
+    branches: [development]  
     paths-ignore:
       - 'README.md'
   workflow_dispatch:
@@ -49,7 +49,7 @@ jobs:
       DJANGO_TRUSTED_ORIGINS: http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000
       DJANGO_ALLOWED_HOSTS: localhost 127.0.0.1
 
-      MEDIA_ROOT: ${{ runner.temp }}/files_storage
+      MEDIA_ROOT: /tmp/files_storage
 
     steps:
       - name: Checkout
