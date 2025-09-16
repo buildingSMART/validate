@@ -167,29 +167,29 @@ jobs:
           POSTGRES_PORT: 5432
           VIRTUAL_ENV: backend/.dev/venv
 
-      - name: Seed 30 ValidationRequests (for pagination)
-        run: |
-          cd backend
-          .dev/venv/bin/python manage.py shell <<'PY'
-          from django.contrib.auth import get_user_model
-          from django.core.files.base import ContentFile
-          from apps.ifc_validation_models.models import ValidationRequest
+      # - name: Seed 30 ValidationRequests (for pagination)
+      #   run: |
+      #     cd backend
+      #     .dev/venv/bin/python manage.py shell <<'PY'
+      #     from django.contrib.auth import get_user_model
+      #     from django.core.files.base import ContentFile
+      #     from apps.ifc_validation_models.models import ValidationRequest
 
-          User = get_user_model()
-          user = User.objects.get(username="root")
+      #     User = get_user_model()
+      #     user = User.objects.get(username="root")
 
-          # create 30 tiny *.ifc files
-          for i in range(30):
-              f = ContentFile(b"IFC", name=f"seed_{i}.ifc")
-              ValidationRequest.objects.create(
-                  created_by=user,
-                  file=f,
-                  file_name=f.name,
-                  size=len(b"IFC"),
-                  channel="API",
-              )
-          print("Seeded 30 ValidationRequests")
-          PY
+      #     # create 30 tiny *.ifc files
+      #     for i in range(30):
+      #         f = ContentFile(b"IFC", name=f"seed_{i}.ifc")
+      #         ValidationRequest.objects.create(
+      #             created_by=user,
+      #             file=f,
+      #             file_name=f.name,
+      #             size=len(b"IFC"),
+      #             channel="API",
+      #         )
+      #     print("Seeded 30 ValidationRequests")
+      #     PY
 
       - name: Run Playwright tests
         run: npm run test
