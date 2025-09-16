@@ -10,7 +10,7 @@ on:
       - development
     push:
     branches:
-      - development
+      - development 
     paths-ignore:
       - 'README.md'
   workflow_dispatch:
