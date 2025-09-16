@@ -1,18 +1,13 @@
 name: Playwright Tests
 
 on:
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build & test'
-        required: true
-        default: 'development'
-        type: choice
-        options: [development]
+    branches: [ development ]
+  pull_request:
+    branches: [ development ]
 
 jobs:
-  e2e:
-    name: Playwright E2E
+  playwright:
+    name: 'Playwright Tests'
     runs-on: ubuntu-latest
 
     services:
