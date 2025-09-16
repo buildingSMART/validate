@@ -10,7 +10,7 @@ def process_header(context:TaskContext):
 
     with with_model(context.request.id) as model:
         agg_status = context.task.determine_aggregate_status()
-        model.status_prereq = agg_status
+        setattr(model, context.config.status_field.name, agg_status)
         model.size = os.path.getsize(context.file_path)
         logger.debug(f'Detected size = {model.size} bytes')
         

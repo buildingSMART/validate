@@ -2,17 +2,10 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { basename } from 'path';
 import { statSync } from 'fs';
+import { createAuthHeader, createFormData } from './utils.js';
 
 const BASE_URL = 'http://localhost:8000';
 const TEST_CREDENTIALS = 'root:root';
-
-function createAuthHeader(credentials) {
-
-    const hash = Buffer.from(credentials).toString('base64');
-    return {
-        'Authorization': `Basic ${hash}`
-    };
-}
 
 function findAndReadFileSync(filepath) {
     
@@ -22,16 +15,6 @@ function findAndReadFileSync(filepath) {
         return readFileSync('e2e/' + filepath);
     }
     throw new Error(`File does not exist: ${filepath}`);
-}
-
-function createFormData(filePath, fileName = undefined) {
-
-    const name = fileName ?? basename(filePath);
-    const file = new File([findAndReadFileSync(filePath)], name);
-    const form = new FormData();
-    form.append('file', file);
-    form.append('file_name', name);
-    return form;
 }
 
 function createFormDataForTwoFiles(filePath1, filePath2) {
