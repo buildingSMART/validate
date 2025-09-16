@@ -129,24 +129,6 @@ jobs:
             > ../.celery_worker.log 2>&1 &
           echo $! > ../.celery_worker.pid
 
-      # NEW: start Django so Playwright can hit the API
-      - name: Start Django server (background)
-        working-directory: ./backend
-        env:
-          DJANGO_DB: postgresql
-          POSTGRES_HOST: postgres
-          POSTGRES_NAME: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_PORT: 5432
-          MEDIA_ROOT: ${{ github.workspace }}/.ci_media
-          DJANGO_TRUSTED_ORIGINS: http://localhost http://localhost:3000 http://127.0.0.1 http://127.0.0.1:3000
-        run: |
-          .dev/venv/bin/python manage.py runserver 0.0.0.0:8000 > ../.django.log 2>&1 &
-          echo $! > ../.django.pid
-          # wait for :8000 to accept connections
-          timeout 60 bash -c 'until nc -z localhost 8000; do sleep 1; done'
-
       - name: Cache frontend dependencies
         uses: actions/cache@v4
         with:
@@ -205,12 +187,3 @@ jobs:
           name: playwright-report
           path: e2e/test-results/
           retention-days: 7
-
-      - name: Stop background processes
-        if: always()
-        working-directory: ./backend
-        run: |
-          if [ -f ../.celery_worker.pid ]; then kill -TERM "$(cat ../.celery_worker.pid)" || true; fi
-          if [ -f ../.django.pid ]; then kill -TERM "$(cat ../.django.pid)" || true; fi
-          sleep 2 || true
-          ps -ef | grep -E 'celery worker|manage.py runserver' | grep -v grep || true
