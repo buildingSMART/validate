@@ -1,9 +1,19 @@
 name: Playwright Tests
+
+concurrency: 
+  group: development
+  cancel-in-progress: true
+
 on:
-  push:
-    branches: [ development ]
   pull_request:
-    branches: [ development ]
+    branches:
+      - development
+    push:
+    branches:
+      - development
+    paths-ignore:
+      - 'README.md'
+  workflow_dispatch:
 
 jobs:
   playwright:
