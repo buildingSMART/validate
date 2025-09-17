@@ -24,6 +24,13 @@ jobs:
       POSTGRES_NAME: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_PORT: 5432
+      MEDIA_ROOT: /tmp/files_storage
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: django-db
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      CELERY_TASK_EAGER_PROPAGATES: "false"
+      DJANGO_ALLOWED_HOSTS: "localhost 127.0.0.1"
+      DJANGO_TRUSTED_ORIGINS: "http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000 http://127.0.0.1:8000"
       POSTGRES_USER: postgres
       VIRTUAL_ENV: backend/.dev/venv
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -60,22 +67,27 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
-        
+
+      - name: Prepare MEDIA_ROOT
+        run: |
+          mkdir -p /tmp/files_storage
+          chmod -R 777 /tmp/files_storage
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          
+
       - name: Install system dependencies
         run: |
           apt-get update
           apt-get install -y make wget unzip libpq-dev
-          
+
       - name: Cache backend dependencies
         uses: actions/cache@v4
         with:
@@ -83,7 +95,7 @@ jobs:
           key: ${{ runner.os }}-backend-${{ hashFiles('backend/**/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-backend-
-        
+
       - name: Install backend dependencies
         run: |
           cd backend
@@ -110,11 +122,11 @@ jobs:
           key: ${{ runner.os }}-frontend-${{ hashFiles('frontend/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-frontend-
-        
+
       - name: Install frontend dependencies (required for webServer)
         run: npm install
         working-directory: ./frontend
-        
+
       - name: Cache e2e dependencies
         uses: actions/cache@v4
         with:
@@ -122,11 +134,11 @@ jobs:
           key: ${{ runner.os }}-e2e-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-e2e-
-        
+
       - name: Install e2e dependencies (replicating make e2e-test)
         run: npm install
         working-directory: ./e2e
-        
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -134,7 +146,7 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
-        
+
       - name: Install Playwright browsers
         run: npm run install-playwright
         working-directory: ./e2e
@@ -155,6 +167,30 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_PORT: 5432
           VIRTUAL_ENV: backend/.dev/venv
+
+      # - name: Seed 30 ValidationRequests (for pagination)
+      #   run: |
+      #     cd backend
+      #     .dev/venv/bin/python manage.py shell <<'PY'
+      #     from django.contrib.auth import get_user_model
+      #     from django.core.files.base import ContentFile
+      #     from apps.ifc_validation_models.models import ValidationRequest
+
+      #     User = get_user_model()
+      #     user = User.objects.get(username="root")
+
+      #     # create 30 tiny *.ifc files
+      #     for i in range(30):
+      #         f = ContentFile(b"IFC", name=f"seed_{i}.ifc")
+      #         ValidationRequest.objects.create(
+      #             created_by=user,
+      #             file=f,
+      #             file_name=f.name,
+      #             size=len(b"IFC"),
+      #             channel="API",
+      #         )
+      #     print("Seeded 30 ValidationRequests")
+      #     PY
 
       - name: Run Playwright tests
         run: npm run test
