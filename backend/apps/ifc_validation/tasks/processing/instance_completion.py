@@ -7,7 +7,7 @@ from django.db import transaction
 
 def process_instance_completion(context:TaskContext):
     # the current task doesn't have any execution layer and links instance ids to outcomes
-    ifc_file = ifcopenshell.open(context.file_path)
+    ifc_file = ifcopenshell.open(context.rdb_file_path_if_exists)
     with transaction.atomic():
         model_id = context.request.model.id
         model_instances = ModelInstance.objects.filter(model_id=model_id, ifc_type__in=[None, ''])

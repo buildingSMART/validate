@@ -44,30 +44,27 @@ def make_task(*, type, increment, field=None, stage="parallel"):
     )
 
 # define task info
-header_syntax       = make_task(type=ValidationTask.Type.HEADER_SYNTAX, increment=5, field='status_header_syntax', stage="serial")
-header              = make_task(type=ValidationTask.Type.HEADER,        increment=10, field='status_header',      stage="serial")
-syntax              = make_task(type=ValidationTask.Type.SYNTAX,        increment=5,  field='status_syntax',      stage="serial")
-prerequisites       = make_task(type=ValidationTask.Type.PREREQUISITES, increment=10, field='status_prereq',      stage="serial")
-schema              = make_task(type=ValidationTask.Type.SCHEMA,        increment=10, field='status_schema')
-digital_signatures  = make_task(type=ValidationTask.Type.DIGITAL_SIGNATURES, increment=5,  field='status_signatures')
-bsdd                = make_task(type=ValidationTask.Type.BSDD,          increment=0,  field='status_bsdd')
-normative_ia        = make_task(type=ValidationTask.Type.NORMATIVE_IA,  increment=20, field='status_ia')
-normative_ip        = make_task(type=ValidationTask.Type.NORMATIVE_IP,  increment=20, field='status_ip')
-industry_practices  = make_task(type=ValidationTask.Type.INDUSTRY_PRACTICES, increment=10, field='status_industry_practices')
-instance_completion = make_task(type=ValidationTask.Type.INSTANCE_COMPLETION, increment=5, field=None,           stage="final")
+ALL_TASKS = [
+    rocksdb_conv        := make_task(type=ValidationTask.Type.ROCKSDB_CONVERSION, increment=5, field='status_rocksdb_conversion', stage="serial"),
+    header_syntax       := make_task(type=ValidationTask.Type.HEADER_SYNTAX, increment=5, field='status_header_syntax', stage="serial"),
+    header              := make_task(type=ValidationTask.Type.HEADER,        increment=5, field='status_header',      stage="serial"),
+    syntax              := make_task(type=ValidationTask.Type.SYNTAX,        increment=5,  field='status_syntax',      stage="serial"),
+    prerequisites       := make_task(type=ValidationTask.Type.PREREQUISITES, increment=10, field='status_prereq',      stage="serial"),
+    schema              := make_task(type=ValidationTask.Type.SCHEMA,        increment=10, field='status_schema'),
+    digital_signatures  := make_task(type=ValidationTask.Type.DIGITAL_SIGNATURES, increment=5,  field='status_signatures'),
+    bsdd                := make_task(type=ValidationTask.Type.BSDD,          increment=0,  field='status_bsdd'),
+    normative_ia        := make_task(type=ValidationTask.Type.NORMATIVE_IA,  increment=20, field='status_ia'),
+    normative_ip        := make_task(type=ValidationTask.Type.NORMATIVE_IP,  increment=20, field='status_ip'),
+    industry_practices  := make_task(type=ValidationTask.Type.INDUSTRY_PRACTICES, increment=10, field='status_industry_practices'),
+    instance_completion := make_task(type=ValidationTask.Type.INSTANCE_COMPLETION, increment=5, field=None,           stage="final"),
+]
 
 # block tasks on error
-post_tasks = [digital_signatures, schema, normative_ia, normative_ip, industry_practices, instance_completion]
+post_tasks = [t for t in ALL_TASKS if t.execution_stage != "serial"]
 header_syntax.blocks = [header, syntax, prerequisites] + post_tasks
 syntax.blocks = post_tasks.copy()
 prerequisites.blocks = post_tasks.copy()
 
-# register
-ALL_TASKS = [
-    header_syntax, header, syntax, prerequisites,
-    schema, digital_signatures, bsdd,
-    normative_ia, normative_ip, industry_practices, instance_completion,
-]
 class TaskRegistry:
     def __init__(self, config_map: dict[str, TaskConfig]):
         self._configs = config_map
