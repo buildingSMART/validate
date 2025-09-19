@@ -307,7 +307,57 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+    });   
+});
+
+test.describe('API - Filtered lists (request_public_id)', () => {
+
+    test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
+      const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        headers: createAuthHeader(TEST_CREDENTIALS),
+        multipart: createFormData('fixtures/valid_file.ifc')
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const created = await createRes.json();
+      const REQ_ID = created.public_id;           // e.g. "r135321247"
+  
+      const res = await request.get(
+        `${BASE_URL}/api/validationoutcome/?request_public_id=${REQ_ID}&limit=5`,
+        { headers: createAuthHeader(TEST_CREDENTIALS) }
+      );
+  
+      expect(res.status()).toBe(200);
+      const data = await res.json();
+      expect(data).toBeInstanceOf(Object);
+      expect(Array.isArray(data.results)).toBe(true);
+      expect(data).toHaveProperty('metadata.result_set.limit');
     });
+  
+    test('GET /api/model filtered by request_public_id returns 200', async ({ request }) => {
+      const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        headers: createAuthHeader(TEST_CREDENTIALS),
+        multipart: createFormData('fixtures/valid_file.ifc')
+      });
+      expect(createRes.ok()).toBeTruthy();
+      const created = await createRes.json();
+      const REQ_ID = created.public_id;
+  
+      const res = await request.get(
+        `${BASE_URL}/api/model/?request_public_id=${REQ_ID}`,
+        { headers: createAuthHeader(TEST_CREDENTIALS) }
+      );
+  
+      expect(res.status()).toBe(200);
+      const data = await res.json();
+      expect(data).toBeInstanceOf(Object);
+      expect(Array.isArray(data.results)).toBe(true);
+      expect(data).toHaveProperty('metadata.result_set.total');
+    });
+  
+  });
+
+
+test.describe.serial('API - Pagination Checks', () => {
 
     test('pagination: offset window has no overlap with first page', async ({ request }) => {
         const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
@@ -353,8 +403,8 @@ test.describe('API - ValidationRequest', () => {
           const t1 = new Date(data.results[1].created).getTime();
           expect(t0).toBeGreaterThanOrEqual(t1);
         }
-      });
-});
+      });   
+  });
 
 test.describe('API - Browsers vs Clients', () => {
 
