@@ -158,6 +158,7 @@ jobs:
           .dev/venv/bin/python manage.py collectstatic --noinput
           DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
           DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
+          .dev/venv/bin/python manage.py seed_dummy_data
         env:
           DJANGO_DB: postgresql
           POSTGRES_HOST: postgres
@@ -168,7 +169,7 @@ jobs:
           VIRTUAL_ENV: backend/.dev/venv
 
       - name: Run Playwright tests
-        run: npm run test
+        run: npx playwright test --workers="$(node -p "Math.max(1, Math.min(Math.floor((require('os').cpus()?.length||2)*0.75), 8))")"
         working-directory: ./e2e
         env:
           DJANGO_DB: postgresql

@@ -291,7 +291,6 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        console.log('data ', data)
         expect(data).toBeInstanceOf(Object);
         expect(Array.isArray(data.results)).toBe(true);
         expect(data.results.length).toBe(25);
