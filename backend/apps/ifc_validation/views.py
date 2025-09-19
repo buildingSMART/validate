@@ -104,9 +104,15 @@ class ValidationRequestListAPIView(ListCreateAPIView):
             .filter(created_by_id=self.request.user.id, deleted=False)
             .order_by("-created", "-id")
         )
-        public_id = self.request.query_params.get('public_id')
+    
+        public_id = self.request.query_params.get('public_id', '').lower()
         if public_id:
-            qs = qs.filter(id=ValidationRequest.to_private_id(public_id))
+            
+            # apply filter(s)
+            pub_ids = [p.strip() for p in public_id.split(',') if p.strip()]
+            priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
+            qs = qs.filter(id__in=priv_ids)
+
         return qs
 
     @extend_schema(operation_id='validationrequest_create')
@@ -233,10 +239,11 @@ class ValidationTaskListAPIView(ListAPIView):
         req_param = self.request.query_params.get('request_public_id', '').lower()
         if req_param:
             
-        # apply filter(s)
+            # apply filter(s)
             pub_ids = [p.strip() for p in req_param.split(',') if p.strip()]
             priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
             qs = qs.filter(request_id__in=priv_ids)
+        
         return qs
 
 

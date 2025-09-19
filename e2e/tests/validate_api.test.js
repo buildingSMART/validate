@@ -245,6 +245,40 @@ test.describe('API - ValidationRequest', () => {
         expect(data).toHaveProperty('metadata.result_set.limit');
     });
 
+    test('GET with "public_id" query param returns a list with multiple objects', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // post a second valid file
+        let response2 = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body2 = await response2.json();
+        const public_id2 = json_body2['public_id'];
+
+        // retrieve two instances
+        response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id},${public_id2}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(2);
+    });
+
     test('GET returns a list', async ({ request }) => {
 
         // post a valid file
@@ -307,104 +341,139 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
-    });   
+    });
+    
+    test('GET returns results ordered by "created" field', async ({ request }) => {
+
+        // submit few valid files
+        const NUM_REQUESTS = 3;
+        for (let i = 0; i < NUM_REQUESTS; i++) {
+            await request.post(`${BASE_URL}/api/validationrequest/`, {
+                headers: createAuthHeader(TEST_CREDENTIALS),
+                multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
+            });
+        }
+        
+        // retrieve list of ValidationRequests
+        const res = await request.get(`${BASE_URL}/api/validationrequest`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const data = await res.json();
+      
+        // check ordering - newest should be first
+        const t0 = new Date(data.results[0].created).getTime();
+        const t1 = new Date(data.results[1].created).getTime();
+        const t2 = new Date(data.results[2].created).getTime();
+        expect(t0).toBeGreaterThanOrEqual(t1);
+        expect(t1).toBeGreaterThanOrEqual(t2);
+    });
 });
 
 test.describe('API - Filtered lists (request_public_id)', () => {
 
     test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
-      const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+
+        const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
         headers: createAuthHeader(TEST_CREDENTIALS),
         multipart: createFormData('fixtures/valid_file.ifc')
-      });
-      expect(createRes.ok()).toBeTruthy();
-      const created = await createRes.json();
-      const REQ_ID = created.public_id;           // e.g. "r135321247"
-  
-      const res = await request.get(
+        });
+        expect(createRes.ok()).toBeTruthy();
+        const created = await createRes.json();
+        const REQ_ID = created.public_id;           // e.g. "r135321247"
+
+        const res = await request.get(
         `${BASE_URL}/api/validationoutcome/?request_public_id=${REQ_ID}&limit=5`,
         { headers: createAuthHeader(TEST_CREDENTIALS) }
-      );
-  
-      expect(res.status()).toBe(200);
-      const data = await res.json();
-      expect(data).toBeInstanceOf(Object);
-      expect(Array.isArray(data.results)).toBe(true);
-      expect(data).toHaveProperty('metadata.result_set.limit');
+        );
+
+        expect(res.status()).toBe(200);
+        const data = await res.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.limit');
     });
   
     test('GET /api/model filtered by request_public_id returns 200', async ({ request }) => {
-      const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
-        headers: createAuthHeader(TEST_CREDENTIALS),
-        multipart: createFormData('fixtures/valid_file.ifc')
-      });
-      expect(createRes.ok()).toBeTruthy();
-      const created = await createRes.json();
-      const REQ_ID = created.public_id;
-  
-      const res = await request.get(
+
+        const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        expect(createRes.ok()).toBeTruthy();
+        const created = await createRes.json();
+        const REQ_ID = created.public_id;
+
+        const res = await request.get(
         `${BASE_URL}/api/model/?request_public_id=${REQ_ID}`,
         { headers: createAuthHeader(TEST_CREDENTIALS) }
-      );
-  
-      expect(res.status()).toBe(200);
-      const data = await res.json();
-      expect(data).toBeInstanceOf(Object);
-      expect(Array.isArray(data.results)).toBe(true);
-      expect(data).toHaveProperty('metadata.result_set.total');
+        );
+
+        expect(res.status()).toBe(200);
+        const data = await res.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.total');
     });
-  
-  });
+});
 
+test.describe('API - Pagination Checks', () => {
 
-test.describe.serial('API - Pagination Checks', () => {
+    test('GET with pagination - offset window has no overlap with first page', async ({ request }) => {
 
-    test('pagination: offset window has no overlap with first page', async ({ request }) => {
-        const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
+        const NUM_REQUESTS = 10;
+        const PAGE_SIZE = 5;
+
+        // submit few valid files
+        let public_ids = [];
+        for (let i = 0; i < NUM_REQUESTS; i++) {
+            const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+                headers: createAuthHeader(TEST_CREDENTIALS),
+                multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
+            });
+            const json_body = await response.json();
+            const public_id = json_body['public_id'];
+            public_ids.push(public_id);
+        }
+        public_ids = public_ids.join(',');
+
+        // retrieve first page
+        const first = await request.get(`${BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page1 = await first.json();
         const total = page1.metadata.result_set.total;
       
-        test.skip(total < 50, 'not enough data to test two full pages');
-      
-        const second = await request.get(`${BASE_URL}/api/validationrequest/?offset=25&limit=25`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
+        // retrieve second page
+        const second = await request.get(`${BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page2 = await second.json();
       
         const page1Ids = new Set(page1.results.map(r => r.public_id));
         const overlap = page2.results.filter(r => page1Ids.has(r.public_id));
-        expect(overlap.length).toBe(0);
-      
-        expect(page1.results.length).toBeLessThanOrEqual(25);
-        expect(page2.results.length).toBeLessThanOrEqual(25);
-      });
 
-      test('pagination: limit works', async ({ request }) => {
-        const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=5`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const data = await res.json();
-        expect(Array.isArray(data.results)).toBe(true);
-        expect(data.results.length).toBeLessThanOrEqual(5);
-        expect(data.metadata.result_set.limit).toBe(5);
-      });
+        expect(overlap.length).toBe(0);      
+        expect(page1.results.length).toBeLessThanOrEqual(PAGE_SIZE);
+        expect(page2.results.length).toBeLessThanOrEqual(PAGE_SIZE);
+    });
 
-      test('pagination: correct ordering', async ({ request }) => {
-        const res = await request.get(`${BASE_URL}/api/validationrequest/`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const data = await res.json();
-      
-        // ordering: newest first
-        if (data.results.length >= 2) {
-          const t0 = new Date(data.results[0].created).getTime();
-          const t1 = new Date(data.results[1].created).getTime();
-          expect(t0).toBeGreaterThanOrEqual(t1);
-        }
-      });   
-  });
+    [ { limit: 5 }, { limit: 10 }, { limit: 15 } ].forEach(({ limit }) => {
+
+        test(`GET with limit ${limit} returns max. ${limit} results`, async ({ request }) => {
+
+            // retrieve limited list
+            const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=${limit}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            const data = await res.json();
+
+            expect(Array.isArray(data.results)).toBe(true);
+            expect(data.results.length).toBeLessThanOrEqual(limit);
+            expect(data.metadata.result_set.limit).toBe(limit);
+        }); 
+
+    });
+});
 
 test.describe('API - Browsers vs Clients', () => {
 
