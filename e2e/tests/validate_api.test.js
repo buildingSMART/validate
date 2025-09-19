@@ -310,6 +310,37 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(401);
     });
 
+    test('GET should not return internal identifiers and fields', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('public_id');
+        expect(data).not.toHaveProperty('model');
+        expect(data).not.toHaveProperty('model_id');
+        expect(data).not.toHaveProperty('id');
+        expect(data).not.toHaveProperty('deleted');
+        expect(data).not.toHaveProperty('created_by');
+        expect(data).not.toHaveProperty('updated_by');
+    });
+
     test('pagination: offset window has no overlap with first page', async ({ request }) => {
         const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
           headers: createAuthHeader(TEST_CREDENTIALS)
