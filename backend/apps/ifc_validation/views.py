@@ -1,6 +1,7 @@
 import traceback
 import sys
 import logging
+import re
 
 from django.db import transaction
 from core.utils import get_client_ip_address
@@ -101,11 +102,17 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         qs = (
             ValidationRequest.objects
             .filter(created_by_id=self.request.user.id, deleted=False)
-            .order_by("-created")
+            .order_by("-created", "-id")
         )
-        public_id = self.request.query_params.get('public_id')
+    
+        public_id = self.request.query_params.get('public_id', '').lower()
         if public_id:
-            qs = qs.filter(id=ValidationRequest.to_private_id(public_id))
+            
+            # apply filter(s)
+            pub_ids = [p.strip() for p in public_id.split(',') if p.strip()]
+            priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
+            qs = qs.filter(id__in=priv_ids)
+
         return qs
 
     @extend_schema(operation_id='validationrequest_create')
@@ -232,10 +239,11 @@ class ValidationTaskListAPIView(ListAPIView):
         req_param = self.request.query_params.get('request_public_id', '').lower()
         if req_param:
             
-        # apply filter(s)
+            # apply filter(s)
             pub_ids = [p.strip() for p in req_param.split(',') if p.strip()]
             priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
             qs = qs.filter(request_id__in=priv_ids)
+        
         return qs
 
 
@@ -281,24 +289,26 @@ class ValidationOutcomeListAPIView(ListAPIView):
 
     def get_queryset(self):
         qs = (ValidationOutcome.objects
-            .filter(
-                validation_task__request__created_by=self.request.user,
-                validation_task__request__deleted=False,
-            )
+                .filter(validation_task__request__created_by=self.request.user,
+                validation_task__request__deleted=False)
             .order_by("-created", "-id"))
 
-        # parse query arguments
-        request_public_id = self.request.query_params.get("request_public_id", "").lower()
-        task_public_id = self.request.query_params.get("validation_task_public_id", "").lower()
-        # apply filter(s)
-        if request_public_id:
-            ids = [pid.strip() for pid in request_public_id.split(",") if pid.strip()]
-            qs = qs.filter(validation_task__request__public_id__in=ids)
+        def priv_ids(param, prefix, to_priv):
+            raw = (self.request.query_params.get(param, "") or "").lower()
+            if not raw: return []
+            pat = re.compile(rf"^{prefix}\d+$")
+            out = []
+            for p in map(str.strip, raw.split(",")):
+                if pat.match(p):
+                    try: out.append(to_priv(p))
+                    except ValueError: pass
+            return out
 
-        if task_public_id:
-            ids = [tid.strip() for tid in task_public_id.split(",") if tid.strip()]
-            qs = qs.filter(validation_task__public_id__in=ids)
+        req_ids  = priv_ids("request_public_id", "r", ValidationRequest.to_private_id)
+        task_ids = priv_ids("validation_task_public_id", "t", ValidationTask.to_private_id)
 
+        if req_ids:  qs = qs.filter(validation_task__request__id__in=req_ids)
+        if task_ids: qs = qs.filter(validation_task__id__in=task_ids)
         return qs
 
 
@@ -351,11 +361,11 @@ class ModelListAPIView(ListAPIView):
               .order_by("-id"))
 
         # parse query arguments
-        req_param = self.request.query_params.get('request_public_id', '').lower()
+        req_param = (self.request.query_params.get('request_public_id', '') or '').lower()
 
         # apply filter(s)
         if req_param:
             pub_ids = [p.strip() for p in req_param.split(',') if p.strip()]
             priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
-            qs = qs.filter(request_id__in=priv_ids)
+            qs = qs.filter(request__id__in=priv_ids)
         return qs
