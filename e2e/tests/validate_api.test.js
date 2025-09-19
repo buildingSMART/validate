@@ -307,55 +307,7 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
-    });
-
-    test('pagination: offset window has no overlap with first page', async ({ request }) => {
-        const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const page1 = await first.json();
-        const total = page1.metadata.result_set.total;
-      
-        test.skip(total < 50, 'not enough data to test two full pages');
-      
-        const second = await request.get(`${BASE_URL}/api/validationrequest/?offset=25&limit=25`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const page2 = await second.json();
-      
-        const page1Ids = new Set(page1.results.map(r => r.public_id));
-        const overlap = page2.results.filter(r => page1Ids.has(r.public_id));
-        expect(overlap.length).toBe(0);
-      
-        expect(page1.results.length).toBeLessThanOrEqual(25);
-        expect(page2.results.length).toBeLessThanOrEqual(25);
-      });
-
-      test('pagination: limit works', async ({ request }) => {
-        const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=5`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const data = await res.json();
-        expect(Array.isArray(data.results)).toBe(true);
-        expect(data.results.length).toBeLessThanOrEqual(5);
-        expect(data.metadata.result_set.limit).toBe(5);
-      });
-
-      test('pagination: correct ordering', async ({ request }) => {
-        const res = await request.get(`${BASE_URL}/api/validationrequest/`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
-        });
-        const data = await res.json();
-      
-        // ordering: newest first
-        if (data.results.length >= 2) {
-          const t0 = new Date(data.results[0].created).getTime();
-          const t1 = new Date(data.results[1].created).getTime();
-          expect(t0).toBeGreaterThanOrEqual(t1);
-        }
-      });
-
-      
+    });   
 });
 
 test.describe('API - Filtered lists (request_public_id)', () => {
@@ -402,6 +354,56 @@ test.describe('API - Filtered lists (request_public_id)', () => {
       expect(data).toHaveProperty('metadata.result_set.total');
     });
   
+  });
+
+
+test.describe.serial('API - Pagination Checks', () => {
+
+    test('pagination: offset window has no overlap with first page', async ({ request }) => {
+        const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const page1 = await first.json();
+        const total = page1.metadata.result_set.total;
+      
+        test.skip(total < 50, 'not enough data to test two full pages');
+      
+        const second = await request.get(`${BASE_URL}/api/validationrequest/?offset=25&limit=25`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const page2 = await second.json();
+      
+        const page1Ids = new Set(page1.results.map(r => r.public_id));
+        const overlap = page2.results.filter(r => page1Ids.has(r.public_id));
+        expect(overlap.length).toBe(0);
+      
+        expect(page1.results.length).toBeLessThanOrEqual(25);
+        expect(page2.results.length).toBeLessThanOrEqual(25);
+      });
+
+      test('pagination: limit works', async ({ request }) => {
+        const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=5`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const data = await res.json();
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeLessThanOrEqual(5);
+        expect(data.metadata.result_set.limit).toBe(5);
+      });
+
+      test('pagination: correct ordering', async ({ request }) => {
+        const res = await request.get(`${BASE_URL}/api/validationrequest/`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const data = await res.json();
+      
+        // ordering: newest first
+        if (data.results.length >= 2) {
+          const t0 = new Date(data.results[0].created).getTime();
+          const t1 = new Date(data.results[1].created).getTime();
+          expect(t0).toBeGreaterThanOrEqual(t1);
+        }
+      });   
   });
 
 test.describe('API - Browsers vs Clients', () => {
