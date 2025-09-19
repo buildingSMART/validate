@@ -310,7 +310,7 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(401);
     });
 
-    test('GET should not return internal identifiers', async ({ request }) => {
+    test('GET should not return internal identifiers and fields', async ({ request }) => {
 
         // post a valid file
         let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
@@ -336,6 +336,9 @@ test.describe('API - ValidationRequest', () => {
         expect(data).not.toHaveProperty('model');
         expect(data).not.toHaveProperty('model_id');
         expect(data).not.toHaveProperty('id');
+        expect(data).not.toHaveProperty('deleted');
+        expect(data).not.toHaveProperty('created_by');
+        expect(data).not.toHaveProperty('updated_by');
     });
 
     test('pagination: offset window has no overlap with first page', async ({ request }) => {

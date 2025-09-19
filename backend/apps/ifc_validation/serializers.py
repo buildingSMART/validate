@@ -29,8 +29,8 @@ class ValidationRequestSerializer(BaseSerializer):
         model = ValidationRequest
         fields = '__all__'
         show = ["public_id", "model_public_id"]
-        hide = ["id", "model"]
-        read_only_fields = ['size', 'created_by']
+        hide = ["id", "model", "deleted", "created_by", "updated_by"]
+        read_only_fields = ['size', 'created_by', 'updated_by']
 
 
 class ValidationTaskSerializer(BaseSerializer):
