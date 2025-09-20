@@ -222,6 +222,7 @@ test.describe('API - ValidationRequest', () => {
         });
         const json_body = await response.json();
         const public_id = json_body['public_id'];
+        const file_name = json_body['file_name']
 
         // retrieve a single instance
         response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
@@ -234,10 +235,14 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBe(1);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]['public_id']).toBe(public_id);
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(1);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]['public_id']).toBe(public_id);
+        expect(data.results[0]['file_name']).toBe(file_name);
+        expect(data).toHaveProperty('metadata.result_set.total');
+        expect(data).toHaveProperty('metadata.result_set.limit');
     });
 
     test('GET returns a list', async ({ request }) => {
@@ -259,10 +264,12 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBeGreaterThan(0);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]).toHaveProperty('file_name');
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeGreaterThan(0);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]).toHaveProperty('file_name');
+        expect(data).toHaveProperty('metadata.result_set.total');
     });
 
     test('GET without trailing slash returns a list', async ({ request }) => {
@@ -284,10 +291,13 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the json body is correct
         const data = await response.json();
-        expect(data).toBeInstanceOf(Array);
-        expect(data.length).toBeGreaterThan(0);
-        expect(data[0]).toHaveProperty('public_id');
-        expect(data[0]).toHaveProperty('file_name');
+        console.log('data ', data)
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(25);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data).toHaveProperty('metadata.result_set.total');
+        expect(data).toHaveProperty('metadata.result_set.limit');
     });
 
     test('GET without authorization header returns 401', async ({ request }) => {
@@ -299,6 +309,83 @@ test.describe('API - ValidationRequest', () => {
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
     });
+
+    test('GET should not return internal identifiers and fields', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('public_id');
+        expect(data).not.toHaveProperty('model');
+        expect(data).not.toHaveProperty('model_id');
+        expect(data).not.toHaveProperty('id');
+        expect(data).not.toHaveProperty('deleted');
+        expect(data).not.toHaveProperty('created_by');
+        expect(data).not.toHaveProperty('updated_by');
+    });
+
+    test('pagination: offset window has no overlap with first page', async ({ request }) => {
+        const first = await request.get(`${BASE_URL}/api/validationrequest/`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const page1 = await first.json();
+        const total = page1.metadata.result_set.total;
+      
+        test.skip(total < 50, 'not enough data to test two full pages');
+      
+        const second = await request.get(`${BASE_URL}/api/validationrequest/?offset=25&limit=25`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const page2 = await second.json();
+      
+        const page1Ids = new Set(page1.results.map(r => r.public_id));
+        const overlap = page2.results.filter(r => page1Ids.has(r.public_id));
+        expect(overlap.length).toBe(0);
+      
+        expect(page1.results.length).toBeLessThanOrEqual(25);
+        expect(page2.results.length).toBeLessThanOrEqual(25);
+      });
+
+      test('pagination: limit works', async ({ request }) => {
+        const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=5`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const data = await res.json();
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeLessThanOrEqual(5);
+        expect(data.metadata.result_set.limit).toBe(5);
+      });
+
+      test('pagination: correct ordering', async ({ request }) => {
+        const res = await request.get(`${BASE_URL}/api/validationrequest/`, {
+          headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        const data = await res.json();
+      
+        // ordering: newest first
+        if (data.results.length >= 2) {
+          const t0 = new Date(data.results[0].created).getTime();
+          const t1 = new Date(data.results[1].created).getTime();
+          expect(t0).toBeGreaterThanOrEqual(t1);
+        }
+      });
 });
 
 test.describe('API - Browsers vs Clients', () => {
