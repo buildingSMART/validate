@@ -43,7 +43,7 @@ def callback(request):
     request.session['user'] = userinfo
 
     username = userinfo['email'].lower()
-    user = User.objects.all().filter(username=username).first()
+    user = User.objects.all().filter(username__iexact=username).first()
 
     if not user:
 
