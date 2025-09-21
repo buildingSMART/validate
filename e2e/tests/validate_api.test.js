@@ -356,7 +356,7 @@ test.describe('API - ValidationRequest', () => {
         
         // retrieve list of ValidationRequests
         const res = await request.get(`${BASE_URL}/api/validationrequest`, {
-          headers: createAuthHeader(TEST_CREDENTIALS)
+        headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const data = await res.json();
       
@@ -367,8 +367,37 @@ test.describe('API - ValidationRequest', () => {
         expect(t0).toBeGreaterThanOrEqual(t1);
         expect(t1).toBeGreaterThanOrEqual(t2);
     });
-});
+    test('GET should not return internal identifiers and fields', async ({ request }) => {
 
+        // post a valid file
+        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance
+        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('public_id');
+        expect(data).not.toHaveProperty('model');
+        expect(data).not.toHaveProperty('model_id');
+        expect(data).not.toHaveProperty('id');
+        expect(data).not.toHaveProperty('deleted');
+        expect(data).not.toHaveProperty('created_by');
+        expect(data).not.toHaveProperty('updated_by');
+    });
+});
 test.describe('API - Filtered lists (request_public_id)', () => {
 
     test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
