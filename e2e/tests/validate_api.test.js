@@ -4,7 +4,7 @@ import { basename } from 'path';
 import { statSync } from 'fs';
 import { createAuthHeader, createFormData } from './utils.js';
 
-const BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:8000';
 const TEST_CREDENTIALS = 'root:root';
 
 function findAndReadFileSync(filepath) {
@@ -48,7 +48,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST accepts valid file', async ({ request }) => {
 
         // try to post a valid file
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -61,7 +61,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST without trailing slash accepts valid file', async ({ request }) => {
 
         // try to post a valid file
-        const response = await request.post(`${BASE_URL}/api/validationrequest`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -74,7 +74,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST implements file size limit', async ({ request }) => {
 
         // try to post a large file
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createDummyFormData('very_large_file.ifc', 300 * 1024 * 1024) // 300 MB (> 256 MB limit)
         });
@@ -90,7 +90,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST rejects empty file', async ({ request }) => {
 
         // try to post an empty file
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/empty_file.ifc')
         });
@@ -104,7 +104,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST rejects empty file name', async ({ request }) => {
 
         // try to post a file with empty filename
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc', '')
         });
@@ -121,7 +121,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST only accepts *.ifc files', async ({ request }) => {
 
         // try to post a file with invalid file extension
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/invalid_file_extension')
         });
@@ -135,7 +135,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST only accepts a single file (for now)', async ({ request }) => {
 
         // try to post two valid files
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormDataForTwoFiles(
                 'fixtures/valid_file.ifc', 
@@ -152,7 +152,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST without authorization header returns 401', async ({ request }) => {
 
         // try to post a valid file but without authorization header
-        const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
@@ -164,7 +164,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET returns a single instance', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -172,7 +172,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -190,7 +190,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET with trailing slash returns a single instance', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -198,7 +198,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}/`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}/`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -216,7 +216,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET with "public_id" query param returns a list with one object', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -225,7 +225,7 @@ test.describe('API - ValidationRequest', () => {
         const file_name = json_body['file_name']
 
         // retrieve a single instance
-        response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -248,7 +248,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET with "public_id" query param returns a list with multiple objects', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -256,7 +256,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // post a second valid file
-        let response2 = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response2 = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -264,7 +264,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id2 = json_body2['public_id'];
 
         // retrieve two instances
-        response = await request.get(`${BASE_URL}/api/validationrequest/?public_id=${public_id},${public_id2}`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/?public_id=${public_id},${public_id2}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -282,13 +282,13 @@ test.describe('API - ValidationRequest', () => {
     test('GET returns a list', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
-        response = await request.get(`${BASE_URL}/api/validationrequest/`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -309,13 +309,13 @@ test.describe('API - ValidationRequest', () => {
     test('GET without trailing slash returns a list', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
-        response = await request.get(`${BASE_URL}/api/validationrequest`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -336,7 +336,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET without authorization header returns 401', async ({ request }) => {
 
         // retrieve list of ValidationRequests
-        const response = await request.get(`${BASE_URL}/api/validationrequest/`);
+        const response = await request.get(`${API_BASE_URL}/api/validationrequest/`);
 
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
@@ -348,14 +348,14 @@ test.describe('API - ValidationRequest', () => {
         // submit few valid files
         const NUM_REQUESTS = 3;
         for (let i = 0; i < NUM_REQUESTS; i++) {
-            await request.post(`${BASE_URL}/api/validationrequest/`, {
+            await request.post(`${API_BASE_URL}/api/validationrequest/`, {
                 headers: createAuthHeader(TEST_CREDENTIALS),
                 multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
             });
         }
         
         // retrieve list of ValidationRequests
-        const res = await request.get(`${BASE_URL}/api/validationrequest`, {
+        const res = await request.get(`${API_BASE_URL}/api/validationrequest`, {
         headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const data = await res.json();
@@ -370,7 +370,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET should not return internal identifiers and fields', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -378,7 +378,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -402,7 +402,7 @@ test.describe('API - Filtered lists (request_public_id)', () => {
 
     test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
 
-        const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const createRes = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
         headers: createAuthHeader(TEST_CREDENTIALS),
         multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -411,7 +411,7 @@ test.describe('API - Filtered lists (request_public_id)', () => {
         const REQ_ID = created.public_id;           // e.g. "r135321247"
 
         const res = await request.get(
-        `${BASE_URL}/api/validationoutcome/?request_public_id=${REQ_ID}&limit=5`,
+        `${API_BASE_URL}/api/validationoutcome/?request_public_id=${REQ_ID}&limit=5`,
         { headers: createAuthHeader(TEST_CREDENTIALS) }
         );
 
@@ -424,7 +424,7 @@ test.describe('API - Filtered lists (request_public_id)', () => {
   
     test('GET /api/model filtered by request_public_id returns 200', async ({ request }) => {
 
-        const createRes = await request.post(`${BASE_URL}/api/validationrequest/`, {
+        const createRes = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -433,7 +433,7 @@ test.describe('API - Filtered lists (request_public_id)', () => {
         const REQ_ID = created.public_id;
 
         const res = await request.get(
-        `${BASE_URL}/api/model/?request_public_id=${REQ_ID}`,
+        `${API_BASE_URL}/api/model/?request_public_id=${REQ_ID}`,
         { headers: createAuthHeader(TEST_CREDENTIALS) }
         );
 
@@ -455,7 +455,7 @@ test.describe('API - Pagination Checks', () => {
         // submit few valid files
         let public_ids = [];
         for (let i = 0; i < NUM_REQUESTS; i++) {
-            const response = await request.post(`${BASE_URL}/api/validationrequest/`, {
+            const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
                 headers: createAuthHeader(TEST_CREDENTIALS),
                 multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
             });
@@ -466,14 +466,14 @@ test.describe('API - Pagination Checks', () => {
         public_ids = public_ids.join(',');
 
         // retrieve first page
-        const first = await request.get(`${BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
+        const first = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page1 = await first.json();
         const total = page1.metadata.result_set.total;
       
         // retrieve second page
-        const second = await request.get(`${BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
+        const second = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page2 = await second.json();
@@ -491,7 +491,7 @@ test.describe('API - Pagination Checks', () => {
         test(`GET with limit ${limit} returns max. ${limit} results`, async ({ request }) => {
 
             // retrieve limited list
-            const res = await request.get(`${BASE_URL}/api/validationrequest/?limit=${limit}`, {
+            const res = await request.get(`${API_BASE_URL}/api/validationrequest/?limit=${limit}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
             });
             const data = await res.json();
@@ -509,7 +509,7 @@ test.describe('API - Browsers vs Clients', () => {
     test('Browsers will be redirected to /api/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/api/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -525,7 +525,7 @@ test.describe('API - Browsers vs Clients', () => {
     test('Browsers are redirected to /api/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/api/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -535,13 +535,13 @@ test.describe('API - Browsers vs Clients', () => {
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${BASE_URL}/api/swagger-ui/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/api/swagger-ui/`);
     });
 
     test('API clients will be redirected to /api/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/api/`, {
             maxRedirects: 0
         });
 
@@ -554,14 +554,14 @@ test.describe('API - Browsers vs Clients', () => {
     test('API clients are redirected to /api/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/api/`, {
             maxRedirects: 5
         });
 
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${BASE_URL}/api/schema/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/api/schema/`);
     });  
 
 });
