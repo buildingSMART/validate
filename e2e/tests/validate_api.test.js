@@ -416,7 +416,7 @@ test.describe('API - ValidationRequest', () => {
         expect(response.statusText()).toBe('No Content');
         expect(response.status()).toBe(204);
 
-        // retrieve a single instance
+        // try to retrieve the instance that was just deleted
         response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
