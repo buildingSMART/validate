@@ -367,6 +367,7 @@ test.describe('API - ValidationRequest', () => {
         expect(t0).toBeGreaterThanOrEqual(t1);
         expect(t1).toBeGreaterThanOrEqual(t2);
     });
+
     test('GET should not return internal identifiers and fields', async ({ request }) => {
 
         // post a valid file
@@ -397,7 +398,61 @@ test.describe('API - ValidationRequest', () => {
         expect(data).not.toHaveProperty('created_by');
         expect(data).not.toHaveProperty('updated_by');
     });
+
+    test('DELETE should delete an instance', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // delete the instance
+        response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        expect(response.statusText()).toBe('No Content');
+        expect(response.status()).toBe(204);
+
+        // retrieve a single instance
+        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 404 NOT FOUND
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+    });
+
+    test('DELETE should return 404 for non-existing instance', async ({ request }) => {
+
+        const public_id = 'r000000000'; // assuming this ID does not exist
+        
+        // delete an instance
+        let response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 404 NOT FOUND
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+    });
+
+    test('DELETE without authorization header returns 401', async ({ request }) => {
+
+        const public_id = 'r000000000'; // assuming this ID does not exist
+         
+        // try to delete an instance without authorization header
+        const response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`);
+
+        // check if the response is correct - 401 Unauthorized
+        expect(response.statusText()).toBe('Unauthorized');
+        expect(response.status()).toBe(401);
+    });
 });
+
 test.describe('API - Filtered lists (request_public_id)', () => {
 
     test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
