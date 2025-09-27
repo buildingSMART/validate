@@ -65,11 +65,14 @@ class ValidationRequestDetailAPIView(APIView):
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
+        if request.user.is_authenticated:
+            logger.info(f"Authenticated, user = {request.user.id}")
+            set_user_context(request.user)
+            
         instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
             instance.delete()
-            data = {'message': f"Validation Request with public_id={id} was deleted successfully."}
-            return Response(data, status=status.HTTP_204_NO_CONTENT)
+            return Response(status=status.HTTP_204_NO_CONTENT)
         else:
             data = {'message': f"Validation Request with public_id={id} does not exist."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
