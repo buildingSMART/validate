@@ -42,7 +42,7 @@ def get_current_user(request):
     if sso_user:
         
         username = sso_user['email'].lower()
-        user = User.objects.filter(username__iexact=username).first()
+        user = UserAdditionalInfo.find_user_by_username(username)
        
         set_user_context(user)
         with transaction.atomic():
@@ -62,7 +62,7 @@ def get_current_user(request):
     elif DEVELOPMENT and not USE_WHITELIST:
 
         username = 'development'
-        user = User.objects.filter(username__iexact=username).first()
+        user = UserAdditionalInfo.find_user_by_username(username)
         if not user:
             user = User.objects.create(
                 username = username,
@@ -78,7 +78,7 @@ def get_current_user(request):
 
         set_user_context(user)
         UserAdditionalInfo.objects.get_or_create(user=user)
-        user = User.objects.filter(username__iexact=username).first()
+        user = UserAdditionalInfo.find_user_by_username(username)
 
         logger.info(f"Authenticated as local DEV, user = {user.id}")
         return user
