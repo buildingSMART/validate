@@ -81,12 +81,32 @@ test.describe('API - ValidationRequest', () => {
             multipart: createDummyFormData('very_large_file.ifc', 300 * 1024 * 1024) // 300 MB (> 256 MB limit)
         });
 
-        // check if the response is correct - 413 Payload Too Large
-        expect(response.statusText()).toBe('Request Entity Too Large');
-        expect(response.status()).toBe(413); 
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ message: 'File size exceeds allowed file size limit (256 MB).' });
+        expect(await response.json()).toEqual({ file: [ 'File size exceeds allowed file size limit (256 MB).' ] });
+    });
+
+    test('POST rejects empty request', async ({ request }) => {
+
+        // try to post an empty request
+        const response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+            {
+                "file": [ "No file was submitted." ], 
+                "file_name": [ "This field is required." ]
+            }
+        );
     });
 
     test('POST rejects empty file', async ({ request }) => {
@@ -137,7 +157,7 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ file_name: "File name must end with '.ifc'." });
+        expect(await response.json()).toEqual({ file_name: [ "File name must end with '.ifc'." ] });
     });
 
     test('POST only accepts a single file (for now)', async ({ request }) => {
@@ -156,7 +176,7 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ message: 'Only one file can be uploaded at a time.' });
+        expect(await response.json()).toEqual({ file: 'Only one file can be uploaded at a time.' });
     });
 
     test('POST without authorization header returns 401', async ({ request }) => {
@@ -195,6 +215,35 @@ test.describe('API - ValidationRequest', () => {
         expect(data).toBeInstanceOf(Object);
         expect(data).toHaveProperty('public_id');
         expect(data['public_id']).toBe(public_id);
+    });
+
+    test('GET with "public_id" query param returns a list with one instance', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance by public id
+        response = await request.get(`${API_URL}?public_id=${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('results');
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(1);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]['public_id']).toBe(public_id);
     });
 
     test('GET with trailing slash returns a single instance', async ({ request }) => {
@@ -419,6 +468,7 @@ test.describe('API - ValidationRequest', () => {
         expect(data).not.toHaveProperty('deleted');
         expect(data).not.toHaveProperty('created_by');
         expect(data).not.toHaveProperty('updated_by');
+        expect(data).not.toHaveProperty('status_reason');
     });
 
     test('DELETE should delete an instance', async ({ request }) => {

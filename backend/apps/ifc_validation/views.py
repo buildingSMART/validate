@@ -7,7 +7,7 @@ from django.db import transaction
 from core.utils import get_client_ip_address
 from core.settings import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE_IN_MB
 
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.generics import ListAPIView, ListCreateAPIView
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -43,14 +43,14 @@ class ValidationRequestDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Request by public_id.
+        Retrieves a single Validation Request by (public) id.
         """
         
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
         instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
-            serializer = ValidationRequestSerializer(instance)
+            serializer = self.serializer_class(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
             data = {'message': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
@@ -98,7 +98,7 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         Returns a list of all Validation Requests.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request2 - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -114,6 +114,10 @@ class ValidationRequestListAPIView(ListCreateAPIView):
             # apply filter(s)
             pub_ids = [p.strip() for p in public_id.split(',') if p.strip()]
             priv_ids = [ValidationRequest.to_private_id(p) for p in pub_ids]
+
+            logger.info(f"pub_ids = {pub_ids}")
+            logger.info(f"priv_ids = {priv_ids}")
+        
             qs = qs.filter(id__in=priv_ids)
 
         return qs
@@ -144,10 +148,9 @@ class ValidationRequestListAPIView(ListCreateAPIView):
                         if file_i is not None: files += file_i
                     logger.info(f"Received {len(files)} file(s) - files: {files}")
 
-                    # only accept one file (for now)
-                    if len(files) != 1:
-                        data = {'message': f"Only one file can be uploaded at a time."}
-                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
+                    # only accept one file (for now) - note: can't be done easily in serializer,
+                    # as we need access to request.FILES and our model only accepts one file
+                    serializer.validate_files(files)
 
                     # retrieve file size and save
                     uploaded_file = serializer.validated_data
@@ -158,23 +161,13 @@ class ValidationRequestListAPIView(ListCreateAPIView):
                     file_name = uploaded_file['file_name']
                     logger.info(f"file_length for uploaded file {file_name} = {file_length} ({file_length / (1024*1024)} MB)")
 
-                    # check if file name ends with .ifc
-                    if not file_name.lower().endswith('.ifc'):
-                        data = {'file_name': "File name must end with '.ifc'."}
-                        return Response(data, status=status.HTTP_400_BAD_REQUEST)
-
-                    # apply file size limit
-                    if file_length > MAX_FILE_SIZE_IN_MB * 1024 * 1024:
-                        data = {'message': f"File size exceeds allowed file size limit ({MAX_FILE_SIZE_IN_MB} MB)."}
-                        return Response(data, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
-
                     # can't use this, file hasn't been saved yet
                     #file = os.path.join(MEDIA_ROOT, uploaded_file['file_name'])                   
                     #uploaded_file['size'] = os.path.getsize(file)
                     uploaded_file['size'] = file_length
                     instance = serializer.save()
 
-                    # # submit task for background execution
+                    # submit task for background execution
                     def submit_task(instance):
                         ifc_file_validation_task.delay(instance.id, instance.file_name)
                         logger.info(f"Task 'ifc_file_validation_task' submitted for id:{instance.id} file_name: {instance.file_name})")
@@ -183,6 +176,10 @@ class ValidationRequestListAPIView(ListCreateAPIView):
 
                     return Response(serializer.data, status=status.HTTP_201_CREATED)
                 
+            except serializers.ValidationError as e:
+
+                return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+            
             except Exception as e:
 
                 traceback.print_exc(file=sys.stdout)
@@ -202,7 +199,7 @@ class ValidationTaskDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Task by public_id.
+        Retrieves a single Validation Task by (public) id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
@@ -261,7 +258,7 @@ class ValidationOutcomeDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Validation Outcome by public_id.
+        Retrieves a single Validation Outcome by (public) id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
@@ -315,8 +312,6 @@ class ValidationOutcomeListAPIView(ListAPIView):
         return qs
 
 
-
-
 class ModelDetailAPIView(APIView):
 
     queryset = Model.objects.all()
@@ -328,7 +323,7 @@ class ModelDetailAPIView(APIView):
     def get(self, request, id, *args, **kwargs):
 
         """
-        Retrieves a single Model by public_id.
+        Retrieves a single Model by (public) id.
         """
 
         logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
