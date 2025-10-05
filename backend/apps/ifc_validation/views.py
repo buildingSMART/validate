@@ -5,7 +5,7 @@ import re
 
 from django.db import transaction
 from core.utils import get_client_ip_address
-from core.settings import MAX_FILES_PER_UPLOAD, MAX_FILE_SIZE_IN_MB
+from core.settings import MAX_FILES_PER_UPLOAD
 
 from rest_framework import status, serializers
 from rest_framework.generics import ListAPIView, ListCreateAPIView
@@ -20,7 +20,10 @@ from rest_framework.decorators import throttle_classes
 from drf_spectacular.utils import extend_schema
 
 from apps.ifc_validation_models.models import set_user_context
-from apps.ifc_validation_models.models import ValidationRequest, ValidationTask, ValidationOutcome, Model
+from apps.ifc_validation_models.models import ValidationRequest
+from apps.ifc_validation_models.models import ValidationTask
+from apps.ifc_validation_models.models import ValidationOutcome
+from apps.ifc_validation_models.models import Model
 
 from .serializers import ValidationRequestSerializer
 from .serializers import ValidationTaskSerializer
@@ -46,7 +49,7 @@ class ValidationRequestDetailAPIView(APIView):
         Retrieves a single Validation Request by (public) id.
         """
         
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
         instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
         if instance:
@@ -63,7 +66,7 @@ class ValidationRequestDetailAPIView(APIView):
         Deletes an IFC Validation Request instance by id.
         """
         
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
 
         if request.user.is_authenticated:
             logger.info(f"Authenticated, user = {request.user.id}")
@@ -98,7 +101,7 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         Returns a list of all Validation Requests.
         """
 
-        logger.info('API request2 - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -129,7 +132,7 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         Creates a new Validation Request instance.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
@@ -202,7 +205,7 @@ class ValidationTaskDetailAPIView(APIView):
         Retrieves a single Validation Task by (public) id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
         instance = ValidationTask.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=ValidationTask.to_private_id(id)).first()
         if instance:
@@ -226,7 +229,7 @@ class ValidationTaskListAPIView(ListAPIView):
         Returns a list of all Validation Tasks, optionally filtered by request_public_id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' %(get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -261,7 +264,7 @@ class ValidationOutcomeDetailAPIView(APIView):
         Retrieves a single Validation Outcome by (public) id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
         instance = ValidationOutcome.objects.filter(validation_task__request__created_by__id=request.user.id, validation_task__request__deleted=False, id=ValidationOutcome.to_private_id(id)).first()
         if instance:
@@ -284,7 +287,7 @@ class ValidationOutcomeListAPIView(ListAPIView):
         Returns a list of all Validation Outcomes, optionally filtered by request_public_id or validation_task_public_id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -326,7 +329,7 @@ class ModelDetailAPIView(APIView):
         Retrieves a single Model by (public) id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         
         instance = Model.objects.filter(request__created_by__id=request.user.id, request__deleted=False, id=Model.to_private_id(id)).first()
         if instance:
@@ -349,7 +352,7 @@ class ModelListAPIView(ListAPIView):
         Returns a list of all Models, optionally filtered by request_public_id.
         """
 
-        logger.info('API request - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
         return super().get(request, *args, **kwargs)
 
     def get_queryset(self):

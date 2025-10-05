@@ -237,7 +237,7 @@
           const windowVal = $window.val();              
         
           chartDefs.forEach(def => {
-            let url = `/api/chart/${def.endpoint}/${year}/?period=${period}`;
+            let url = `/api/charts/${def.endpoint}/${year}/?period=${period}`;
             if (windowVal) {                            // send only if entered N
               url += `&window=${windowVal}`;
             }
@@ -250,10 +250,10 @@
         // ------------------------------------------------------------------
         $(function () {
           // Populate year dropdown
-          $.getJSON("/api/chart/filter-options/", ({ options }) => {
+          $.getJSON("/api/charts/filter-options/", ({ options }) => {
             const $year = $("#year");
             options.forEach(opt => $year.append(new Option(opt, opt)));
-            $.getJSON("/api/chart/totals/", data => {
+            $.getJSON("/api/charts/totals/", data => {
               $("#totals").html(
                 `<strong>${data.users}</strong> users&nbsp;&nbsp;|&nbsp;&nbsp;` +
                 `<strong>${data.files}</strong> files processed&nbsp;&nbsp;|&nbsp;&nbsp;` +

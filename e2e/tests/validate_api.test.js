@@ -4,7 +4,8 @@ import { basename } from 'path';
 import { statSync } from 'fs';
 import { createAuthHeader, createFormData } from './utils.js';
 
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:8000';
+const API_HOST_URL = process.env.API_HOST_URL ?? 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.API_BASE_URL ?? API_HOST_URL + '/api';
 const TEST_CREDENTIALS = 'root:root';
 
 function findAndReadFileSync(filepath) {
@@ -45,7 +46,7 @@ function createDummyFormData(fileName, fileSize) {
 
 test.describe('API - ValidationRequest', () => {
 
-    const API_URL = `${API_BASE_URL}/api/validationrequest`;
+    const API_URL = `${API_BASE_URL}/v1/validationrequest`;
 
     test('POST accepts valid file', async ({ request }) => {
 
@@ -374,7 +375,7 @@ test.describe('API - ValidationRequest', () => {
         });
 
         // retrieve list of ValidationRequests
-        response = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        response = await request.get(`${API_BASE_URL}/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -426,7 +427,7 @@ test.describe('API - ValidationRequest', () => {
         }
         
         // retrieve list of ValidationRequests
-        const res = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        const res = await request.get(`${API_BASE_URL}/validationrequest`, {
         headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const data = await res.json();
@@ -503,7 +504,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = 'r000000000'; // assuming this ID does not exist
         
         // delete an instance
-        let response = await request.delete(`${API_URL}${public_id}`, {
+        let response = await request.delete(`${API_URL}/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         
@@ -527,7 +528,7 @@ test.describe('API - ValidationRequest', () => {
 
 test.describe('API - ValidationTask', () => {
 
-    const API_URL = `${API_BASE_URL}/api/validationtask`;
+    const API_URL = `${API_BASE_URL}/v1/validationtask`;
 
     test('GET returns a list', async ({ request }) => {
 
@@ -550,7 +551,7 @@ test.describe('API - ValidationTask', () => {
     test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
 
         // retrieve list of ValidationRequests
-        let response = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        let response = await request.get(`${API_BASE_URL}/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         let data = await response.json();
@@ -646,7 +647,7 @@ test.describe('API - ValidationTask', () => {
 
 test.describe('API - ValidationOutcome', () => {
 
-    const API_URL = `${API_BASE_URL}/api/validationoutcome`;
+    const API_URL = `${API_BASE_URL}/v1/validationoutcome`;
 
     test('GET returns a list', async ({ request }) => {
 
@@ -669,7 +670,7 @@ test.describe('API - ValidationOutcome', () => {
     test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
 
         // retrieve list of ValidationRequests
-        let response = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        let response = await request.get(`${API_BASE_URL}/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         let data = await response.json();
@@ -765,7 +766,7 @@ test.describe('API - ValidationOutcome', () => {
 
 test.describe('API - Model', () => {
 
-    const API_URL = `${API_BASE_URL}/api/model`;
+    const API_URL = `${API_BASE_URL}/v1/model`;
 
     test('GET returns a list', async ({ request }) => {
 
@@ -788,10 +789,11 @@ test.describe('API - Model', () => {
     test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
 
         // submit a valid file
-        const createRes = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const createRes = await request.post(`${API_BASE_URL}/v1/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
+        expect(createRes.status()).toBe(201);
         expect(createRes.ok()).toBeTruthy();
         const created = await createRes.json();
         const REQ_ID = created.public_id;
@@ -894,7 +896,7 @@ test.describe('API - Pagination Checks', () => {
         // submit few valid files
         let public_ids = [];
         for (let i = 0; i < NUM_REQUESTS; i++) {
-            const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+            const response = await request.post(`${API_BASE_URL}/v1/validationrequest/`, {
                 headers: createAuthHeader(TEST_CREDENTIALS),
                 multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
             });
@@ -905,14 +907,14 @@ test.describe('API - Pagination Checks', () => {
         public_ids = public_ids.join(',');
 
         // retrieve first page
-        const first = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
+        const first = await request.get(`${API_BASE_URL}/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page1 = await first.json();
         const total = page1.metadata.result_set.total;
       
         // retrieve second page
-        const second = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
+        const second = await request.get(`${API_BASE_URL}/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page2 = await second.json();
@@ -930,8 +932,8 @@ test.describe('API - Pagination Checks', () => {
         test(`GET with limit ${limit} returns max. ${limit} results`, async ({ request }) => {
 
             // retrieve limited list
-            const res = await request.get(`${API_BASE_URL}/api/validationrequest/?limit=${limit}`, {
-            headers: createAuthHeader(TEST_CREDENTIALS)
+            const res = await request.get(`${API_BASE_URL}/validationrequest/?limit=${limit}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
             });
             const data = await res.json();
 
@@ -943,12 +945,120 @@ test.describe('API - Pagination Checks', () => {
     });
 });
 
+test.describe('API - Versioning Checks', () => {
+
+    const resources = [ 'validationrequest', 'validationtask', 'validationoutcome', 'model', 'schema', 'swagger-ui', 'redoc' ];
+
+    for (const resource of resources) {
+        test(`GET using /api/${resource} returns 200 - OK`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 200 OK
+            expect(response.statusText()).toBe('OK');
+            expect(response.status()).toBe(200);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/${resource} and no redirects returns 301 - Moved Permanently`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                maxRedirects: 0,
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 301 Moved Permanently
+            expect(response.status()).toBe(301);
+            expect(response.statusText()).toBe('Moved Permanently');
+            expect(response.headers()['location']).toBe(`/api/v1/${resource}`);
+        });
+    };
+    
+    for (const resource of resources) {
+        test(`GET using /api/${resource} and no redirects to /api/v1/${resource}`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                maxRedirects: 0,
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 301 Moved Permanently
+            expect(response.status()).toBe(301);
+            expect(response.statusText()).toBe('Moved Permanently');
+            expect(response.headers()['location']).toBe(`/api/v1/${resource}`);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v1/${resource} returns 200 - OK`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v1/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 200 OK
+            expect(response.statusText()).toBe('OK');
+            expect(response.status()).toBe(200);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v1/${resource} returns 404 - NOT FOUND`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v2/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 404 Not Found
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v123/${resource} returns 404 - NOT FOUND`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v123/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 404 Not Found
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+        });
+    };
+    
+    test(`POST using /api/validationrequest and no redirects returns 301 - Moved Permanently`, async ({ request }) => {
+
+        // try to post a valid file to non-versioned endpoint
+        const response = await request.post(`${API_BASE_URL}/validationrequest`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc'),
+            maxRedirects: 0 // do not follow redirects (as it will result in 301 POST followed by a GET instead of a POST)
+        });
+        
+        // check if the response is correct - 301 Moved Permanently
+        expect(response.status()).toBe(301);
+        expect(response.statusText()).toBe('Moved Permanently');
+        expect(response.headers()['location']).toBe('/api/v1/validationrequest');
+    });
+});
+
 test.describe('API - Browsers vs Clients', () => {
 
     test('Browsers will be redirected to /api/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -961,10 +1071,10 @@ test.describe('API - Browsers vs Clients', () => {
         expect(response.headers()['location']).toBe('/api/swagger-ui/');
     });
 
-    test('Browsers are redirected to /api/swagger-ui', async ({ request }) => {
+    test('Browsers are ultimately redirected to /api/v1/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -974,13 +1084,13 @@ test.describe('API - Browsers vs Clients', () => {
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${API_BASE_URL}/api/swagger-ui/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/v1/swagger-ui/`);
     });
 
     test('API clients will be redirected to /api/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             maxRedirects: 0
         });
 
@@ -990,17 +1100,17 @@ test.describe('API - Browsers vs Clients', () => {
         expect(response.headers()['location']).toBe('/api/schema/');
     });
 
-    test('API clients are redirected to /api/schema', async ({ request }) => {
+    test('API clients are ultimately redirected to /api/v1/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             maxRedirects: 5
         });
 
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${API_BASE_URL}/api/schema/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/v1/schema/`);
     });  
 
 });

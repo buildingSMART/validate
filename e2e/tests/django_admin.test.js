@@ -101,6 +101,33 @@ test.describe('UI - Django Admin', () => {
     await logout(page);
   });
 
+  test('navigate to Statistics & Charts', async ({ page }) => {
+
+    // login
+    await login(page);
+
+    // navigate and check elements of the screen
+    await page.goto(`${BASE_URL}/ifc_validation_models/`);
+    await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/`);
+    await expect(page.getByText('Statistics')).toBeVisible();
+    await expect(page.getByText('Choose a year')).toBeVisible();
+
+    // check some stats
+    await expect(page.getByText('users')).toBeVisible();
+    await expect(page.getByText('files processed')).toBeVisible();
+    await expect(page.getByText('tools observed')).toBeVisible();
+
+    // check some charts
+    await expect(page.locator('#requestsChart')).toBeVisible();
+    await expect(page.locator('#processingStatusChart')).toBeVisible();
+    await expect(page.locator('#usageByVendorChart')).toBeVisible();
+    await expect(page.locator('#topToolsChart')).toBeVisible();
+    await expect(page.locator('#queueP95Chart')).toBeVisible();
+
+    // logout
+    await logout(page);
+  }); 
+
   test('top bar search for Validation Requests', async ({ page }) => {
 
     // login
