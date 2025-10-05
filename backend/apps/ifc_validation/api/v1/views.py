@@ -29,7 +29,7 @@ from .serializers import ValidationRequestSerializer
 from .serializers import ValidationTaskSerializer
 from .serializers import ValidationOutcomeSerializer
 from .serializers import ModelSerializer
-from .tasks import ifc_file_validation_task
+from ...tasks import ifc_file_validation_task
 
 logger = logging.getLogger(__name__)
 

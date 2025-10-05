@@ -67,7 +67,7 @@ urlpatterns = [
     path('api/charts/',         include('apps.ifc_validation.chart_urls')), # Django Admin UI charts
 
     # APPS
-    path('api/v1/',          include(('apps.ifc_validation.urls', 'apps.ifc_validation'), namespace='v1')), # API v1
+    path('api/v1/',          include(('apps.ifc_validation.api.v1.urls', 'apps.ifc_validation'), namespace='v1')), # API v1
     path('bff/',             include('apps.ifc_validation_bff.urls')), # BFF for UI
 
     # SQL Explorer
