@@ -57,7 +57,7 @@ class Command(BaseCommand):
 
         cutoff_date = timezone.now() - timedelta(days=days)
 
-        # query by age, deleted falg and file name ending with .ifc
+        # query by age, deleted flag and file name ending with .ifc
         qs = ValidationRequest.objects.filter(created__lt=cutoff_date, file__iendswith='.ifc')
         
         if deleted_only:
