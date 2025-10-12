@@ -87,7 +87,7 @@ archive-dry-run:
 	$(PYTHON) manage.py archive_requests --days 180 --all --dry-run
 
 archive:
-	$(PYTHON) manage.py archive_requests --days 180 --all
+	$(PYTHON) manage.py archive_requests --days 180 --all --confirm
 
 clean:
 	rm -rf .dev
