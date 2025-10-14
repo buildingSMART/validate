@@ -79,7 +79,7 @@ function preprocessData(data, type) {
   const hv = data?.model?.header_validation ?? {}; 
 
   function replaceOuterWhitespace(str) {
-    return str.replace(/^\s+|\s+$/g, match => "□".repeat(match.length));
+    return (str || '').replace(/^\s+|\s+$/g, match => "□".repeat(match.length));
 }
 
   // return additional information for header validation report
