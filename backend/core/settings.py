@@ -142,11 +142,15 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.MetadataLimitOffsetPagination",
+    "PAGE_SIZE": 25,
     'DEFAULT_PERMISSION_CLASSES':(
+        # 'rest_framework.permissions.AllowAny',
         'rest_framework.permissions.IsAuthenticated',
+        # 'rest_framework.permissions.IsAdminUser',
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -156,13 +160,17 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
-        'submit_validation_request': '10/hour'
+        'submit_validation_request': '1000/hour' if DEVELOPMENT and DEBUG else '10/hour'
     }
 }
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'IFC Validation Service API (PREVIEW)',
-    'DESCRIPTION': 'API for the buildingSMART Validation Service',
+    'DESCRIPTION': (
+        'API for the buildingSMART Validation Service.\n\n'
+        '[API Quickstart Documentation]'
+        '(https://github.com/buildingSMART/validate/blob/docs/gh-pages/docs/dev/api_quickstart.md)'
+    ),
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
 
@@ -274,6 +282,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Uploaded files
 MAX_FILES_PER_UPLOAD = 100
+MAX_FILE_SIZE_IN_MB = int(os.environ.get("MAX_FILE_SIZE_IN_MB", 256))  # default to 256 MB
 MEDIA_URL = '/files/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/files_storage')
 try:
@@ -297,6 +306,7 @@ CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_TRACK_STARTED = True
 CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
+CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
 CELERY_TASK_REJECT_ON_WORKER_LOST = True

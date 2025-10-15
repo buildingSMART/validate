@@ -1,5 +1,4 @@
 from celery import shared_task
-from celery.utils.log import get_task_logger
 from django.template.loader import render_to_string
 
 from core.utils import log_execution
@@ -8,9 +7,6 @@ from core.utils import get_title_from_html
 from core.settings import PUBLIC_URL, ADMIN_EMAIL, CONTACT_EMAIL, ENVIRONMENT
 
 from apps.ifc_validation_models.models import ValidationRequest
-
-logger = get_task_logger(__name__)
-
 
 def status_combine(*args):
     statuses = "-pvnwi"
@@ -59,11 +55,12 @@ def send_acknowledgement_admin_email_task(id, file_name):
         'USER_FULL_NAME': user.get_full_name(),
         'USER_EMAIL': user.email,
         'PUBLIC_URL': PUBLIC_URL,
-        'ENVIRONMENT': ENVIRONMENT
+        'ENVIRONMENT': ENVIRONMENT,
+        'CHANNEL': request.channel
     }
     to = ADMIN_EMAIL
     body_html = render_to_string("validation_ack_admin_email.html", merge_data)
-    body_text = f"User uploaded {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
+    body_text = f"User submitted {{merge_data.NUMBER_OF_FILES}} file(s) in {{merge_data.ENVIRONMENT}}."
     subject = get_title_from_html(body_html)
 
     # queue for sending
