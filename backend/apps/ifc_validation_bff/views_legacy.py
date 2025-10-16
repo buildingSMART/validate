@@ -11,7 +11,7 @@ from collections import defaultdict
 import glob
 
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect, HttpResponseNotFound, HttpResponseNotAllowed
+from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound, HttpResponseNotAllowed
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
@@ -287,9 +287,15 @@ def download(request, id: int):
         file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
         logger.debug(f"File to be downloaded is located at '{file_path}'")
 
-        response = HttpResponse(open(file_path), content_type="application/x-step")
-        response['Content-Disposition'] = f'attachment; filename="{request.file_name}"'
-        logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
+        if request.file.name.endswith('.gz'):
+            file_handle = open(file_path, 'rb')
+            response = FileResponse(file_handle, content_type="application/gzip")
+            response['Content-Length'] = os.path.getsize(file_path)
+            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
+        else:
+            response = HttpResponse(open(file_path), content_type="application/x-step")        
+            response['Content-Disposition'] = f'attachment; filename="{request.file_name}"'
+            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
 
         return response
     else:

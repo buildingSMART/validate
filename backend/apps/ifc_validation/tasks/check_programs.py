@@ -3,12 +3,49 @@ import sys
 import json
 import subprocess
 from typing import List
+from dataclasses import dataclass
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT
 from apps.ifc_validation_models.models import ValidationTask
 
 from .logger import logger
 from .context import TaskContext
+
+@dataclass
+class proc_output:
+    returncode : int
+    stdout : str
+    stderr : str
+    args: List[str]
+
+
+def run_subprocess_wait(*popen_args, check=False, **popen_kwargs):
+    process = subprocess.Popen(*popen_args, **popen_kwargs)
+    out_chunks, err_chunks = [], []
+    try:
+        while True:
+            try:
+                stdout, stderr = process.communicate(timeout=0.2)
+                out_chunks.append(stdout or "")
+                err_chunks.append(stderr or "")
+                break
+            except subprocess.TimeoutExpired:
+                # keep looping; you can also check your own stop conditions here
+                continue
+    except BaseException as e:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+        raise
+    retcode = process.returncode
+    stdout, stderr = "".join(out_chunks), "".join(err_chunks)
+    if check and retcode != 0:
+        raise subprocess.CalledProcessError(retcode, popen_args[0], output=stdout, stderr=stderr)
+    return proc_output(retcode, stdout, stderr, popen_args[0] if popen_args else [])
+
 
 checks_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "checks"))
 
@@ -168,7 +205,10 @@ def check_instance_completion(context:TaskContext):
 
 def check_proc_success_or_fail(proc, task):
     if proc.returncode is not None and proc.returncode != 0:
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
+        error_message = (
+            f"Subprocess failed with exit code {proc.returncode}\n"
+            f"{proc.stdout}\n{proc.stderr}"
+        )
         task.mark_as_failed(error_message)
         raise RuntimeError(error_message)
     return proc.stdout
@@ -176,16 +216,15 @@ def check_proc_success_or_fail(proc, task):
 def run_subprocess(
     task: ValidationTask,
     command: List[str],
-) -> subprocess.CompletedProcess[str]:
+) -> proc_output:
     logger.debug(f'Command for {task.type}: {" ".join(command)}')
     task.set_process_details(None, command)
     try:
-        proc = subprocess.run(
+        proc = run_subprocess_wait(
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=TASK_TIMEOUT_LIMIT,
             env= os.environ.copy()
         )
         logger.info(f'test run task task name {task.type}, task value : {task}')
@@ -193,5 +232,5 @@ def run_subprocess(
     
     except Exception as err:
         logger.exception(f"{type(err).__name__} in task {task.id} : {task.type}")
-        task.mark_as_failed(err)
+        task.mark_as_failed(str(err))
         raise type(err)(f"Unknown error during validation task {task.id}: {task.type}") from err
