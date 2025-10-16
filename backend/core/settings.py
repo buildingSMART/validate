@@ -147,6 +147,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_PAGINATION_CLASS": "core.pagination.MetadataLimitOffsetPagination",
     "PAGE_SIZE": 25,
+    "DEFAULT_VERSIONING_CLASS": "core.versioning.OptionalURLPathVersioning",
+    "DEFAULT_VERSION": "v1",
     'DEFAULT_PERMISSION_CLASSES':(
         # 'rest_framework.permissions.AllowAny',
         'rest_framework.permissions.IsAuthenticated',
@@ -171,8 +173,24 @@ SPECTACULAR_SETTINGS = {
         '[API Quickstart Documentation]'
         '(https://github.com/buildingSMART/validate/blob/docs/gh-pages/docs/dev/api_quickstart.md)'
     ),
+    'SCHEMA_PATH_PREFIX': r'/api/v[0-9]',
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
+    'SERVERS': [
+        {'url': f'{PUBLIC_URL}/api/v1', 'description': f'API for {ENVIRONMENT} environment'}
+    ],
+    "SWAGGER_UI_SETTINGS": """{
+        deepLinking: true,
+        displayOperationId: true,
+        persistAuthorization: true,
+        urls: [
+            {url: "/api/v1/schema", name: "Version 1"},
+        ],
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+    }""",
+    'COMPONENT_SPLIT_PATCH': True,
+    'COMPONENT_SPLIT_REQUEST': True,
 
     'SWAGGER_UI_DIST': 'SIDECAR',  # shorthand to use the sidecar instead
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',

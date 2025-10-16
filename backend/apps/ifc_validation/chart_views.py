@@ -418,17 +418,17 @@ def get_duration_per_task_chart(request, year):
         seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
         task_data[task_type][period_label] += round(seconds, 2)
 
-    labels = list(task_data[next(iter(task_data))].keys())  # labels from any type
+    labels = list(next(iter(task_data.values())).keys()) if task_data else []
 
     datasets = [
-    {
-        "label": TASK_TYPES[t][0],
-        "backgroundColor": TASK_TYPES[t][1],
-        "borderColor": COLORS["primary"],
-        "data": [task_data[t][lbl] for lbl in labels],
-    }
-    for t in task_data 
-]
+        {
+            "label": TASK_TYPES[t][0],
+            "backgroundColor": TASK_TYPES[t][1],
+            "borderColor": COLORS["primary"],
+            "data": [task_data[t][lbl] for lbl in labels],
+        }
+        for t in task_data 
+    ]
 
     return chart_response(
         title=f"Duration per Task in {year}",

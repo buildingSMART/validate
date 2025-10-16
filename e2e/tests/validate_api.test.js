@@ -4,7 +4,8 @@ import { basename } from 'path';
 import { statSync } from 'fs';
 import { createAuthHeader, createFormData } from './utils.js';
 
-const API_BASE_URL = process.env.API_BASE_URL ?? 'http://127.0.0.1:8000';
+const API_HOST_URL = process.env.API_HOST_URL ?? 'http://127.0.0.1:8000';
+const API_BASE_URL = process.env.API_BASE_URL ?? API_HOST_URL + '/api';
 const TEST_CREDENTIALS = 'root:root';
 
 function findAndReadFileSync(filepath) {
@@ -45,10 +46,12 @@ function createDummyFormData(fileName, fileSize) {
 
 test.describe('API - ValidationRequest', () => {
 
+    const API_URL = `${API_BASE_URL}/v1/validationrequest`;
+
     test('POST accepts valid file', async ({ request }) => {
 
         // try to post a valid file
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -58,10 +61,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(201);
     });
 
-    test('POST without trailing slash accepts valid file', async ({ request }) => {
+    test('POST with trailing slash accepts valid file', async ({ request }) => {
 
         // try to post a valid file
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest`, {
+        const response = await request.post(`${API_URL}/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -74,23 +77,43 @@ test.describe('API - ValidationRequest', () => {
     test('POST implements file size limit', async ({ request }) => {
 
         // try to post a large file
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createDummyFormData('very_large_file.ifc', 300 * 1024 * 1024) // 300 MB (> 256 MB limit)
         });
 
-        // check if the response is correct - 413 Payload Too Large
-        expect(response.statusText()).toBe('Request Entity Too Large');
-        expect(response.status()).toBe(413); 
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ message: 'File size exceeds allowed file size limit (256 MB).' });
+        expect(await response.json()).toEqual({ file: [ 'File size exceeds allowed file size limit (256 MB).' ] });
+    });
+
+    test('POST rejects empty request', async ({ request }) => {
+
+        // try to post an empty request
+        const response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 400 Bad Request
+        expect(response.statusText()).toBe('Bad Request');
+        expect(response.status()).toBe(400); 
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+            {
+                "file": [ "No file was submitted." ], 
+                "file_name": [ "This field is required." ]
+            }
+        );
     });
 
     test('POST rejects empty file', async ({ request }) => {
 
         // try to post an empty file
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/empty_file.ifc')
         });
@@ -98,13 +121,15 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 400 Bad Request
         expect(response.statusText()).toBe('Bad Request');
         expect(response.status()).toBe(400); 
+
+        // check if the error details are correct
         expect(await response.json()).toEqual({ file: [ 'The submitted file is empty.' ] });
     });
 
     test('POST rejects empty file name', async ({ request }) => {
 
         // try to post a file with empty filename
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc', '')
         });
@@ -112,6 +137,8 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 400 Bad Request
         expect(response.statusText()).toBe('Bad Request');
         expect(response.status()).toBe(400); 
+
+        // check if the error details are correct
         expect(await response.json()).toStrictEqual({
             "file": [ "The submitted data was not a file. Check the encoding type on the form." ], 
             "file_name": [ "This field is required." ]
@@ -121,7 +148,7 @@ test.describe('API - ValidationRequest', () => {
     test('POST only accepts *.ifc files', async ({ request }) => {
 
         // try to post a file with invalid file extension
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/invalid_file_extension')
         });
@@ -129,13 +156,15 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 400 Bad Request
         expect(response.statusText()).toBe('Bad Request');
         expect(response.status()).toBe(400); 
-        expect(await response.json()).toEqual({ file_name: "File name must end with '.ifc'." });
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual({ file_name: [ "File name must end with '.ifc'." ] });
     });
 
     test('POST only accepts a single file (for now)', async ({ request }) => {
 
         // try to post two valid files
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormDataForTwoFiles(
                 'fixtures/valid_file.ifc', 
@@ -146,13 +175,15 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 400 Bad Request
         expect(response.statusText()).toBe('Bad Request');
         expect(response.status()).toBe(400); 
-        expect(await response.json()).toEqual({ message: 'Only one file can be uploaded at a time.' });
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual({ file: 'Only one file can be uploaded at a time.' });
     });
 
     test('POST without authorization header returns 401', async ({ request }) => {
 
         // try to post a valid file but without authorization header
-        const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        const response = await request.post(`${API_URL}`, {
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
@@ -164,7 +195,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET returns a single instance', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -172,7 +203,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.get(`${API_URL}/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -187,10 +218,39 @@ test.describe('API - ValidationRequest', () => {
         expect(data['public_id']).toBe(public_id);
     });
 
+    test('GET with "public_id" query param returns a list with one instance', async ({ request }) => {
+
+        // post a valid file
+        let response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc')
+        });
+        const json_body = await response.json();
+        const public_id = json_body['public_id'];
+
+        // retrieve a single instance by public id
+        response = await request.get(`${API_URL}?public_id=${public_id}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(data).toHaveProperty('results');
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBe(1);
+        expect(data.results[0]).toHaveProperty('public_id');
+        expect(data.results[0]['public_id']).toBe(public_id);
+    });
+
     test('GET with trailing slash returns a single instance', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -198,7 +258,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}/`, {
+        response = await request.get(`${API_URL}/${public_id}/`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -216,7 +276,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET with "public_id" query param returns a list with one object', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -225,7 +285,7 @@ test.describe('API - ValidationRequest', () => {
         const file_name = json_body['file_name']
 
         // retrieve a single instance
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/?public_id=${public_id}`, {
+        response = await request.get(`${API_URL}?public_id=${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -248,7 +308,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET with "public_id" query param returns a list with multiple objects', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -256,7 +316,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // post a second valid file
-        let response2 = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response2 = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -264,7 +324,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id2 = json_body2['public_id'];
 
         // retrieve two instances
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/?public_id=${public_id},${public_id2}`, {
+        response = await request.get(`${API_URL}?public_id=${public_id},${public_id2}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -282,13 +342,13 @@ test.describe('API - ValidationRequest', () => {
     test('GET returns a list', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/`, {
+        response = await request.get(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -309,13 +369,13 @@ test.describe('API - ValidationRequest', () => {
     test('GET without trailing slash returns a list', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
 
         // retrieve list of ValidationRequests
-        response = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        response = await request.get(`${API_BASE_URL}/validationrequest`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -335,8 +395,20 @@ test.describe('API - ValidationRequest', () => {
 
     test('GET without authorization header returns 401', async ({ request }) => {
 
-        // retrieve list of ValidationRequests
-        const response = await request.get(`${API_BASE_URL}/api/validationrequest/`);
+        // try to retrieve a list
+        const response = await request.get(`${API_URL}`);
+
+        // check if the response is correct - 401 Unauthorized
+        expect(response.statusText()).toBe('Unauthorized');
+        expect(response.status()).toBe(401);
+    });
+
+    test('GET with incorrect authorization header returns 401', async ({ request }) => {
+
+        // try to retrieve a list
+        const response = await request.get(`${API_URL}`, {
+            headers: 'Authorization: Basic invalidcredentials'
+        });
 
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
@@ -348,14 +420,14 @@ test.describe('API - ValidationRequest', () => {
         // submit few valid files
         const NUM_REQUESTS = 3;
         for (let i = 0; i < NUM_REQUESTS; i++) {
-            await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+            await request.post(`${API_URL}`, {
                 headers: createAuthHeader(TEST_CREDENTIALS),
                 multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
             });
         }
         
         // retrieve list of ValidationRequests
-        const res = await request.get(`${API_BASE_URL}/api/validationrequest`, {
+        const res = await request.get(`${API_BASE_URL}/validationrequest`, {
         headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const data = await res.json();
@@ -371,7 +443,7 @@ test.describe('API - ValidationRequest', () => {
     test('GET should not return internal identifiers and fields', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -379,7 +451,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // retrieve a single instance
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.get(`${API_URL}/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -397,12 +469,13 @@ test.describe('API - ValidationRequest', () => {
         expect(data).not.toHaveProperty('deleted');
         expect(data).not.toHaveProperty('created_by');
         expect(data).not.toHaveProperty('updated_by');
+        expect(data).not.toHaveProperty('status_reason');
     });
 
     test('DELETE should delete an instance', async ({ request }) => {
 
         // post a valid file
-        let response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+        let response = await request.post(`${API_URL}`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
@@ -410,14 +483,14 @@ test.describe('API - ValidationRequest', () => {
         const public_id = json_body['public_id'];
 
         // delete the instance
-        response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.delete(`${API_URL}/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         expect(response.statusText()).toBe('No Content');
         expect(response.status()).toBe(204);
 
         // try to retrieve the instance that was just deleted
-        response = await request.get(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+        response = await request.get(`${API_URL}${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
 
@@ -431,7 +504,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = 'r000000000'; // assuming this ID does not exist
         
         // delete an instance
-        let response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`, {
+        let response = await request.delete(`${API_URL}/${public_id}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         
@@ -445,7 +518,7 @@ test.describe('API - ValidationRequest', () => {
         const public_id = 'r000000000'; // assuming this ID does not exist
          
         // try to delete an instance without authorization header
-        const response = await request.delete(`${API_BASE_URL}/api/validationrequest/${public_id}`);
+        const response = await request.delete(`${API_URL}/${public_id}`);
 
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
@@ -453,50 +526,363 @@ test.describe('API - ValidationRequest', () => {
     });
 });
 
-test.describe('API - Filtered lists (request_public_id)', () => {
+test.describe('API - ValidationTask', () => {
 
-    test('GET /api/validationoutcome/ filtered by request_public_id respects limit', async ({ request }) => {
+    const API_URL = `${API_BASE_URL}/v1/validationtask`;
 
-        const createRes = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
-        headers: createAuthHeader(TEST_CREDENTIALS),
-        multipart: createFormData('fixtures/valid_file.ifc')
+    test('GET returns a list', async ({ request }) => {
+
+        // retrieve list of ValidationTasks
+        const response = await request.get(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
         });
-        expect(createRes.ok()).toBeTruthy();
-        const created = await createRes.json();
-        const REQ_ID = created.public_id;           // e.g. "r135321247"
+        
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
 
-        const res = await request.get(
-        `${API_BASE_URL}/api/validationoutcome/?request_public_id=${REQ_ID}&limit=5`,
-        { headers: createAuthHeader(TEST_CREDENTIALS) }
-        );
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeGreaterThanOrEqual(0);
+    });
 
-        expect(res.status()).toBe(200);
-        const data = await res.json();
+    test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
+
+        // retrieve list of ValidationRequests
+        let response = await request.get(`${API_BASE_URL}/validationrequest`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        let data = await response.json();
+        const REQ_ID = data.results[0].public_id;
+
+        // retrieve list of ValidationTasks filtered by request_public_id
+        response = await request.get(`${API_URL}?request_public_id=${REQ_ID}`, { 
+            headers: createAuthHeader(TEST_CREDENTIALS) 
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        data = await response.json();
+
+        // check if the json body is correct
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.total');
+        for (const item of data.results) {
+            expect(item).toHaveProperty('request');
+            expect(item.request).toBe(REQ_ID);
+        };        
+    });
+
+    test('GET respects limit query parameter', async ({ request }) => {
+
+        // retrieve list of ValidationTasks with limit
+        const LIMIT = 5;
+        const response = await request.get(`${API_URL}/?limit=${LIMIT}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        const data = await response.json();
+
+        // check if the json body is correct
         expect(data).toBeInstanceOf(Object);
         expect(Array.isArray(data.results)).toBe(true);
         expect(data).toHaveProperty('metadata.result_set.limit');
+    
+        // check if the limit is respected
+        expect(data.results.length).toBeLessThanOrEqual(LIMIT);
+        expect(data.metadata.result_set.limit).toBe(LIMIT);
     });
-  
-    test('GET /api/model filtered by request_public_id returns 200', async ({ request }) => {
 
-        const createRes = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+    test('GET without authorization header returns 401', async ({ request }) => {
+
+        // try to retrieve a list of ValidationTasks
+        const response = await request.get(`${API_URL}`);
+
+        // check if the response is correct - 401 Unauthorized
+        expect(response.statusText()).toBe('Unauthorized');
+        expect(response.status()).toBe(401);
+    });
+
+    test('POST should return 405', async ({ request }) => {
+
+        // try to post a new ValidationTask
+        const response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('PUT should return 405', async ({ request }) => {
+
+        // try to update a ValidationTask
+        const response = await request.put(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('DELETE should return 405', async ({ request }) => {
+
+        // try to delete a ValidationTask
+        const response = await request.delete(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+});
+
+test.describe('API - ValidationOutcome', () => {
+
+    const API_URL = `${API_BASE_URL}/v1/validationoutcome`;
+
+    test('GET returns a list', async ({ request }) => {
+
+        // retrieve list of ValidationOutcomes
+        const response = await request.get(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeGreaterThanOrEqual(0);
+    });
+
+    test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
+
+        // retrieve list of ValidationRequests
+        let response = await request.get(`${API_BASE_URL}/validationrequest`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        let data = await response.json();
+        const REQ_ID = data.results[0].public_id;
+
+        // retrieve list of ValidationOutcomes filtered by request_public_id
+        response = await request.get(`${API_URL}?request_public_id=${REQ_ID}`, { 
+            headers: createAuthHeader(TEST_CREDENTIALS) 
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        data = await response.json();
+
+        // check if the json body is correct
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.total');
+        for (const item of data.results) {
+            expect(item).toHaveProperty('request');
+            expect(item.request).toBe(REQ_ID);
+        };        
+    });
+
+    test('GET respects limit query parameter', async ({ request }) => {
+
+        // retrieve list of ValidationOutcome with limit
+        const LIMIT = 5;
+        const response = await request.get(`${API_URL}/?limit=${LIMIT}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        const data = await response.json();
+
+        // check if the json body is correct
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.limit');
+    
+        // check if the limit is respected
+        expect(data.results.length).toBeLessThanOrEqual(LIMIT);
+        expect(data.metadata.result_set.limit).toBe(LIMIT);
+    });
+
+    test('GET without authorization header returns 401', async ({ request }) => {
+
+        // try to retrieve a list of ValidationOutcomes
+        const response = await request.get(`${API_URL}`);
+
+        // check if the response is correct - 401 Unauthorized
+        expect(response.statusText()).toBe('Unauthorized');
+        expect(response.status()).toBe(401);
+    });
+
+    test('POST should return 405', async ({ request }) => {
+
+        // try to post a new ValidationOutcome
+        const response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('PUT should return 405', async ({ request }) => {
+
+        // try to update a ValidationOutcome
+        const response = await request.put(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('DELETE should return 405', async ({ request }) => {
+
+        // try to delete a ValidationOutcome
+        const response = await request.delete(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+});
+
+test.describe('API - Model', () => {
+
+    const API_URL = `${API_BASE_URL}/v1/model`;
+
+    test('GET returns a list', async ({ request }) => {
+
+        // retrieve list of Models
+        const response = await request.get(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+
+        // check if the json body is correct
+        const data = await response.json();
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data.results.length).toBeGreaterThanOrEqual(0);
+    });
+
+    test('GET filtered by "request_public_id" returns a list', async ({ request }) => {
+
+        // submit a valid file
+        const createRes = await request.post(`${API_BASE_URL}/v1/validationrequest/`, {
             headers: createAuthHeader(TEST_CREDENTIALS),
             multipart: createFormData('fixtures/valid_file.ifc')
         });
+        expect(createRes.status()).toBe(201);
         expect(createRes.ok()).toBeTruthy();
         const created = await createRes.json();
         const REQ_ID = created.public_id;
 
-        const res = await request.get(
-        `${API_BASE_URL}/api/model/?request_public_id=${REQ_ID}`,
-        { headers: createAuthHeader(TEST_CREDENTIALS) }
-        );
+        // retrieve list of Models filtered by request_public_id
+        const response = await request.get(`${API_URL}?request_public_id=${REQ_ID}`, { 
+            headers: createAuthHeader(TEST_CREDENTIALS) 
+        });
 
-        expect(res.status()).toBe(200);
-        const data = await res.json();
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        const data = await response.json();
+
+        // check if the json body is correct
         expect(data).toBeInstanceOf(Object);
         expect(Array.isArray(data.results)).toBe(true);
         expect(data).toHaveProperty('metadata.result_set.total');
+        for (const item of data.results) {
+            expect(item).toHaveProperty('request');
+            expect(item.request).toBe(REQ_ID);
+        };        
+    });
+
+    test('GET respects limit query parameter', async ({ request }) => {
+
+        // retrieve list of ValidationOutcome with limit
+        const LIMIT = 5;
+        const response = await request.get(`${API_URL}?limit=${LIMIT}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 200 OK
+        expect(response.status()).toBe(200);
+        const data = await response.json();
+
+        // check if the json body is correct
+        expect(data).toBeInstanceOf(Object);
+        expect(Array.isArray(data.results)).toBe(true);
+        expect(data).toHaveProperty('metadata.result_set.limit');
+    
+        // check if the limit is respected
+        expect(data.results.length).toBeLessThanOrEqual(LIMIT);
+        expect(data.metadata.result_set.limit).toBe(LIMIT);
+    });
+
+    test('GET without authorization header returns 401', async ({ request }) => {
+
+        // try to retrieve a list of Models
+        const response = await request.get(`${API_URL}`);
+
+        // check if the response is correct - 401 Unauthorized
+        expect(response.statusText()).toBe('Unauthorized');
+        expect(response.status()).toBe(401);
+    });
+
+    test('POST should return 405', async ({ request }) => {
+
+        // try to post a new Model
+        const response = await request.post(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('PUT should return 405', async ({ request }) => {
+
+        // try to update a Model
+        const response = await request.put(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
+    });
+
+    test('DELETE should return 405', async ({ request }) => {
+
+        // try to delete a Model
+        const response = await request.delete(`${API_URL}`, {
+            headers: createAuthHeader(TEST_CREDENTIALS)
+        });
+        
+        // check if the response is correct - 405 Method Not Allowed
+        expect(response.statusText()).toBe('Method Not Allowed');
+        expect(response.status()).toBe(405);
     });
 });
 
@@ -510,7 +896,7 @@ test.describe('API - Pagination Checks', () => {
         // submit few valid files
         let public_ids = [];
         for (let i = 0; i < NUM_REQUESTS; i++) {
-            const response = await request.post(`${API_BASE_URL}/api/validationrequest/`, {
+            const response = await request.post(`${API_BASE_URL}/v1/validationrequest/`, {
                 headers: createAuthHeader(TEST_CREDENTIALS),
                 multipart: createFormData('fixtures/valid_file.ifc', `valid_file_${NUM_REQUESTS}.ifc`)
             });
@@ -521,14 +907,14 @@ test.describe('API - Pagination Checks', () => {
         public_ids = public_ids.join(',');
 
         // retrieve first page
-        const first = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
+        const first = await request.get(`${API_BASE_URL}/validationrequest/?public_ids=${public_ids}&offset=0&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page1 = await first.json();
         const total = page1.metadata.result_set.total;
       
         // retrieve second page
-        const second = await request.get(`${API_BASE_URL}/api/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
+        const second = await request.get(`${API_BASE_URL}/validationrequest/?public_ids=${public_ids}&offset=${PAGE_SIZE}&limit=${PAGE_SIZE}`, {
             headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const page2 = await second.json();
@@ -546,8 +932,8 @@ test.describe('API - Pagination Checks', () => {
         test(`GET with limit ${limit} returns max. ${limit} results`, async ({ request }) => {
 
             // retrieve limited list
-            const res = await request.get(`${API_BASE_URL}/api/validationrequest/?limit=${limit}`, {
-            headers: createAuthHeader(TEST_CREDENTIALS)
+            const res = await request.get(`${API_BASE_URL}/validationrequest/?limit=${limit}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
             });
             const data = await res.json();
 
@@ -559,12 +945,120 @@ test.describe('API - Pagination Checks', () => {
     });
 });
 
+test.describe('API - Versioning Checks', () => {
+
+    const resources = [ 'validationrequest', 'validationtask', 'validationoutcome', 'model', 'schema', 'swagger-ui', 'redoc' ];
+
+    for (const resource of resources) {
+        test(`GET using /api/${resource} returns 200 - OK`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 200 OK
+            expect(response.statusText()).toBe('OK');
+            expect(response.status()).toBe(200);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/${resource} and no redirects returns 301 - Moved Permanently`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                maxRedirects: 0,
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 301 Moved Permanently
+            expect(response.status()).toBe(301);
+            expect(response.statusText()).toBe('Moved Permanently');
+            expect(response.headers()['location']).toBe(`/api/v1/${resource}`);
+        });
+    };
+    
+    for (const resource of resources) {
+        test(`GET using /api/${resource} and no redirects to /api/v1/${resource}`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/${resource}`, {
+                maxRedirects: 0,
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 301 Moved Permanently
+            expect(response.status()).toBe(301);
+            expect(response.statusText()).toBe('Moved Permanently');
+            expect(response.headers()['location']).toBe(`/api/v1/${resource}`);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v1/${resource} returns 200 - OK`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v1/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 200 OK
+            expect(response.statusText()).toBe('OK');
+            expect(response.status()).toBe(200);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v1/${resource} returns 404 - NOT FOUND`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v2/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 404 Not Found
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+        });
+    };
+
+    for (const resource of resources) {
+        test(`GET using /api/v123/${resource} returns 404 - NOT FOUND`, async ({ request }) => {
+
+            // example API query
+            const response = await request.get(`${API_HOST_URL}/api/v123/${resource}`, {
+                headers: createAuthHeader(TEST_CREDENTIALS)
+            });
+            
+            // check if the response is correct - 404 Not Found
+        expect(response.statusText()).toBe('Not Found');
+        expect(response.status()).toBe(404);
+        });
+    };
+    
+    test(`POST using /api/validationrequest and no redirects returns 301 - Moved Permanently`, async ({ request }) => {
+
+        // try to post a valid file to non-versioned endpoint
+        const response = await request.post(`${API_BASE_URL}/validationrequest`, {
+            headers: createAuthHeader(TEST_CREDENTIALS),
+            multipart: createFormData('fixtures/valid_file.ifc'),
+            maxRedirects: 0 // do not follow redirects (as it will result in 301 POST followed by a GET instead of a POST)
+        });
+        
+        // check if the response is correct - 301 Moved Permanently
+        expect(response.status()).toBe(301);
+        expect(response.statusText()).toBe('Moved Permanently');
+        expect(response.headers()['location']).toBe('/api/v1/validationrequest');
+    });
+});
+
 test.describe('API - Browsers vs Clients', () => {
 
     test('Browsers will be redirected to /api/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -577,10 +1071,10 @@ test.describe('API - Browsers vs Clients', () => {
         expect(response.headers()['location']).toBe('/api/swagger-ui/');
     });
 
-    test('Browsers are redirected to /api/swagger-ui', async ({ request }) => {
+    test('Browsers are ultimately redirected to /api/v1/swagger-ui', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             headers: {
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
             },
@@ -590,13 +1084,13 @@ test.describe('API - Browsers vs Clients', () => {
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${API_BASE_URL}/api/swagger-ui/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/v1/swagger-ui/`);
     });
 
     test('API clients will be redirected to /api/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             maxRedirects: 0
         });
 
@@ -606,17 +1100,17 @@ test.describe('API - Browsers vs Clients', () => {
         expect(response.headers()['location']).toBe('/api/schema/');
     });
 
-    test('API clients are redirected to /api/schema', async ({ request }) => {
+    test('API clients are ultimately redirected to /api/v1/schema', async ({ request }) => {
 
         // root of /api
-        const response = await request.get(`${API_BASE_URL}/api/`, {
+        const response = await request.get(`${API_BASE_URL}/`, {
             maxRedirects: 5
         });
 
         // check if the response is correct - 200 OK
         expect(response.statusText()).toBe('OK');
         expect(response.status()).toBe(200);
-        expect(response.url()).toBe(`${API_BASE_URL}/api/schema/`);
+        expect(response.url()).toBe(`${API_BASE_URL}/v1/schema/`);
     });  
 
 });
