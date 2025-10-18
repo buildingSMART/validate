@@ -89,7 +89,6 @@ jobs:
           python-version: 3.11
 
       - name: Cache venv + backend dependencies
-        id: cache-backend
         uses: actions/cache@v4
         with:
           path: backend/.dev/venv
@@ -98,7 +97,6 @@ jobs:
             ${{ runner.os }}-backend-
           
       - name: Create venv
-        if: steps.cache-backend.outputs.cache-hit != 'true'
         run: |
           cd backend
           python3.11 -m venv .dev/venv
@@ -106,7 +104,6 @@ jobs:
           ls -l .dev/venv/bin
         
       - name: Install backend dependencies
-        if: steps.cache-backend.outputs.cache-hit != 'true'
         run: |
           cd backend
           . .dev/venv/bin/activate
@@ -126,7 +123,6 @@ jobs:
         working-directory: ./backend
 
       - name: Cache frontend dependencies
-        id: cache-frontend
         uses: actions/cache@v4
         with:
           path: frontend/node_modules
@@ -135,12 +131,10 @@ jobs:
             ${{ runner.os }}-frontend-
         
       - name: Install frontend dependencies (required for webServer)
-        if: steps.cache-frontend.outputs.cache-hit != 'true'
         run: npm install
         working-directory: ./frontend
 
       - name: Cache e2e dependencies
-        id: cache-e2e
         uses: actions/cache@v4
         with:
           path: e2e/node_modules
@@ -149,12 +143,10 @@ jobs:
             ${{ runner.os }}-e2e-
         
       - name: Install e2e dependencies (replicating make e2e-test)
-        if: steps.cache-e2e.outputs.cache-hit != 'true'
         run: npm install
         working-directory: ./e2e
 
       - name: Cache Playwright browsers
-        id: cache-playwright-browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -163,7 +155,6 @@ jobs:
             ${{ runner.os }}-playwright-
         
       - name: Install Playwright browsers
-        if: steps.cache-playwright-browsers.outputs.cache-hit != 'true'
         run: npm run install-playwright
         working-directory: ./e2e
 
