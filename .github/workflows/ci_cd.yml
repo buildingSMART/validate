@@ -10,6 +10,7 @@ on:
       - development
     paths-ignore:
       - 'README.md'
+      - '.github/workflows/playwright.yml'
   workflow_dispatch:
 
 jobs:
