@@ -88,18 +88,10 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Cache venv + backend dependencies
-        uses: actions/cache@v4
-        with:
-          path: backend/.dev/venv
-          key: ${{ runner.os }}-backend-${{ hashFiles('backend/**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-backend-
-          
       - name: Create venv
         run: |
           cd backend
-          python3.11 -m venv .dev/venv
+          python3.11 -m venv .dev/venv --upgrade
           echo "venv/bin folder content:"
           ls -l .dev/venv/bin
         
