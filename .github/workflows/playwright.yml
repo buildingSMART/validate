@@ -98,11 +98,11 @@ jobs:
         
       - name: Install backend dependencies
         run: |
-          cd backend
-          python3.11 -m venv .dev/venv
+          python -m venv .dev/venv
           source .dev/venv/bin/activate
           pip install --upgrade pip
           find . -name 'requirements.txt' -exec pip install -r {} \;
+        working-directory: ./backend
           
       - name: Download and install ifcopenshell
         run: |
