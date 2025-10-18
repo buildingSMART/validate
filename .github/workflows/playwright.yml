@@ -92,12 +92,13 @@ jobs:
         run: |
           cd backend
           python3.11 -m venv .dev/venv --clear
+          echo "venv/bin folder content:"
           ls -l .dev/venv/bin
         
       - name: Install backend dependencies
         run: |
           cd backend
-          source .dev/venv/bin/activate
+          . .dev/venv/bin/activate
           pip install --upgrade pip
           find . -name 'requirements.txt' -exec pip install -r {} \;
           
