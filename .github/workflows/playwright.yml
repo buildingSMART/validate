@@ -91,7 +91,8 @@ jobs:
       - name: Create venv
         run: |
           cd backend
-          python3.11 -m --clear .dev/venv
+          python3.11 -m .dev/venv --clear
+          ls -l .dev/venv/bin
         
       - name: Install backend dependencies
         run: |
