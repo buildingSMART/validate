@@ -82,27 +82,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: pip
 
       - name: Install system dependencies
         run: |
           apt-get update
           apt-get install -y make wget unzip libpq-dev
           
-      - name: Cache backend dependencies
-        uses: actions/cache@v4
-        with:
-          path: backend/.dev/venv
-          key: ${{ runner.os }}-backend-${{ hashFiles('backend/**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-backend-
+      - name: Create venv
+        run: |
+          cd backend
+          python3.11 -m --clear .dev/venv
         
       - name: Install backend dependencies
         run: |
-          python -m venv .dev/venv
+          cd backend
           source .dev/venv/bin/activate
           pip install --upgrade pip
           find . -name 'requirements.txt' -exec pip install -r {} \;
-        working-directory: ./backend
           
       - name: Download and install ifcopenshell
         run: |
