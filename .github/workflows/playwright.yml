@@ -99,9 +99,11 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
-          test -d .dev/venv || python3.11 -m venv .dev/venv
-          .dev/venv/bin/pip install --upgrade pip
-          find . -name 'requirements.txt' -exec .dev/venv/bin/pip install -r {} \;
+          python3.11 -m venv .dev/venv
+          source .dev/venv/bin/activate
+          pip install --upgrade pip
+          find . -name 'requirements.txt' -exec pip install -r {} \;
+          
       - name: Download and install ifcopenshell
         run: |
           wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
