@@ -87,11 +87,17 @@ jobs:
         run: |
           apt-get update
           apt-get install -y make wget unzip libpq-dev
+
+      - name: Restore cached venv + dependencies
+        uses: actions/cache/restore@v4
+        with:
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
+          path: backend/.dev/venv
           
       - name: Create venv
         run: |
           cd backend
-          python3.11 -m venv .dev/venv --clear
+          python3.11 -m venv .dev/venv
           echo "venv/bin folder content:"
           ls -l .dev/venv/bin
         
@@ -101,6 +107,12 @@ jobs:
           . .dev/venv/bin/activate
           pip install --upgrade pip
           find . -name 'requirements.txt' -exec pip install -r {} \;
+
+      - name: Saved cached venv + dependencies
+        uses: actions/cache/save@v4
+        with:
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
+          path: .dev/venv
           
       - name: Download and install ifcopenshell
         run: |
