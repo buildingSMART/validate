@@ -101,6 +101,22 @@ test.describe('UI - Django Admin', () => {
     await logout(page);
   });
 
+  test('navigate to Models', async ({ page }) => {
+
+    // login
+    await login(page);
+
+    // navigate and check elements of the screen
+    await page.goto(`${BASE_URL}/ifc_validation_models/model/`);
+    await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/model/`);
+    await expect(page.getByText('Select Model to change')).toBeVisible();
+    await expect(page.locator('p.paginator')).toBeVisible();
+    await expect(page.locator('p.paginator').getByText(/Model[s]*/)).toBeVisible();
+
+    // logout
+    await logout(page);
+  });
+
   test('navigate to Statistics & Charts', async ({ page }) => {
 
     // login
@@ -220,6 +236,27 @@ test.describe('UI - Django Admin', () => {
     await expect(inputField).toBeVisible();
     await expect(inputField).toHaveValue('test123');
     await expect(filterPane.getByRole('link', { name: '⨉ Remove' })).toBeVisible();
+
+    // logout
+    await logout(page);
+  });
+
+  test('search Models by Digital Signatures', async ({ page }) => {
+
+    // login
+    await login(page);
+
+    // search and check elements - 0 results
+    await page.goto(`${BASE_URL}/ifc_validation_models/model/?status_signatures__exact=v`);
+    await expect(page).not.toHaveURL(`${BASE_URL}/ifc_validation_models/model/?e=1`); // no error
+    await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/model/?status_signatures__exact=v`);
+    await expect(page.locator('p.paginator')).toBeVisible();
+    await expect(page.locator('p.paginator').getByText(/Model[s]*/)).toBeVisible();
+
+    // filter pane & heading
+    const filterPane = page.getByRole('navigation', { name: 'Filter' });
+    await expect(filterPane).toBeVisible();
+    await expect(filterPane.getByText('By status signatures')).toBeVisible();
 
     // logout
     await logout(page);

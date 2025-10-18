@@ -429,13 +429,40 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "created", "updated"]
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": [
+            "id", 
+            "public_id", 
+            "file_name", 
+            "file", 
+            "schema", 
+            "mvd", 
+            "details",
+            "properties"
+        ]}),
+        ('Status Information',   {"classes": ("wide"), "fields": [
+            "status_header_syntax",
+            "status_syntax",
+            "status_prereq",
+            "status_schema",
+            "status_ia",
+            "status_ip",
+            "status_industry_practices",
+            "status_mvd",
+            "status_bsdd",
+            "status_signatures"
+        ]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created",), ("updated")]})
+    ]
+
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
     list_filter = [
         'schema', 
+        'status_signatures',
         ProducedByAdvancedFilter,
         ('date', AdvancedDateFilter), 
         ('created', AdvancedDateFilter)
@@ -455,6 +482,19 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     def timestamp(self, obj):
         
         return obj.date
+    
+    @admin.display(description="Valid Signature ?")
+    def is_signed(self, obj):
+
+        match obj.status_signatures:
+            case Model.Status.VALID:
+                return format_html('<img src="/django_static/admin/img/icon-yes.svg">')
+            case Model.Status.WARNING:
+                return format_html('<img src="/django_static/admin/img/icon-alert.svg">')
+            case Model.Status.INVALID:
+                return format_html('<img src="/django_static/admin/img/icon-no.svg">')
+            case _:
+                return '-'
     
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
