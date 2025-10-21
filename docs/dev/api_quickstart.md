@@ -6,9 +6,9 @@ The preview of the Validation Service API is available at `https://dev.validate.
 ## Documentation
 
 Auto-generated documentation is available in both
-[Swagger](https://dev.validate.buildingsmart.org/api/swagger-ui) 
+[Swagger](https://dev.validate.buildingsmart.org/api/v1/swagger-ui) 
 and
-[Redocly](https://dev.validate.buildingsmart.org/api/redoc)
+[Redocly](https://dev.validate.buildingsmart.org/api/v1/redoc)
 formats.
 
 ## Auth token
@@ -23,13 +23,13 @@ You can use this token either as a Bearer token or use it as the password in com
 1. Sample to show difference between Token vs. Basic authentication
 
     ``` shell
-     curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest' --header 'Authorization: Token <TOKEN>'
+     curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest' --header 'Authorization: Token <TOKEN>'
     ```
 
     -or-
 
     ```shell
-    curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest' --header 'Authorization: Basic <HASH>'
+    curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest' --header 'Authorization: Basic <HASH>'
     ```
 
     where `<HASH>` is the Base64-encoded email and token as password, separated by a colon, eg. base64(johndoe@gmail.com:abcdefgh12345)
@@ -37,7 +37,7 @@ You can use this token either as a Bearer token or use it as the password in com
 2. Submit a POST request to the `/validationrequest` endpoint to initiate a new Validation Request (requires a file name and the file contents):
 
    ```shell
-      curl -X POST --location 'https://dev.validate.buildingsmart.org/api/validationrequest' \
+      curl -X POST --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest' \
 
       --header 'Authorization: Token <TOKEN>' \
 
@@ -51,23 +51,23 @@ You can use this token either as a Bearer token or use it as the password in com
 3. Fetch details of a single ValidationRequest via a GET request to the `/validationrequest` endpoint
 
    ```shell
-      curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest/r767775526' --header 'Authorization: Token <TOKEN>'
+      curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest/r767775526' --header 'Authorization: Token <TOKEN>'
    ```
 
 4. Fetch details of all ValidationRequests via a GET request to the `/validationrequest` endpoint
 
    ```shell
-   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest' --header 'Authorization: Token <TOKEN>'
+   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest' --header 'Authorization: Token <TOKEN>'
    ```
 
 5. Fetch all ValidationTasks for two ValidationRequests via a GET request to the `/validationtask` endpoint
 
    ```shell
-   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationtask?request_public_id=r75257132,r383446691' --header 'Authorization: Token <TOKEN>'
+   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationtask?request_public_id=r75257132,r383446691' --header 'Authorization: Token <TOKEN>'
    ```
    
 6. Fetch all the outcomes of a single ValidationRequest via a GET request to the `/validationoutcome` endpoint
 
    ```shell
-   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationoutcome?request_public_id=r75257132' --header 'Authorization: Token <TOKEN>'
+   curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationoutcome?request_public_id=r75257132' --header 'Authorization: Token <TOKEN>'
    ```
