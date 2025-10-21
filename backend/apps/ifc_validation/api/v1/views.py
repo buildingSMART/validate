@@ -34,6 +34,7 @@ from ...tasks import ifc_file_validation_task
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(tags=['Validation Request'])
 class ValidationRequestDetailAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
@@ -42,7 +43,13 @@ class ValidationRequestDetailAPIView(APIView):
     serializer_class = ValidationRequestSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='validationrequest_get')
+    @extend_schema(
+        operation_id='validationrequest_get',
+        responses={
+            200: ValidationRequestSerializer,
+            404: None,
+        }
+    )
     def get(self, request, id, *args, **kwargs):
 
         """
@@ -56,10 +63,16 @@ class ValidationRequestDetailAPIView(APIView):
             serializer = self.serializer_class(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
+            data = {'detail': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(operation_id='validationrequest_delete')
+    @extend_schema(
+        operation_id='validationrequest_delete',
+        responses={
+            204: None,
+            404: None,
+        }
+    )
     def delete(self, request, id, *args, **kwargs):
 
         """
@@ -77,10 +90,11 @@ class ValidationRequestDetailAPIView(APIView):
             instance.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
-            data = {'message': f"Validation Request with public_id={id} does not exist."}
+            data = {'detail': f"Validation Request with public_id={id} does not exist."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(tags=['Validation Request'])
 class ValidationRequestListAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
@@ -94,7 +108,13 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         """    
         return [ScopedRateThrottle()] if self.request.method == 'POST' else [UserRateThrottle()]
 
-    @extend_schema(operation_id='validationrequest_list')
+    @extend_schema(
+        operation_id='validationrequest_list',
+        responses={
+            200: ValidationRequestSerializer(many=True),
+            404: None
+        }
+    )
     def get(self, request, *args, **kwargs):
 
         """
@@ -125,7 +145,13 @@ class ValidationRequestListAPIView(ListCreateAPIView):
 
         return qs
 
-    @extend_schema(operation_id='validationrequest_create')
+    @extend_schema(
+        operation_id='validationrequest_create',
+        responses={
+            201: ValidationRequestSerializer,
+            400: None,
+        }
+    )
     def post(self, request, *args, **kwargs):
 
         """
@@ -191,6 +217,7 @@ class ValidationRequestListAPIView(ListCreateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=['Validation Task'])
 class ValidationTaskDetailAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
@@ -198,7 +225,13 @@ class ValidationTaskDetailAPIView(APIView):
     serializer_class = ValidationTaskSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='validationtask_get')
+    @extend_schema(
+        operation_id='validationtask_get',
+        responses={
+            200: ValidationTaskSerializer(),
+            404: None,
+        }
+    )
     def get(self, request, id, *args, **kwargs):
 
         """
@@ -212,17 +245,24 @@ class ValidationTaskDetailAPIView(APIView):
             serializer = ValidationTaskSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Task with public_id={id} does not exist for user with id={request.user.id}."}
+            data = {'detail': f"Validation Task with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(tags=['Validation Task'])
 class ValidationTaskListAPIView(ListAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationTaskSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='validationtask_list')
+    @extend_schema(
+        operation_id='validationtask_list',
+        responses={
+            200: ValidationTaskSerializer(many=True),
+            404: None,
+        }
+    )
     def get(self, request, *args, **kwargs):
 
         """
@@ -250,6 +290,7 @@ class ValidationTaskListAPIView(ListAPIView):
         return qs
 
 
+@extend_schema(tags=['Validation Outcome'])
 class ValidationOutcomeDetailAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
@@ -257,7 +298,13 @@ class ValidationOutcomeDetailAPIView(APIView):
     serializer_class = ValidationOutcomeSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='validationoutcome_get')
+    @extend_schema(
+        operation_id='validationoutcome_get',
+        responses={
+            200: ValidationOutcomeSerializer,
+            404: None,
+        }
+    )
     def get(self, request, id, *args, **kwargs):
 
         """
@@ -271,16 +318,24 @@ class ValidationOutcomeDetailAPIView(APIView):
             serializer = ValidationOutcomeSerializer(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Validation Outcome with public_id={id} does not exist for user with id={request.user.id}."}
+            data = {'detail': f"Validation Outcome with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(tags=['Validation Outcome'])
 class ValidationOutcomeListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='validationoutcome_list')
+    @extend_schema(
+        operation_id='validationoutcome_list',
+        responses=
+        {
+            200: ValidationOutcomeSerializer(many=True),
+            404: None,
+        }
+    )
     def get(self, request, *args, **kwargs):
 
         """
@@ -315,6 +370,7 @@ class ValidationOutcomeListAPIView(ListAPIView):
         return qs
 
 
+@extend_schema(tags=['Model'])
 class ModelDetailAPIView(APIView):
 
     queryset = Model.objects.all()
@@ -322,7 +378,13 @@ class ModelDetailAPIView(APIView):
     serializer_class = ModelSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='model_get')
+    @extend_schema(
+        operation_id='model_get',
+        responses={
+            200: ModelSerializer,
+            404: None,
+        }
+    )
     def get(self, request, id, *args, **kwargs):
 
         """
@@ -336,16 +398,23 @@ class ModelDetailAPIView(APIView):
             serializer = self.serializer_class(instance)
             return Response(serializer.data, status=status.HTTP_200_OK)
         else:
-            data = {'message': f"Model with public_id={id} does not exist for user with id={request.user.id}."}
+            data = {'detail': f"Model with public_id={id} does not exist for user with id={request.user.id}."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
 
 
+@extend_schema(tags=['Model'])
 class ModelListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer
     throttle_classes = [UserRateThrottle]
 
-    @extend_schema(operation_id='model_list')
+    @extend_schema(
+        operation_id='model_list',
+        responses={
+            200: ModelSerializer(many=True),
+            404: None,
+        }
+    )
     def get(self, request, *args, **kwargs):
 
         """

@@ -87,7 +87,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ file: [ 'File size exceeds allowed file size limit (256 MB).' ] });
+        expect(await response.json()).toEqual(
+        { 
+            file: [ 'File size exceeds allowed file size limit (256 MB).' ] 
+        });
     });
 
     test('POST rejects empty request', async ({ request }) => {
@@ -103,11 +106,10 @@ test.describe('API - ValidationRequest', () => {
 
         // check if the error details are correct
         expect(await response.json()).toEqual(
-            {
-                "file": [ "No file was submitted." ], 
-                "file_name": [ "This field is required." ]
-            }
-        );
+        {
+            file: [ "No file was submitted." ], 
+            file_name: [ "This field is required." ]
+        });
     });
 
     test('POST rejects empty file', async ({ request }) => {
@@ -123,7 +125,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ file: [ 'The submitted file is empty.' ] });
+        expect(await response.json()).toEqual(
+        { 
+            file: [ 'The submitted file is empty.' ] 
+        });
     });
 
     test('POST rejects empty file name', async ({ request }) => {
@@ -139,9 +144,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toStrictEqual({
-            "file": [ "The submitted data was not a file. Check the encoding type on the form." ], 
-            "file_name": [ "This field is required." ]
+        expect(await response.json()).toStrictEqual(
+        {
+            file: [ "The submitted data was not a file. Check the encoding type on the form." ], 
+            file_name: [ "This field is required." ]
         });
     });
 
@@ -158,7 +164,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ file_name: [ "File name must end with '.ifc'." ] });
+        expect(await response.json()).toEqual(
+        { 
+            file_name: [ "File name must end with '.ifc'." ] 
+        });
     });
 
     test('POST only accepts a single file (for now)', async ({ request }) => {
@@ -177,7 +186,10 @@ test.describe('API - ValidationRequest', () => {
         expect(response.status()).toBe(400); 
 
         // check if the error details are correct
-        expect(await response.json()).toEqual({ file: 'Only one file can be uploaded at a time.' });
+        expect(await response.json()).toEqual(
+        { 
+            file: 'Only one file can be uploaded at a time.' 
+        });
     });
 
     test('POST without authorization header returns 401', async ({ request }) => {
@@ -190,6 +202,12 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 
     test('GET returns a single instance', async ({ request }) => {
@@ -401,6 +419,12 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 
     test('GET with incorrect authorization header returns 401', async ({ request }) => {
@@ -413,6 +437,12 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
     
     test('GET returns results ordered by "created" field', async ({ request }) => {
@@ -428,7 +458,7 @@ test.describe('API - ValidationRequest', () => {
         
         // retrieve list of ValidationRequests
         const res = await request.get(`${API_BASE_URL}/validationrequest`, {
-        headers: createAuthHeader(TEST_CREDENTIALS)
+            headers: createAuthHeader(TEST_CREDENTIALS)
         });
         const data = await res.json();
       
@@ -511,6 +541,12 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 404 NOT FOUND
         expect(response.statusText()).toBe('Not Found');
         expect(response.status()).toBe(404);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Validation Request with public_id=r000000000 does not exist.'
+        });
     });
 
     test('DELETE without authorization header returns 401', async ({ request }) => {
@@ -523,6 +559,12 @@ test.describe('API - ValidationRequest', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 });
 
@@ -606,9 +648,15 @@ test.describe('API - ValidationTask', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 
-    test('POST should return 405', async ({ request }) => {
+    test('POST should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to post a new ValidationTask
         const response = await request.post(`${API_URL}`, {
@@ -618,9 +666,15 @@ test.describe('API - ValidationTask', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "POST" not allowed.'
+        });
     });
 
-    test('PUT should return 405', async ({ request }) => {
+    test('PUT should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to update a ValidationTask
         const response = await request.put(`${API_URL}`, {
@@ -630,9 +684,15 @@ test.describe('API - ValidationTask', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "PUT" not allowed.'
+        });
     });
 
-    test('DELETE should return 405', async ({ request }) => {
+    test('DELETE should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to delete a ValidationTask
         const response = await request.delete(`${API_URL}`, {
@@ -642,6 +702,12 @@ test.describe('API - ValidationTask', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "DELETE" not allowed.'
+        });
     });
 });
 
@@ -725,9 +791,15 @@ test.describe('API - ValidationOutcome', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 
-    test('POST should return 405', async ({ request }) => {
+    test('POST should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to post a new ValidationOutcome
         const response = await request.post(`${API_URL}`, {
@@ -737,9 +809,15 @@ test.describe('API - ValidationOutcome', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "POST" not allowed.'
+        });
     });
 
-    test('PUT should return 405', async ({ request }) => {
+    test('PUT should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to update a ValidationOutcome
         const response = await request.put(`${API_URL}`, {
@@ -749,9 +827,15 @@ test.describe('API - ValidationOutcome', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "PUT" not allowed.'
+        });
     });
 
-    test('DELETE should return 405', async ({ request }) => {
+    test('DELETE should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to delete a ValidationOutcome
         const response = await request.delete(`${API_URL}`, {
@@ -761,6 +845,12 @@ test.describe('API - ValidationOutcome', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "DELETE" not allowed.'
+        });
     });
 });
 
@@ -847,9 +937,15 @@ test.describe('API - Model', () => {
         // check if the response is correct - 401 Unauthorized
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Authentication credentials were not provided.'
+        });
     });
 
-    test('POST should return 405', async ({ request }) => {
+    test('POST should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to post a new Model
         const response = await request.post(`${API_URL}`, {
@@ -859,9 +955,15 @@ test.describe('API - Model', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "POST" not allowed.'
+        });
     });
 
-    test('PUT should return 405', async ({ request }) => {
+    test('PUT should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to update a Model
         const response = await request.put(`${API_URL}`, {
@@ -871,9 +973,15 @@ test.describe('API - Model', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "PUT" not allowed.'
+        });
     });
 
-    test('DELETE should return 405', async ({ request }) => {
+    test('DELETE should return 405 - Method Not Allowed', async ({ request }) => {
 
         // try to delete a Model
         const response = await request.delete(`${API_URL}`, {
@@ -883,6 +991,12 @@ test.describe('API - Model', () => {
         // check if the response is correct - 405 Method Not Allowed
         expect(response.statusText()).toBe('Method Not Allowed');
         expect(response.status()).toBe(405);
+
+        // check if the error details are correct
+        expect(await response.json()).toEqual(
+        { 
+            detail: 'Method "DELETE" not allowed.'
+        });
     });
 });
 
@@ -1018,8 +1132,8 @@ test.describe('API - Versioning Checks', () => {
             });
             
             // check if the response is correct - 404 Not Found
-        expect(response.statusText()).toBe('Not Found');
-        expect(response.status()).toBe(404);
+            expect(response.statusText()).toBe('Not Found');
+            expect(response.status()).toBe(404);
         });
     };
 
@@ -1032,8 +1146,8 @@ test.describe('API - Versioning Checks', () => {
             });
             
             // check if the response is correct - 404 Not Found
-        expect(response.statusText()).toBe('Not Found');
-        expect(response.status()).toBe(404);
+            expect(response.statusText()).toBe('Not Found');
+            expect(response.status()).toBe(404);
         });
     };
     
@@ -1112,5 +1226,46 @@ test.describe('API - Browsers vs Clients', () => {
         expect(response.status()).toBe(200);
         expect(response.url()).toBe(`${API_BASE_URL}/v1/schema/`);
     });  
+
+});
+
+test.describe('API - Documentation', () => {
+
+    test('Swagger-UI should render correctly', async ({ request }) => {
+
+        // navigate to Swagger-UI
+        const response = await request.get(`${API_BASE_URL}/v1/swagger-ui`, {
+            maxRedirects: 5
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+    });
+
+    test('Redocly should render correctly', async ({ request }) => {
+
+        // navigate to Redocly
+        const response = await request.get(`${API_BASE_URL}/v1/redoc`, {
+            maxRedirects: 5
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+    });
+
+    test('Schema should download correctly', async ({ request }) => {
+
+        // download schema
+        const response = await request.get(`${API_BASE_URL}/v1/schema`, {
+            maxRedirects: 5
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+        expect(response.headers()['content-type'] ).toBe('application/vnd.oai.openapi; charset=utf-8');
+    });
 
 });

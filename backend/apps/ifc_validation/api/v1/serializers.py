@@ -34,7 +34,7 @@ class ValidationRequestSerializer(BaseSerializer):
         fields = '__all__'
         show = ["public_id", "model_public_id"]
         hide = ["id", "model", "deleted", "created_by", "updated_by", "status_reason"]
-        read_only_fields = ['size', 'created_by', 'updated_by']
+        read_only_fields = ['size', 'created', 'updated', 'created_by', 'updated_by', 'channel', 'completed', 'started', 'progress', 'status']
 
     def validate_file(self, value):
 
