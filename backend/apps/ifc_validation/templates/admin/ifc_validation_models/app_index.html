@@ -14,14 +14,16 @@
   {% endblock %}
 {% endif %}
 {% block content %}
+
 <div style="float: left">
   <div id="content-main">
     {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
   </div>
 
   <div id="content-statistics">
-    <h1>Statistics</h1>
+    <h1>Metrics &amp; Statistics</h1>
     <style>
+      .dashboard #content { width: 80%; }
       .kpi-tile {
         padding: 1rem;
         background: #333;
@@ -43,6 +45,7 @@
       integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
       crossorigin="anonymous">
     </script>
+
     <form id="filterForm">
       <span id="year-wrapper">
         <label for="year">Choose a year:</label>
@@ -285,5 +288,7 @@
       })(jQuery);
     </script>
   </div>
+
 </div>
+  
 {% endblock %}
