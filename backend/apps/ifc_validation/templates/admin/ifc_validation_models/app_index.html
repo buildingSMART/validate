@@ -24,6 +24,8 @@
     <h1>Metrics &amp; Statistics</h1>
     <style>
       .dashboard #content { width: 80%; }
+      .charts-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; min-width: 1400px; margin-top: 35px; }
+      .chart-cell { width: 100%; min-height: 350px; } */
       .kpi-tile {
         padding: 1rem;
         background: #333;
@@ -89,7 +91,7 @@
           { id: "requestsChart",          type: "bar",  endpoint: "requests",               stacked: true },
           { id: "durationPerRequestChart",type: "line", endpoint: "duration-per-request",   tooltip: ctx => `${ctx.parsed.y} m` },
           { id: "durationPerTaskChart",   type: "bar",  endpoint: "duration-per-task",      stacked: true },
-          { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
+          // { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
           { id: "avgSizeChart",           type: "line", endpoint: "avg-size" },
           { id: "uploadsBy2hChart",       type: "bar",  endpoint: "uploads-per-2h",         tooltip: ctx => `${ctx.parsed.y} uploads` },
           { id: "userRegistrationsChart", type: "bar",  endpoint: "user-registrations",     tooltip: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}` },
@@ -110,9 +112,13 @@
         // ------------------------------------------------------------------
         function createCanvases() {
           const $container = $("#charts");
-          $container.empty(); 
+          const $grid = $('<div>', { class: 'charts-grid' });
+          $container.empty();
+          $container.append($grid);
           chartDefs.forEach(def => {
-            $("<canvas>", { id: def.id, class: "my-4" }).appendTo($container);
+            const $cell = $('<div>', { class: 'chart-cell' });
+            $("<canvas>", { id: def.id, class: "my-4", style: "height: 100%; width: 100%" }).appendTo($cell);
+            $cell.appendTo($grid);
           });
         }
 
