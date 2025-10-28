@@ -137,6 +137,7 @@ test.describe('UI - Django Admin', () => {
     await expect(page.locator('#requestsChart')).toBeVisible();
     await expect(page.locator('#processingStatusChart')).toBeVisible();
     await expect(page.locator('#usageByVendorChart')).toBeVisible();
+    await expect(page.locator('#usageByChannelChart')).toBeVisible();
     await expect(page.locator('#topToolsChart')).toBeVisible();
     await expect(page.locator('#queueP95Chart')).toBeVisible();
 

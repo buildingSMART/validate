@@ -17,13 +17,13 @@ from apps.ifc_validation_models.models import (
     AuthoringTool,
 )
 
-months = list(calendar.month_name)[1:] 
+MONTHS = list(calendar.month_name)[1:] 
 
 PERIODS = {
     "month": {
         "annotate": lambda qs: qs.annotate(period=ExtractMonth("created")),
-        "label":   lambda row: months[row["period"] - 1],         
-        "full_set": months,
+        "label":   lambda row: MONTHS[row["period"] - 1],         
+        "full_set": MONTHS,
     },
     "week": {
         "annotate": lambda qs: qs.annotate(period=ExtractWeek("created")),
@@ -52,7 +52,6 @@ PERIODS = {
     },
 }
 
-
 COLORS = {
     "primary": "#79aec8",
     "success": "#55efc4",
@@ -72,7 +71,6 @@ SYNTAX_TASK_TYPES = {
     "SYNTAX_HEADER": "SYNTAX",
     "HEADER_SYNTAX": "SYNTAX",
 }
-
 
 TASK_TYPES = {
     "SYNTAX": ("Syntax", COLORS["success"]),
@@ -120,7 +118,8 @@ def chart_response(title, labels, datasets):
             "datasets": datasets,
         },
     })
-    
+
+
 def group_by_period(qs, period, agg_key, agg_expression, window=None):
     cfg = PERIODS[period]
     qs = cfg["annotate"](qs)
@@ -131,7 +130,7 @@ def group_by_period(qs, period, agg_key, agg_expression, window=None):
         qs = qs.filter(
             Q(period__in=[
                 int(lbl[1:]) if period in ["week", "quarter"]
-                else months.index(lbl) + 1 if period == "month"
+                else MONTHS.index(lbl) + 1 if period == "month"
                 else lbl
                 for lbl in valid_labels
             ])
@@ -141,6 +140,7 @@ def group_by_period(qs, period, agg_key, agg_expression, window=None):
           .annotate(**{agg_key: agg_expression})
           .order_by("period")
     )
+
 
 def fill_period_dict(grouped_qs, period, year, *, key, transform=lambda x: x, window=None):
     data = dict_for_period(period, year=year, window=window)   
@@ -153,8 +153,10 @@ def fill_period_dict(grouped_qs, period, year, *, key, transform=lambda x: x, wi
             data[label] = round(value, 2)
     return data
 
+
 def get_period(request):
     return request.GET.get("period", "month").lower()
+
 
 def get_window(request) -> int | None:
     try:
@@ -201,7 +203,7 @@ def _rolling_labels(period: str, window: int, today: datetime.date | None = None
     month_cursor = today.replace(day=1) 
     labels = []
     for _ in range(window):
-        labels.insert(0, months[month_cursor.month - 1])
+        labels.insert(0, MONTHS[month_cursor.month - 1])
         month_cursor = (month_cursor - datetime.timedelta(days=1)).replace(day=1)
     return labels
 
@@ -390,7 +392,7 @@ def get_duration_per_task_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -435,7 +437,6 @@ def get_duration_per_task_chart(request, year):
         labels=labels,
         datasets=datasets,
     )
-
 
 
 @staff_member_required
@@ -630,6 +631,78 @@ def get_usage_by_vendor_chart(request, year):
     
 
 @staff_member_required
+def get_usage_by_channel_chart(request, year):
+    """
+    Distinct channels per period, split into WebUI vs API.
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.all()
+        total_uploaders = qs.values("channel").distinct().count()
+        api_uploaders = qs.filter(
+            channel=ValidationRequest.Channel.API
+        ).values("id").distinct().count()
+        webui_uploaders = total_uploaders - api_uploaders
+
+        return chart_response(
+            title="Channels (WebUI vs API, Total)",
+            labels=["WebUI", "API"],
+            datasets=[{
+                "label": "Channels",
+                "backgroundColor": [COLORS["primary"], COLORS["success"]],
+                "borderColor": [COLORS["primary"], COLORS["success"]],
+                "data": [webui_uploaders, api_uploaders],
+            }]
+        )
+
+    qs = ValidationRequest.objects.filter(created__year=year)
+
+    total_qs = group_by_period(
+        qs,
+        period,
+        "total",
+        Count("id", distinct=True),
+        window=window
+    )
+
+    api_qs = group_by_period(
+        qs.filter(channel=ValidationRequest.Channel.API),
+        period,
+        ValidationRequest.Channel.API,
+        Count("id", distinct=True),
+        window=window
+    )
+
+    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=window)
+    api_dict = fill_period_dict(api_qs, period, year, key="API", transform=int, window=window)
+    webui_dict = {lbl: total_dict[lbl] - api_dict.get(lbl, 0) for lbl in total_dict}
+    labels = list(total_dict.keys())
+
+    return chart_response(
+        title=f"Channels (WebUI vs API) in {year}",
+        labels=labels,
+        datasets=[
+            {
+                "label": "WebUI",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [webui_dict[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
+            {
+                "label": "API",
+                "backgroundColor": COLORS["success"],
+                "borderColor": COLORS["success"],
+                "data": [api_dict[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
+        ],
+    )
+
+
+@staff_member_required
 def get_models_by_vendor_chart(request, year):
     """
     Count models uploaded per period, split by vendor vs end-user.
@@ -676,7 +749,7 @@ def get_models_by_vendor_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -812,7 +885,6 @@ def get_tools_count_chart(request, year):
     )
 
 
-
 @staff_member_required
 def get_totals(request):
     # Overall, non time-split totals
@@ -851,7 +923,7 @@ def get_uploads_per_2h_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -883,6 +955,7 @@ def get_uploads_per_2h_chart(request, year):
         }],
     )
 
+
 @staff_member_required
 def get_queue_p95_chart(request, year):
     period = get_period(request)
@@ -899,7 +972,7 @@ def get_queue_p95_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -965,7 +1038,7 @@ def get_stuck_per_day_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -997,6 +1070,7 @@ def get_stuck_per_day_chart(request, year):
         }],
     )
 
+
 @staff_member_required
 def get_uploads_per_weekday_chart(request, year):
     period = get_period(request)
@@ -1013,7 +1087,7 @@ def get_uploads_per_weekday_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
