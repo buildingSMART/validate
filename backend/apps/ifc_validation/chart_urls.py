@@ -14,6 +14,7 @@ urlpatterns = [
     path("avg-size/<int:year>/", charts.get_avg_size_chart),
     path("user-registrations/<int:year>/", charts.get_user_registrations_chart),
     path("usage-by-vendor/<int:year>/", charts.get_usage_by_vendor_chart),
+    path("usage-by-channel/<int:year>/", charts.get_usage_by_channel_chart),
     path("models-by-vendor/<int:year>/", charts.get_models_by_vendor_chart),
     path("top-tools/<int:year>/", charts.get_top_tools_chart),
     path("tools-count/<int:year>/", charts.get_tools_count_chart),
