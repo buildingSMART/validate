@@ -96,7 +96,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
 if DEVELOPMENT:
@@ -143,11 +142,13 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES':(
+        # 'rest_framework.permissions.AllowAny',
         'rest_framework.permissions.IsAuthenticated',
+        # 'rest_framework.permissions.IsAdminUser',
     ),
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
@@ -157,7 +158,7 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '100/hour',
         'user': '1000/hour',
-        'submit_validation_request': '10/hour'
+        'submit_validation_request': '1000/hour' if DEVELOPMENT and DEBUG else '10/hour'
     }
 }
 
@@ -275,6 +276,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Uploaded files
 MAX_FILES_PER_UPLOAD = 100
+MAX_FILE_SIZE_IN_MB = int(os.environ.get("MAX_FILE_SIZE_IN_MB", 256))  # default to 256 MB
 MEDIA_URL = '/files/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/files_storage')
 try:
