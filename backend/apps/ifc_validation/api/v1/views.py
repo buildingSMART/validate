@@ -153,7 +153,8 @@ class ValidationRequestListAPIView(ListCreateAPIView):
 
                     # only accept one file (for now) - note: can't be done easily in serializer,
                     # as we need access to request.FILES and our model only accepts one file
-                    # serializer.validate_files(files)
+                    if len(files) > 1:
+                        raise serializers.ValidationError({'file': 'Only one file can be uploaded at a time.'})
 
                     # retrieve file size and save
                     uploaded_file = serializer.validated_data

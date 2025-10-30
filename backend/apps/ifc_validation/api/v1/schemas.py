@@ -23,15 +23,6 @@ class ValidationRequestIn(_Base):
             raise ValueError(f"File size exceeds allowed file size limit ({MAX_FILE_SIZE_IN_MB} MB).")
         return v
 
-    @field_validator("files")
-    @classmethod
-    def at_most_one_file(cls, v: Optional[List[UploadedFile]]):
-        if v is None:
-            return v
-        if len(v) != 1:
-            raise ValueError("Only one file can be uploaded at a time.")
-        return v
-
     @field_validator("file_name")
     @classmethod
     def file_name_ifc(cls, v: Optional[str]):

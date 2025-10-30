@@ -1,4 +1,3 @@
-# pydantic_bridge.py
 from rest_framework import serializers
 from pydantic import ValidationError as PydanticValidationError
 
@@ -15,20 +14,6 @@ class PydanticValidatorMixin:
     def validate(self, attrs):
         if self.Schema is None:
             return attrs
-
-        request = self.context.get("request")
-        if request is not None and "files" not in attrs:
-            files = request.FILES.getlist("file") or []
-            while True:
-                key = f"file[{i}]"
-                li = request.FILES.getlist(key)
-                if not li:
-                    break
-                files += li
-                i += 1
-            if files:
-                attrs = {**attrs, "files": files}
-
         try:
             model = self.Schema.model_validate(attrs)
         except PydanticValidationError as exc:
