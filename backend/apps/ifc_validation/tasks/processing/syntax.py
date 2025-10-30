@@ -39,7 +39,7 @@ def process_syntax_outcomes(context:TaskContext):
         model.save(update_fields=[status_field])
         
         # return reason for logging
-        return "No IFC syntax error(s)." if success else f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}"
+        logger.info("No IFC syntax error(s)." if success else f"Found IFC syntax errors:\n\nConsole: \n{output}\n\nError: {error_output}")
 
 
 def process_syntax(context:TaskContext):

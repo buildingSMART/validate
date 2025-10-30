@@ -26,4 +26,4 @@ def process_digital_signatures(context:TaskContext):
         ValidationOutcome.objects.bulk_create(list(map(create_outcome, output)), batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
         model.save(update_fields=['status_signatures'])
-        return 'Digital signature check completed' if success else f"Script returned exit code {context.result.returncode} and {context.result.stderr}"
+        logger.info('Digital signature check completed' if success else f"Script returned exit code {context.result.returncode} and {context.result.stderr}")
