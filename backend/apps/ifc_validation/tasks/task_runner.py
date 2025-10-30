@@ -11,16 +11,46 @@ from .context import TaskContext
 from .utils import get_absolute_file_path
 from .logger import logger
 from .email_tasks import *
+import psutil
+from celery.exceptions import SoftTimeLimitExceeded
+
+
+def terminate_subprocesses():
+    parent = psutil.Process()
+    children = parent.children(recursive=True)
+    logger.debug(f"found child pids: {' '.join(map(str, (c.pid for c in children)))}")
+
+    for child in children:
+        try:
+            child.terminate()
+            logger.debug(f"terminated {child.pid}")
+        except psutil.NoSuchProcess:
+            logger.debug(f"no such process {child.pid}")
+            pass
+
+    _, alive = psutil.wait_procs(children, timeout=10)
+    logger.debug(f"processes still alive: {' '.join(map(str, (c.pid for c in alive)))}")
+    for child in alive:
+        try:
+            child.kill()
+            logger.debug(f"killed {child.pid}")
+        except psutil.NoSuchProcess:
+            logger.debug(f"no such process {child.pid}")
+            pass
+
+
+def kill_subprocesses_on_timeout(task_func):
+    @functools.wraps(task_func)
+    def wrapper(*args, **kwargs):
+        try:
+            return task_func(*args, **kwargs)
+        except SoftTimeLimitExceeded:
+            terminate_subprocesses()
+            raise
+    return wrapper
 
 
 assert task_registry.total_increment() == 100
-
-def check_proc_success_or_fail(proc, task):
-    if proc.returncode is not None and proc.returncode != 0:
-        error_message = f"Running {' '.join(proc.args)} failed with exit code {proc.returncode}\n{proc.stdout}\n{proc.stderr}"
-        task.mark_as_failed(error_message)
-        raise RuntimeError(error_message)
-    return proc.stdout
 
 @shared_task(bind=True)
 @log_execution
@@ -97,6 +127,7 @@ def task_factory(task_type):
     @shared_task(bind=True, name=config.celery_task_name)
     @log_execution
     @requires_django_user_context
+    @kill_subprocesses_on_timeout
     def validation_subtask_runner(self, *args, **kwargs):
     
         id = kwargs.get('id')
