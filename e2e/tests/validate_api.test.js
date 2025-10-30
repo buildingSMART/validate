@@ -2,17 +2,10 @@ import { test, expect } from '@playwright/test';
 import { readFileSync } from 'fs';
 import { basename } from 'path';
 import { statSync } from 'fs';
+import { createAuthHeader, createFormData } from './utils.js';
 
 const BASE_URL = 'http://localhost:8000';
 const TEST_CREDENTIALS = 'root:root';
-
-function createAuthHeader(credentials) {
-
-    const hash = Buffer.from(credentials).toString('base64');
-    return {
-        'Authorization': `Basic ${hash}`
-    };
-}
 
 function findAndReadFileSync(filepath) {
     
@@ -22,16 +15,6 @@ function findAndReadFileSync(filepath) {
         return readFileSync('e2e/' + filepath);
     }
     throw new Error(`File does not exist: ${filepath}`);
-}
-
-function createFormData(filePath, fileName = undefined) {
-
-    const name = fileName ?? basename(filePath);
-    const file = new File([findAndReadFileSync(filePath)], name);
-    const form = new FormData();
-    form.append('file', file);
-    form.append('file_name', name);
-    return form;
 }
 
 function createFormDataForTwoFiles(filePath1, filePath2) {
@@ -316,5 +299,66 @@ test.describe('API - ValidationRequest', () => {
         expect(response.statusText()).toBe('Unauthorized');
         expect(response.status()).toBe(401);
     });
+});
+
+test.describe('API - Browsers vs Clients', () => {
+
+    test('Browsers will be redirected to /api/swagger-ui', async ({ request }) => {
+
+        // root of /api
+        const response = await request.get(`${BASE_URL}/api/`, {
+            headers: {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+            },
+            maxRedirects: 0
+        });
+
+        // check if the response is correct - 302 Found
+        expect(response.statusText()).toBe('Found');
+        expect(response.status()).toBe(302);
+        expect(response.headers()['location']).toBe('/api/swagger-ui/');
+    });
+
+    test('Browsers are redirected to /api/swagger-ui', async ({ request }) => {
+
+        // root of /api
+        const response = await request.get(`${BASE_URL}/api/`, {
+            headers: {
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8'
+            },
+            maxRedirects: 5
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+        expect(response.url()).toBe(`${BASE_URL}/api/swagger-ui/`);
+    });
+
+    test('API clients will be redirected to /api/schema', async ({ request }) => {
+
+        // root of /api
+        const response = await request.get(`${BASE_URL}/api/`, {
+            maxRedirects: 0
+        });
+
+        // check if the response is correct - 302 Found
+        expect(response.statusText()).toBe('Found');
+        expect(response.status()).toBe(302);
+        expect(response.headers()['location']).toBe('/api/schema/');
+    });
+
+    test('API clients are redirected to /api/schema', async ({ request }) => {
+
+        // root of /api
+        const response = await request.get(`${BASE_URL}/api/`, {
+            maxRedirects: 5
+        });
+
+        // check if the response is correct - 200 OK
+        expect(response.statusText()).toBe('OK');
+        expect(response.status()).toBe(200);
+        expect(response.url()).toBe(`${BASE_URL}/api/schema/`);
+    });  
 
 });

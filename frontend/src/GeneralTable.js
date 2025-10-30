@@ -6,20 +6,8 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
-import ErrorIcon from '@mui/icons-material/Error';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
 import WarningIcon from '@mui/icons-material/Warning';
-import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
 import Tooltip from '@mui/material/Tooltip';
-
-const statusToIcon = {
-  "n": <BrowserNotSupportedIcon color="disabled" />,
-  "v": <CheckCircleIcon color="success" />,
-  "i": <ErrorIcon color="error" />,
-  "w": <WarningIcon color="warning" />,
-  "p": <HourglassBottomIcon color="disabled" />
-}
 
 function prettyPrintFileSize(fileSizeInBytes) {
   var i = -1;
@@ -40,6 +28,7 @@ function prettyPrintNumber(number) {
     return '-';
   }
 }
+
 
 function preprocessData(data, type) {
   const validationErrors = data["model"]["header_validation"]?.["validation_errors"] || [];
@@ -87,13 +76,19 @@ function preprocessData(data, type) {
     [warningIconWithLink("File Date", "time_stamp"), data["model"]["header_validation"]?.["time_stamp"] || "-"],
   ];
 
+  const hv = data?.model?.header_validation ?? {}; 
+
+  function replaceOuterWhitespace(str) {
+    return str.replace(/^\s+|\s+$/g, match => "□".repeat(match.length));
+}
+
   // return additional information for header validation report
   if (type === "file") {
     rows.push([warningIconWithLink("Originating System", "originating_system"), data["model"]["header_validation"]?.["originating_system"] || "-"]);
     rows.push([warningIconWithLink("Preprocessor Version", "preprocessor_version"), data["model"]["header_validation"]?.["preprocessor_version"] || "-"]);
-    rows.push([warningIconWithLink("Company Name", "company_name"), data["model"]["header_validation"]?.["company_name"] || "-"]);
-    rows.push([warningIconWithLink("Application Name", "application_name"), data["model"]["header_validation"]?.["application_name"] || "-"]);
-    rows.push([warningIconWithLink("Application Version", "version"), data["model"]["header_validation"]?.["version"] || "-"]);
+    rows.push([warningIconWithLink('Company Name','company_name'),        replaceOuterWhitespace(hv.company_name)]);
+    rows.push([warningIconWithLink('Application Name','application_name'), replaceOuterWhitespace(hv.application_name)]);
+    rows.push([warningIconWithLink('Application Version','version'),       replaceOuterWhitespace(hv.version)]);
     rows.push([warningIconWithLink("Author", "author"), data["model"]["header_validation"]?.["author"] || "-"]);
     rows.push([warningIconWithLink("Organization", "organization"), data["model"]["header_validation"]?.["organization"] || "-"]);
   }

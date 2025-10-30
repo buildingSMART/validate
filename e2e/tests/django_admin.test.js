@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = 'http://localhost:8000/admin';
 const TEST_CREDENTIALS = 'root:root';
 
+import { execFileSync } from 'child_process';
+import { resolve } from 'path';
+
 async function login(page) {
 
   // navigate to the Django admin login page
@@ -194,5 +197,34 @@ test.describe('UI - Django Admin', () => {
     // logout
     await logout(page);
   });
+
+  test('Queue (sec) is derived from created/started (exact value)', async ({ page }) => {
+    const ROOT = resolve(process.cwd(), '..');
+    const PYTHON_BIN = resolve(ROOT, 'backend/.dev/venv/bin/python');
+    const FILE = `queue-e2e-${Date.now()}.ifc`;
   
+    execFileSync(
+      PYTHON_BIN,
+      [
+        'backend/manage.py', 'seed_vr',
+        '--file', FILE,
+        '--created', '2025-01-01T00:00:00Z',
+        '--started', '2025-01-01T00:01:15Z',
+      ],
+      { cwd: ROOT, stdio: 'inherit' }
+    );
+  
+    await login(page);
+  
+    await page.goto(`${BASE_URL}/ifc_validation_models/validationrequest/?q=${FILE}`);
+  
+    const row = page.locator('#result_list tbody tr', { hasText: FILE });
+    const cell = row.locator('td.field-queue_time_text b');
+  
+    await expect(row).toBeVisible();
+    await expect(cell).toHaveText(/^75(\.0)?$/);
+  
+    await logout(page);
+  });
+
 });

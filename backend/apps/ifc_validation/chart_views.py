@@ -1,8 +1,11 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
-from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField
-from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek
+from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField, ExpressionWrapper
+from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek, ExtractHour, Trunc, ExtractWeekDay, Cast
 from django.http import JsonResponse
+
+from zoneinfo import ZoneInfo
+import math
 import calendar
 import datetime
 
@@ -831,3 +834,220 @@ def get_totals(request):
         "files": files_total,
         "tools": tools_total,
     })
+
+
+@staff_member_required
+def get_uploads_per_2h_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = Model.objects.all()
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    agg = (
+        annotated.annotate(local_hour=ExtractHour(Trunc("created", "hour", tzinfo=tz)))
+                 .annotate(block_num=F("local_hour") / 2)
+                 .values("block_num")
+                 .annotate(uploads=Count("id"))
+                 .order_by("block_num")
+    )
+
+    labels = [f"{b*2:02d}:00–{(b*2+2)%24:02d}:00" for b in range(12)]
+    counts = [0] * 12
+    for row in agg:
+        b = int(row["block_num"])
+        if 0 <= b <= 11:
+            counts[b] = row["uploads"] or 0
+
+    return chart_response(
+        title="Uploads per 2-hour block",
+        labels=labels,
+        datasets=[{
+            "label": "Uploads",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": counts,
+        }],
+    )
+
+@staff_member_required
+def get_queue_p95_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = ValidationRequest.objects.filter(started__isnull=False)
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        local_hour=ExtractHour(Trunc("created", "hour", tzinfo=tz)),
+        block_num=Cast(F("local_hour") / 2, IntegerField()),
+    )
+
+    rows = annotated.values_list("block_num", "created", "started")
+
+    buckets = {b: [] for b in range(12)}
+    for b, created, started in rows:
+        if b is None:
+            continue
+        bi = int(b)
+        if 0 <= bi <= 11 and created and started:
+            delta = (started - created).total_seconds()
+            if delta is not None and delta >= 0:
+                buckets[bi].append(delta)
+
+    def pct95(values: list[float]) -> float:
+        if not values:
+            return 0.0
+        values = sorted(values)
+        k = 0.95 * (len(values) - 1)
+        f = math.floor(k)
+        c = math.ceil(k)
+        if f == c:
+            return float(values[int(k)])
+        return float(values[f] + (k - f) * (values[c] - values[f]))
+
+    labels = [f"{b*2:02d}:00–{(b*2+2)%24:02d}:00" for b in range(12)]
+    p95 = [round(pct95(buckets[b]), 1) for b in range(12)]
+
+    return chart_response(
+        title="Queue p95 per 2-hour block",
+        labels=labels,
+        datasets=[{
+            "label": "p95 queue (s)",
+            "type": "line",
+            "backgroundColor": COLORS["info"],
+            "borderColor": COLORS["info"],
+            "data": p95,
+        }],
+    )
+
+
+@staff_member_required
+def get_stuck_per_day_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = ValidationRequest.objects.filter(started__isnull=False)
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        queue_d=ExpressionWrapper(F("started") - F("created"), output_field=DurationField()),
+        local_day=Trunc("created", "day", tzinfo=tz),
+    )
+
+    stuck_qs = (
+        annotated.filter(queue_d__gt=datetime.timedelta(hours=1))
+                 .values("local_day")
+                 .annotate(stuck=Count("id"))
+                 .order_by("local_day")
+    )
+
+    labels = [row["local_day"].date().isoformat() for row in stuck_qs]
+    data   = [row["stuck"] for row in stuck_qs]
+
+    return chart_response(
+        title="Requests with queue > 1h (per day)",
+        labels=labels,
+        datasets=[{
+            "label": "Stuck (>1h) requests",
+            "backgroundColor": COLORS["danger"],
+            "borderColor": COLORS["danger"],
+            "data": data,
+        }],
+    )
+
+@staff_member_required
+def get_uploads_per_weekday_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = Model.objects.all()
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else months.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        local_day=Trunc("created", "day", tzinfo=tz),
+        dow=ExtractWeekDay(F("local_day")),
+    )
+
+    agg = (
+        annotated.values("dow")
+        .annotate(uploads=Count("id"))
+        .order_by("dow")
+    )
+
+    name_map = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
+    items = []
+    for row in agg:
+        dow = int(row["dow"] or 0)
+        sort_key = 7 if dow == 1 else dow - 1
+        items.append((sort_key, name_map.get(dow, str(dow)), int(row["uploads"])))
+
+    items.sort(key=lambda x: x[0])
+    labels = [i[1] for i in items]
+    data   = [i[2] for i in items]
+
+    return chart_response(
+        title="Uploads per weekday",
+        labels=labels,
+        datasets=[{
+            "label": "Uploads",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": data,
+        }],
+    )

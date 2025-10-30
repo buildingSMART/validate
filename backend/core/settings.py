@@ -164,7 +164,11 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'IFC Validation Service API (PREVIEW)',
-    'DESCRIPTION': 'API for the buildingSMART Validation Service',
+    'DESCRIPTION': (
+        'API for the buildingSMART Validation Service.\n\n'
+        '[API Quickstart Documentation]'
+        '(https://github.com/buildingSMART/validate/blob/docs/gh-pages/docs/dev/api_quickstart.md)'
+    ),
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
 
@@ -300,6 +304,7 @@ CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_TRACK_STARTED = True
 CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
+CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
