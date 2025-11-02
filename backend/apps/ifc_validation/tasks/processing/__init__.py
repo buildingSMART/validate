@@ -11,3 +11,4 @@ from .schema import process_schema
 from .header import process_header
 from .digital_signatures import process_digital_signatures
 from .bsdd import process_bsdd
+from .magicav import process_magic_and_clamav

@@ -44,10 +44,11 @@ def make_task(*, type, increment, field=None, stage="parallel"):
     )
 
 # define task info
+magic_clamav        = make_task(type=ValidationTask.Type.MAGIC_AND_CLAMAV, increment=5, field='status_header_syntax', stage="serial")
 header_syntax       = make_task(type=ValidationTask.Type.HEADER_SYNTAX, increment=5, field='status_header_syntax', stage="serial")
 header              = make_task(type=ValidationTask.Type.HEADER,        increment=10, field='status_header',      stage="serial")
 syntax              = make_task(type=ValidationTask.Type.SYNTAX,        increment=5,  field='status_syntax',      stage="serial")
-prerequisites       = make_task(type=ValidationTask.Type.PREREQUISITES, increment=10, field='status_prereq',      stage="serial")
+prerequisites       = make_task(type=ValidationTask.Type.PREREQUISITES, increment=5, field='status_prereq',      stage="serial")
 schema              = make_task(type=ValidationTask.Type.SCHEMA,        increment=10, field='status_schema')
 digital_signatures  = make_task(type=ValidationTask.Type.DIGITAL_SIGNATURES, increment=5,  field='status_signatures')
 bsdd                = make_task(type=ValidationTask.Type.BSDD,          increment=0,  field='status_bsdd')
@@ -64,10 +65,15 @@ prerequisites.blocks = post_tasks.copy()
 
 # register
 ALL_TASKS = [
+    magic_clamav,
     header_syntax, header, syntax, prerequisites,
     schema, digital_signatures, bsdd,
     normative_ia, normative_ip, industry_practices, instance_completion,
 ]
+
+# av check blocks everything
+magic_clamav.blocks = [t for t in ALL_TASKS if t is not magic_clamav]
+
 class TaskRegistry:
     def __init__(self, config_map: dict[str, TaskConfig]):
         self._configs = config_map

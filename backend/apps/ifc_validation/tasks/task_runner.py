@@ -203,6 +203,7 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
     workflow_completed = on_workflow_completed.s(id=id, file_name=file_name)
 
     serial_tasks = chain(
+        magic_clamav_subtask.s(id=id, file_name=file_name),
         header_syntax_validation_subtask.s(id=id, file_name=file_name),
         header_validation_subtask.s(id=id, file_name=file_name),
         syntax_validation_subtask.s(id=id, file_name=file_name),
@@ -254,3 +255,5 @@ digital_signatures_subtask = task_factory(ValidationTask.Type.DIGITAL_SIGNATURES
 bsdd_validation_subtask = task_factory(ValidationTask.Type.BSDD)
 
 industry_practices_subtask = task_factory(ValidationTask.Type.INDUSTRY_PRACTICES)
+
+magic_clamav_subtask = task_factory(ValidationTask.Type.MAGIC_AND_CLAMAV)
