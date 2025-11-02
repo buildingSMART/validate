@@ -18,6 +18,7 @@ RUN set -ex && \
         python3-dev \
         unzip \
         wget \
+        clamav \
         && \
     update-ca-certificates -f && \
     # cleanup
