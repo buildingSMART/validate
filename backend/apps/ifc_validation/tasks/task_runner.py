@@ -97,10 +97,19 @@ def on_workflow_completed(self, result, **kwargs):
         raise ValueError(f"Invalid id: {id!r}")
     reason = "Processing completed"
     request = ValidationRequest.objects.get(pk=id)
-    request.mark_as_completed(reason)
+    failed_tasks = request.tasks.filter(status=ValidationTask.Status.FAILED)
+    if failed_tasks.exists():
+        # @todo with all the try catching and skipping it's not entirely clear any more
+        # that at this point we didn't catch a failure. Maybe this needs to be revisited?
+        request.mark_as_failed("The following tasks failed: " + ' '.join(t.type for t in failed_tasks))
 
-    # queue sending email
-    send_completion_email_task.delay(id=id, file_name=request.file_name)
+        # queue sending email
+        send_failure_email_task.delay(id=id, file_name=request.file_name)
+        send_failure_admin_email_task.delay(id=id, file_name=request.file_name)
+    else:
+        request.mark_as_completed(reason)
+        # queue sending email
+        send_completion_email_task.delay(id=id, file_name=request.file_name)
 
 
 @shared_task(bind=True)

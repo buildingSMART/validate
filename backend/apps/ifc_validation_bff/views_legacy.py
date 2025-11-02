@@ -160,7 +160,7 @@ def status_combine(*args, allow_not_executed=False):
     return statuses[max(map(statuses.index, args))]
 
 
-def format_request(request):
+def format_request(request : ValidationRequest):
     return {
         "id": request.public_id,
         "code": request.public_id,
