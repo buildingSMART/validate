@@ -10,4 +10,4 @@ def process_magic_and_clamav(context:TaskContext):
         setattr(model, context.config.status_field.name, agg_status)
 
         model.save(update_fields=[context.config.status_field.name])
-        return f'Magic and av check completed: {output} success = {success} valid = {valid}'
+        return f'Magic and av check completed:\nsuccess = {success}\nvalid = {valid}\noutput = {output}'

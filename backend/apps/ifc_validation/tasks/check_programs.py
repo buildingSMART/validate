@@ -125,14 +125,17 @@ def check_magic_and_clamav(context:TaskContext):
         # some support for zipbombs
         clamscan = shutil.which('clamscan')
         if clamscan:
-            proc = subprocess.run([
-                clamscan,
-                '--alert-exceeds-max', '--max-recursion=2', '--max-files=10', '--max-scansize=256M', '--max-filesize=128M',
-                context.file_path
-            ])
+            proc = run_subprocess(
+                task=context.task,
+                command=[
+                    clamscan, 
+                    '--alert-exceeds-max', '--max-recursion=2', '--max-files=10', '--max-scansize=256M', '--max-filesize=128M', 
+                    '--stdout', 
+                    context.file_path] 
+            )
             if proc.returncode != 0:
                 result = {
-                    'invalid': 'suspicious zip'
+                    'invalid': f'suspicious file\n\n{proc.stdout}\n{proc.stderr}'
                 }
             else:
                 result = {
