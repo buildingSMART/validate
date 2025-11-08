@@ -26,6 +26,7 @@ psutil==7.0.0
 python-dotenv==1.1.1
 markdown==3.8.2
 authlib==1.3.1
+filetype==1.2.0
 
 # bsi
 lark-parser==0.12.0
