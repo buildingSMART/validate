@@ -450,7 +450,8 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
             "status_industry_practices",
             "status_mvd",
             "status_bsdd",
-            "status_signatures"
+            "status_signatures",
+            "status_magic_clamav",
         ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created",), ("updated")]})
     ]
