@@ -140,6 +140,9 @@ def check_magic_and_clamav(context:TaskContext):
                 }
         else:
             print('WARNING: clamscan not installed')
+            result = {
+                    'warn': 'clamscan not installed'
+                }
     else:
         try:
             mime = ty.mime
@@ -156,7 +159,7 @@ def check_magic_and_clamav(context:TaskContext):
         with open(context.file_path, 'w'):
             pass
     context.result = {
-        "success": True,
+        "success": 'warn' not in result,
         "valid": 'invalid' not in result,
         'output': next(iter(result.values())),
     }
