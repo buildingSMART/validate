@@ -65,6 +65,7 @@ COLORS = {
     "prereq": "#b4acb4",
     "digital_signatures": "#73d0d8",
     "inst_completion": "#e76565",
+    "magic_and_av": "#a29bfe",
 }
 
 SYNTAX_TASK_TYPES = {
@@ -83,6 +84,7 @@ TASK_TYPES = {
     "INDUSTRY": ("Industry", COLORS["industry"]),
     "PREREQ": ("Prereq", COLORS["prereq"]),
     "INST_COMPLETION": ("Inst Completion", COLORS["inst_completion"]),
+    "MAGIC_AND_CLAMAV": ("Magic/AV", COLORS["magic_and_av"]),
 }
 
 SECONDS_PER_MINUTE = 60
