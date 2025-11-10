@@ -7,6 +7,7 @@ from core.settings import MAX_FILE_SIZE_IN_MB
 class _Base(BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
+# note: by convention, this class is suffixed with "In" to indicate it is used for input validation
 class ValidationRequestIn(_Base):
     file: Optional[UploadedFile] = None
     files: Optional[List[UploadedFile]] = None
@@ -43,16 +44,3 @@ class ValidationRequestIn(_Base):
         if v > max_bytes:
             raise ValueError(f"File size exceeds allowed file size limit ({MAX_FILE_SIZE_IN_MB} MB).")
         return v
-
-
-class ValidationTaskIn(_Base):
-    request_public_id: Optional[str] = None
-
-
-class ValidationOutcomeIn(_Base):
-    instance_public_id: Optional[str] = None
-    validation_task_public_id: Optional[str] = None
-
-
-class ModelIn(_Base):
-    public_id: Optional[str] = None

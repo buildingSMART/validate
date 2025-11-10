@@ -6,7 +6,8 @@ from apps.ifc_validation_models.models import ValidationOutcome
 from apps.ifc_validation_models.models import Model
 
 from .pydantic_bridge import PydanticValidatorMixin
-from .schemas import ValidationRequestIn, ValidationTaskIn, ValidationOutcomeIn, ModelIn
+from .schemas import ValidationRequestIn
+
 class BaseSerializer(serializers.ModelSerializer):
 
     def get_field_names(self, declared_fields, info):
@@ -28,6 +29,7 @@ class BaseSerializer(serializers.ModelSerializer):
         
 
 class ValidationRequestSerializer(PydanticValidatorMixin, BaseSerializer):
+
     Schema = ValidationRequestIn
     
     class Meta:
@@ -40,8 +42,6 @@ class ValidationRequestSerializer(PydanticValidatorMixin, BaseSerializer):
 
 class ValidationTaskSerializer(PydanticValidatorMixin, BaseSerializer):
     
-    Schema = ValidationTaskIn
-
     class Meta:
         model = ValidationTask
         fields = '__all__'
@@ -51,8 +51,6 @@ class ValidationTaskSerializer(PydanticValidatorMixin, BaseSerializer):
 
 class ValidationOutcomeSerializer(PydanticValidatorMixin, BaseSerializer):
     
-    Schema = ValidationOutcomeIn
-
     class Meta:
         model = ValidationOutcome
         fields = '__all__'
@@ -62,8 +60,6 @@ class ValidationOutcomeSerializer(PydanticValidatorMixin, BaseSerializer):
 
 class ModelSerializer(PydanticValidatorMixin, BaseSerializer):
 
-    Schema = ModelIn
-    
     class Meta:
         model = Model
         fields = '__all__'
