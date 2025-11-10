@@ -1,9 +1,14 @@
 import os
 import sys
 import json
+import shutil
 import subprocess
 from typing import List
 from dataclasses import dataclass
+
+# pip install filetype
+import filetype
+from filetype.types import archive
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT
 from apps.ifc_validation_models.models import ValidationTask
@@ -111,6 +116,57 @@ def check_header(context:TaskContext):
     context.result = header_validation
     return context
 
+
+def check_magic_and_clamav(context:TaskContext):
+    result = {}
+    ty = filetype.guess(context.file_path)
+    if type(ty) in (type(None), archive.Zip):
+        # happy path, continue
+        # some support for zipbombs
+        clamscan = shutil.which('clamscan')
+        if clamscan:
+            proc = run_subprocess(
+                task=context.task,
+                command=[
+                    clamscan, 
+                    '--alert-exceeds-max', '--max-recursion=2', '--max-files=10', '--max-scansize=256M', '--max-filesize=128M', 
+                    '--stdout', 
+                    context.file_path] 
+            )
+            if proc.returncode != 0:
+                result = {
+                    'invalid': f'suspicious file\n\n{proc.stdout}\n{proc.stderr}'
+                }
+            else:
+                result = {
+                    'valid': 'unknown type' if ty is None else ty.mime
+                }
+        else:
+            print('WARNING: clamscan not installed')
+            result = {
+                    'warn': 'clamscan not installed'
+                }
+    else:
+        try:
+            mime = ty.mime
+        except:
+            mime = 'unknown mime type'
+        result = {
+            'invalid': mime
+        }
+    if 'invalid' in result:
+        print('REMOVING:', context.file_path)
+        # we do not unlink() the file because it would create DB issues
+        # when a file with the exact same name is reuploaded and it is not
+        # made unique.
+        with open(context.file_path, 'w'):
+            pass
+    context.result = {
+        "success": 'warn' not in result,
+        "valid": 'invalid' not in result,
+        'output': next(iter(result.values())),
+    }
+    return context
 
 def check_digital_signatures(context:TaskContext):
     proc = run_subprocess(

@@ -13,7 +13,8 @@ from .task_runner import (
     normative_rules_ip_validation_subtask, 
     bsdd_validation_subtask,
     industry_practices_subtask, 
-    instance_completion_subtask
+    instance_completion_subtask,
+    magic_clamav_subtask
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "normative_rules_ip_validation_subtask",
     "industry_practices_subtask",
     "instance_completion_subtask",
+    "magic_clamav_subtask"
 ]

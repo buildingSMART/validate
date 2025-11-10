@@ -197,6 +197,7 @@ def format_request(request):
         ),
         "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
         "status_signatures": "p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures,
+        "status_magic_clamav": "p" if (request.model is None or request.model.status_magic_clamav is None) else request.model.status_magic_clamav,
         "deleted": 0, # TODO
         "commit_id": None #  TODO
     }
