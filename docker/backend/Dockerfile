@@ -18,7 +18,6 @@ RUN set -ex && \
         python3-dev \
         unzip \
         wget \
-        clamav \
         && \
     update-ca-certificates -f && \
     # cleanup
@@ -73,8 +72,11 @@ RUN set -ex && \
         postgresql-client \
         netcat-openbsd \
         procps \
-        htop && \
+        htop \
+        clamav && \
     update-ca-certificates -f && \
+    # clamav initial setup
+    freshclam && \
     # cleanup
     apt-get -y clean && \
     apt-get autoremove -y && \
