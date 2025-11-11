@@ -266,8 +266,13 @@ export default function DashboardTable({ models }) {
 
 
   const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelected = rows.map((n) => n.id);
+
+    const isChecked = event.target.checked;
+    const isIndeterminate = (event.target.dataset.indeterminate === true);
+    const allEnabledSelected = (selected.length > 0) && (selected.length === rows.filter(r => r.progress >= 100).length);
+
+    if (!isIndeterminate && !allEnabledSelected && isChecked) {
+      const newSelected = rows.map((n) => n.progress >= 100 ? n.id : null).filter(n => n !== null);
       setSelected(newSelected);
       return;
     }
@@ -371,6 +376,7 @@ export default function DashboardTable({ models }) {
           <TableBody>
             {rows.map((row, index) => {
               const isItemSelected = isSelected(row.id);
+              const isProcessing = (row.progress < 100);
               const labelId = `enhanced-table-checkbox-${index}`;
               return (
                 <TableRow
@@ -383,13 +389,19 @@ export default function DashboardTable({ models }) {
                   selected={isItemSelected}
                 >
                   <TableCell padding="checkbox">
-                    <Checkbox
-                      color="primary"
-                      checked={isItemSelected}
-                      inputProps={{
-                        'aria-labelledby': labelId,
-                      }}
-                    />
+                  
+                    <Tooltip title={isProcessing ? "Unable to select file as it still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
+                    <span>
+                      <Checkbox
+                        color="primary"
+                        checked={isItemSelected && !isProcessing}
+                        disabled={isProcessing}
+                        inputProps={{
+                          'aria-labelledby': labelId,
+                        }}
+                      />                      
+                    </span>
+                  </Tooltip>
                   </TableCell>
                   <TableCell align="left">
                   {row.filename}{" "}
