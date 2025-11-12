@@ -12,6 +12,7 @@ from filetype.types import archive
 
 from apps.ifc_validation_models.settings import TASK_TIMEOUT_LIMIT
 from apps.ifc_validation_models.models import ValidationTask
+from core.settings import MAX_FILE_SIZE_IN_MB
 
 from .logger import logger
 from .context import TaskContext
@@ -129,7 +130,7 @@ def check_magic_and_clamav(context:TaskContext):
                 task=context.task,
                 command=[
                     clamscan, 
-                    '--alert-exceeds-max', '--max-recursion=2', '--max-files=10', '--max-scansize=256M', '--max-filesize=128M', 
+                    '--alert-exceeds-max', '--max-recursion=2', '--max-files=10', '--max-scansize=256M', f'--max-filesize={MAX_FILE_SIZE_IN_MB}M', 
                     '--stdout', 
                     context.file_path] 
             )
@@ -155,7 +156,7 @@ def check_magic_and_clamav(context:TaskContext):
             'invalid': mime
         }
     if 'invalid' in result:
-        print('REMOVING:', context.file_path)
+        print('REMOVING FILE CONTENTS:', context.file_path)
         # we do not unlink() the file because it would create DB issues
         # when a file with the exact same name is reuploaded and it is not
         # made unique.
