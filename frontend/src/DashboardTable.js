@@ -390,7 +390,7 @@ export default function DashboardTable({ models }) {
                 >
                   <TableCell padding="checkbox">
                   
-                    <Tooltip title={isProcessing ? "Unable to select file as it still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
+                    <Tooltip title={isProcessing ? "Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
                     <span>
                       <Checkbox
                         color="primary"
