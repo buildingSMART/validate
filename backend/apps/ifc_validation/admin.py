@@ -288,18 +288,45 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         permissions=["change_status"]
     )
     def restart_processing_action(self, request, queryset):
+
         # TODO: move to middleware component?
         if request.user.is_authenticated:
             logger.info(f"Authenticated, user.id = {request.user.id}")
             set_user_context(request.user)
 
-        # reset and re-submit tasks for background execution
-        for obj in queryset:
-            obj.mark_as_pending(reason='Resubmitted for processing via Django admin UI')
-            if obj.model:
-                obj.model.reset_status()
-            ifc_file_validation_task.delay(obj.id, obj.file_name)
-            logger.info(f"Task 'ifc_file_validation_task' re-submitted for id:{obj.id} file_name: {obj.file_name}")
+        if 'apply' in request.POST:
+
+            # reset and re-submit tasks for background execution
+            count_requests = 0
+            for obj in queryset:
+                if 'valreq_' + str(obj.id) in request.POST:
+                    count_requests += 1
+                    obj.mark_as_pending(reason='Resubmitted for processing via Django admin UI')
+                    if obj.model:
+                        obj.model.reset_status()
+                    ifc_file_validation_task.delay(obj.id, obj.file_name)
+                    logger.info(f"Task 'ifc_file_validation_task' re-submitted for id:{obj.id} file_name: {obj.file_name}")
+
+            if count_requests == 0:
+                self.message_user(
+                    request,
+                    "No Validation Requests were selected for processing.",
+                    messages.WARNING,
+                )
+            else:
+                self.message_user(
+                    request,
+                    ngettext(
+                        "Processing of %d Validation Request was queued successfully.",
+                        "Processing of %d Validation Requests was queued successfully.",
+                        count_requests,
+                    )
+                    % count_requests,
+                    messages.SUCCESS,
+                )
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return render(request, 'admin/restart_processing_intermediate.html', context={'val_requests': queryset, 'entity_name': 'Validation Request(s)'})
 
     def get_actions(self, request):
     

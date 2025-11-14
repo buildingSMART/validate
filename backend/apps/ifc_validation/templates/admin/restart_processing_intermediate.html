@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+    {{ block.super }}
+    {{ media }}
+    <script src="{% static 'admin/js/cancel.js' %}" async></script>
+{% endblock %}
+
+{% block content %}
+<form action="" method="post">
+  {% csrf_token %}
+  <h1>
+  Are you sure?
+  </h1>
+  <p>
+  Are you sure you want to restart processing of the selected {{ entity_name }}?
+  </p>  
+  <br />
+  <p>
+    Please CHECK/UNCHECK any Validation Request.
+  </p>
+  
+  {% for val_request in val_requests %}
+    <p>
+      <input type="checkbox" name="valreq_{{ val_request.pk }}" value="{{ val_request.pk }}" {% if val_request.deleted %}disabled{% else %}checked{% endif %}>
+      <label for="valreq_{{ val_request.pk }}">#{{ val_request.pk }} - {{ val_request.public_id }} - {{ val_request.file.name }} {% if val_request.deleted %}<b> (DELETED){% endif %}</b></label>
+      <br>
+    </p>
+    <input type="hidden" name="_selected_action" value="{{ val_request.pk }}" />
+  {% endfor %}
+
+  <br />
+  <input type="hidden" name="action" value="restart_processing_action" />
+  <input type="submit" name="apply" value="{% translate 'Yes, I’m sure' %}"/>&nbsp;&nbsp;
+  <a href="#" class="cancel-link">{% translate "No, take me back" %}</a>
+</form>
+{% endblock %}
