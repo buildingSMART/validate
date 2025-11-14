@@ -43,7 +43,6 @@ const statusToIcon = {
   "info-valid": <InfoIcon sx={{ color: "#2ab672" }}/>, // For passing header validation
 };
 
-
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
     return statusToIcon[status];
@@ -52,7 +51,7 @@ function wrap_status(status, href) {
       {statusToIcon[status]}
     </IconButton>;
   }
-}
+};
 
 function computeRelativeDates(modelDate) {
   var offset = modelDate.getTimezoneOffset();
@@ -82,7 +81,15 @@ function computeRelativeDates(modelDate) {
   } else {
     return modelDate.toLocaleString();
   }
-}
+};
+
+function isRowAllowedToBeDeleted(row) {
+      
+  const isCompleted = row.progress >= 100;
+  const isPending = row.progress === -1;
+  const isError = row.progress === -2;
+  return isCompleted || isPending || isError;
+};
 
 const headCells = [
   {
@@ -269,10 +276,10 @@ export default function DashboardTable({ models }) {
 
     const isChecked = event.target.checked;
     const isIndeterminate = (event.target.dataset.indeterminate === true);
-    const allEnabledSelected = (selected.length > 0) && (selected.length === rows.filter(r => r.progress >= 100).length);
+    const allEnabledSelected = (selected.length > 0) && (selected.length === rows.filter(row => isRowAllowedToBeDeleted(row)).length);
 
     if (!isIndeterminate && !allEnabledSelected && isChecked) {
-      const newSelected = rows.map((n) => n.progress >= 100 ? n.id : null).filter(n => n !== null);
+      const newSelected = rows.map((row) => isRowAllowedToBeDeleted(row) ? row.id : null).filter(row => row !== null);
       setSelected(newSelected);
       return;
     }
@@ -376,7 +383,6 @@ export default function DashboardTable({ models }) {
           <TableBody>
             {rows.map((row, index) => {
               const isItemSelected = isSelected(row.id);
-              const isProcessing = (row.progress < 100);
               const labelId = `enhanced-table-checkbox-${index}`;
               return (
                 <TableRow
@@ -390,12 +396,12 @@ export default function DashboardTable({ models }) {
                 >
                   <TableCell padding="checkbox">
                   
-                    <Tooltip title={isProcessing ? "Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
+                    <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
                     <span>
                       <Checkbox
                         color="primary"
-                        checked={isItemSelected && !isProcessing}
-                        disabled={isProcessing}
+                        checked={isItemSelected && isRowAllowedToBeDeleted(row)}
+                        disabled={!isRowAllowedToBeDeleted(row)}
                         inputProps={{
                           'aria-labelledby': labelId,
                         }}
