@@ -559,19 +559,18 @@ def report(request, id: str):
 
             feature = item.get('feature')
             count = item.get('count')
-            all_feature_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(t.outcomes.filter(feature=feature).iterator() for t in tasks)
-            for outcome in all_feature_outcomes:
 
-                # TODO: organize this differently?
-                key = 'Schema - Version' if label == 'prerequisites' else outcome.feature
-                grouped_gherkin_outcomes_counts[label][key] += 1
-                if grouped_gherkin_outcomes_counts[label][key] > MAX_OUTCOMES_PER_RULE:
-                    break
+            # TODO: organize this differently?
+            key = 'Schema - Version' if label == 'prerequisites' else feature
+            grouped_gherkin_outcomes_counts[label][key] = count
+
+            all_feature_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(t.outcomes.filter(feature=feature)[:MAX_OUTCOMES_PER_RULE].iterator() for t in tasks)
+            for outcome in all_feature_outcomes:
 
                 mapped = {
                     "id": outcome.public_id,
                     "title": key,
-                    "feature": key,
+                    "feature": feature,
                     "feature_version": outcome.feature_version,
                     "feature_url": get_feature_url(outcome.feature[0:6]),
                     "feature_text": get_feature_description(outcome.feature[0:6]),
@@ -594,8 +593,6 @@ def report(request, id: str):
                         "type": inst.ifc_type
                     }
                     instances[inst.public_id] = instance
-
-            grouped_gherkin_outcomes_counts[label][key] = count
 
         logger.info(f'Mapped {label} gherkin results.')
         
