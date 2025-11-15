@@ -58,5 +58,3 @@ def process_schema(context:TaskContext):
             ValidationOutcome.objects.bulk_create(outcomes_to_save, batch_size=DJANGO_DB_BULK_CREATE_BATCH_SIZE)
 
         model.save(update_fields=['status_schema'])
-
-        return "No IFC schema errors." if success else f"'ifcopenshell.validate' returned exit code {context.proc.returncode} and {len(output):,} errors."

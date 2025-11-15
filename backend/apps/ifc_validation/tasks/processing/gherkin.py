@@ -9,8 +9,6 @@ def process_gherkin_outcomes(context:TaskContext):
         agg_status = context.task.determine_aggregate_status()
         setattr(model, status_field, agg_status)
         model.save(update_fields=[status_field])
-        
-        return f'agg_status = {Model.Status(agg_status).label}\nraw_output = {context.result}' 
     
 def process_normative_ia(context:TaskContext):
     return process_gherkin_outcomes(context)
