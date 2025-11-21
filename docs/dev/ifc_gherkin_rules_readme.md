@@ -5,6 +5,8 @@
 This repository is one of three submodules in the overall validation service.
 See [application_structure](#application-structure) for more information.
 
+An overview of the implemented rules and python step implementation functions is provided in the [Gherkin rules documentation](https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/).
+
 ## Making changes
 
 The rules developed in this repository follow the general ideas of Gherkin and its python implementation behave.
