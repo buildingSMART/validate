@@ -40,7 +40,7 @@ PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is no
 # URL for rule hyperlinks; determine the branch based on the environment
 FEATURE_BRANCH = "development" if DEVELOPMENT else "main"
 FEATURE_URL = os.getenv(
-    "FEATURE_URL", f"https://github.com/buildingSMART/ifc-gherkin-rules/blob/{FEATURE_BRANCH}/features/rules"
+    "FEATURE_URL", f"https://buildingsmart.github.io/ifc-gherkin-rules/branches/{FEATURE_BRANCH}/features/"
 )
 
 # Max. number of outcomes shown in UI
