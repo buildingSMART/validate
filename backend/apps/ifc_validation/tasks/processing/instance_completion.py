@@ -18,4 +18,4 @@ def process_instance_completion(context:TaskContext):
             inst.ifc_type = ifc_file[inst.stepfile_id].is_a()
             inst.save()
 
-        return f'Updated {instance_count:,} ModelInstance record(s)'
+        logger.info(f'Updated {instance_count:,} ModelInstance record(s)')

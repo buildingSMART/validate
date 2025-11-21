@@ -38,5 +38,3 @@ def process_bsdd(context:TaskContext):
         agg_status = context.task.determine_aggregate_status()
         model.status_bsdd = agg_status
         model.save(update_fields=['status_bsdd'])
-
-        return f"agg_status = {Model.Status(agg_status).label}\nmessages = {json_output['messages']}"

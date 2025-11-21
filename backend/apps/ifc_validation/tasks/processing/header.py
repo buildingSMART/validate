@@ -82,5 +82,3 @@ def process_header(context:TaskContext):
         model.header_validation = header_validation
         model.save(update_fields=['status_header', 'header_validation']) 
         model.save()
-        
-        return f'agg_status = {Model.Status(agg_status).label}\nraw_output = {header_validation}'
