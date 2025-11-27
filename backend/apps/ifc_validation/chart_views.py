@@ -89,7 +89,7 @@ TASK_TYPES = {
 SCHEMA_COLORS = {
     "IFC2X3": COLORS["norm_ia"],
     "IFC4": COLORS["success"],
-    "IFC4X3": COLORS["info"],
+    "IFC4X3": COLORS["danger"],
     "UNKNOWN": COLORS["prereq"],  
 }
 
