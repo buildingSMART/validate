@@ -88,17 +88,23 @@
         // CHARTS
         // ------------------------------------------------------------------
         const chartDefs = [
+          { id: "requestsTotalChart",  type: "bar", endpoint: "requests-total", tooltip: ctx => `${ctx.parsed.y} request${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "requestsChart",          type: "bar",  endpoint: "requests",               stacked: true },
+          { id: "requestsBySchemaChart",  type: "bar",  endpoint: "requests-by-schema",     stacked: true, tooltip: ctx => `${ctx.parsed.y} request${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "durationPerRequestChart",type: "line", endpoint: "duration-per-request",   tooltip: ctx => `${ctx.parsed.y} m` },
           { id: "durationPerTaskChart",   type: "bar",  endpoint: "duration-per-task",      stacked: true },
           // { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
           { id: "avgSizeChart",           type: "line", endpoint: "avg-size" },
           { id: "uploadsBy2hChart",       type: "bar",  endpoint: "uploads-per-2h",         tooltip: ctx => `${ctx.parsed.y} uploads` },
           { id: "userRegistrationsChart", type: "bar",  endpoint: "user-registrations",     tooltip: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}` },
+          { id: "activeUserRegistrationsChart", type: "bar", endpoint: "user-registrations-active", tooltip: ctx => `${ctx.parsed.y} active user${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "usageByChannelChart",    type: "bar",  endpoint: "usage-by-channel",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "usageByVendorChart",     type: "bar",  endpoint: "usage-by-vendor",        stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "modelsByVendorChart",    type: "bar",  endpoint: "models-by-vendor",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "topToolsChart",          type: "bar",  endpoint: "top-tools",              horizontal: true, tooltip: ctx => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}` },
+          { id: "topToolsIFC2X3Chart",    type: "bar",  endpoint: "top-tools-ifc2x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC2X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          { id: "topToolsIFC4Chart",      type: "bar",  endpoint: "top-tools-ifc4",         horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          { id: "topToolsIFC4X3Chart",    type: "bar",  endpoint: "top-tools-ifc4x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
           { id: "toolsCountChart",        type: "bar",  endpoint: "tools-count",            tooltip: ctx => `${ctx.parsed.y} tool${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "queueP95Chart",          type: "line", endpoint: "queue-p95",              tooltip: ctx => `${ctx.parsed.y} s`},
           { id: "stuckPerDayChart",       type: "bar",  endpoint: "stuck-per-day",          tooltip: ctx => `${ctx.parsed.y} stuck`},
@@ -265,6 +271,7 @@
             $.getJSON("/api/charts/totals/", data => {
               $("#totals").html(
                 `<strong>${data.users}</strong> users&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.active_users}</strong> active users&nbsp;&nbsp;|&nbsp;&nbsp;` +
                 `<strong>${data.files}</strong> files processed&nbsp;&nbsp;|&nbsp;&nbsp;` +
                 `<strong>${data.tools}</strong> tools observed`
               );

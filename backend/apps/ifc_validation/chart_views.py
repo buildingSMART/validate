@@ -1,6 +1,6 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
-from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField, ExpressionWrapper
+from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField, ExpressionWrapper, Exists, OuterRef
 from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek, ExtractHour, Trunc, ExtractWeekDay, Cast
 from django.http import JsonResponse
 
@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import math
 import calendar
 import datetime
+import re
 
 from apps.ifc_validation_models.models import (
     ValidationRequest,
@@ -84,6 +85,34 @@ TASK_TYPES = {
     "PREREQ": ("Prereq", COLORS["prereq"]),
     "INST_COMPLETION": ("Inst Completion", COLORS["inst_completion"]),
 }
+
+SCHEMA_COLORS = {
+    "IFC2X3": COLORS["norm_ia"],
+    "IFC4": COLORS["success"],
+    "IFC4X3": COLORS["info"],
+    "UNKNOWN": COLORS["prereq"],  
+}
+
+def normalize_schema(schema: str | None) -> str | None:
+    """
+    Map various schema strings to one of our canonical buckets:
+    IFC2X3, IFC4, IFC4X3, or None (for 'unknown/other').
+
+    Examples that end up as IFC4X3:
+      - "IFC4X3"
+      - "IFC4X3_ADD1"
+      - "IFC4X3_ADD2"
+    """
+    s = (schema or "").upper()
+
+    if "IFC4X3" in s:
+        return "IFC4X3"
+    if s.startswith("IFC4"):
+        return "IFC4"
+    if s.startswith("IFC2X3"):
+        return "IFC2X3"
+    return None
+
 
 SECONDS_PER_MINUTE = 60
 BYTES_PER_MB = 1024 * 1024
@@ -208,6 +237,105 @@ def _rolling_labels(period: str, window: int, today: datetime.date | None = None
     return labels
 
 
+def _top_tools_chart_response(qs, period, year, title_prefix):
+    """
+    Helper to build a 'top 10 authoring tools' chart response
+    for a given queryset of Models.
+    """
+    # Aggregate models per AuthoringTool first
+    agg = (
+        qs.values("produced_by")
+          .annotate(total=Count("id"))
+    )
+
+    if not agg:
+        title = f"No uploads in {year}" if period != "total" else "No uploads (Total)"
+        return chart_response(title, [], [])
+
+    tool_map = AuthoringTool.objects.in_bulk([row["produced_by"] for row in agg])
+
+    # Group by *normalised* label
+    buckets: dict[str, int] = {}
+    for row in agg:
+        tool = tool_map.get(row["produced_by"])
+        if not tool:
+            continue
+        label = normalize_tool_label(tool)
+        buckets[label] = buckets.get(label, 0) + (row["total"] or 0)
+
+    # Take top 10 labels by total
+    sorted_items = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    labels = [label for label, _ in sorted_items]
+    data   = [total for _, total in sorted_items]
+
+    title = (
+        f"{title_prefix} in {year}"
+        if period != "total"
+        else f"{title_prefix} (Total)"
+    )
+
+    return chart_response(
+        title=title,
+        labels=labels,
+        datasets=[{
+            "label": "Models uploaded",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": data,
+        }],
+    )
+
+    
+def normalize_tool_label(tool: AuthoringTool) -> str:
+    """
+    Map AuthoringTool instances to a display label that groups:
+    - Revit by year (Revit 2025, Revit 2024, …)
+    - All Quadri tools into a single 'Quadri (all)' bucket
+    - All Washington State tools into 'Washington State (all)'
+    Otherwise: keep the original full_name.
+    """
+    name = tool.full_name or ""
+    up = name.upper()
+
+    # Quadri → one bucket
+    if "QUADRI" in up:
+        return "Quadri"
+
+    # Washington State → one bucket
+    if "WASHINGTON STATE" in up:
+        return "Washington State Department"
+    
+    if "ACCA" in up:
+        return "ACCA"
+    
+    if "Civil3D" in up:
+        return "Civil3D"
+    
+    if "BricsCAD" in up:
+        return "BricsCAD"
+    
+    if "Bocad Steel" in up:
+        return "Bocad Steel"
+    
+    if "Civil Designer" in up:
+        return "Civil Designer"
+    
+    if "sketchup" in up.lower():
+        return "Trimble SketchUp"
+
+    # Revit → group by year
+    if "REVIT" in up:
+        # Look for a 4-digit year such as 2025, 2024, ...
+        m = re.search(r"(20\d{2})", name)
+        if m:
+            year = m.group(1)
+            return f"Revit {year}"
+        return "Revit (other)"
+
+    # Fallback: keep the tool name as-is
+    return name
+
+
 @staff_member_required
 def get_filter_options(request):
     """Return distinct years that have validation‑request activity (for dropdown filter)."""
@@ -220,6 +348,66 @@ def get_filter_options(request):
     )
     return JsonResponse({"options": list(years)})
 
+@staff_member_required
+def get_requests_total_chart(request, year):
+    """
+    Total number of validation requests (no status split).
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    # ---------------------------
+    # TOTAL VIEW (all years)
+    # ---------------------------
+    if period == "total":
+        total = ValidationRequest.objects.count()
+
+        return chart_response(
+            title="Total requests (all years)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Requests",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [total],
+            }],
+        )
+
+    # ---------------------------
+    # TIME-SPLIT VIEW
+    # ---------------------------
+    qs = ValidationRequest.objects.all()
+    if not window:
+        qs = qs.filter(created__year=year)
+
+    grouped = group_by_period(
+        qs,
+        period,
+        "count",
+        Count("id"),
+        window=window,
+    )
+
+    total_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="count",
+        transform=int,
+        window=window,
+    )
+
+    return chart_response(
+        title=f"Total requests in {year}",
+        labels=list(total_dict.keys()),
+        datasets=[{
+            "label": "Requests",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": list(total_dict.values()),
+        }],
+    )
+    
 
 @staff_member_required
 def get_requests_chart(request, year):
@@ -268,6 +456,146 @@ def get_requests_chart(request, year):
                 "data": list(failed_dict.values()),
             },
         ],
+    )
+
+
+@staff_member_required
+def get_requests_by_schema_chart(request, year):
+    """
+    Number of validation requests, split by IFC schema (IFC2X3, IFC4, IFC4X3).
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    # Base queryset: only requests that have a model
+    qs = ValidationRequest.objects.filter(model__isnull=False)
+
+    # For non-total views (month/week/day/quarter), limit to the given year
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    # ------------------------------------------------------------------
+    # TOTAL VIEW (no time splitting, just counts per schema)
+    # ------------------------------------------------------------------
+    if period == "total":
+        agg = (
+            qs.values("model__schema")
+              .annotate(total=Count("id"))
+              .order_by("model__schema")
+        )
+
+        # Only track the 3 known schemas
+        buckets = {"IFC2X3": 0, "IFC4": 0, "IFC4X3": 0}
+        for row in agg:
+            key = normalize_schema(row["model__schema"])
+            if not key:
+                continue  # skip UNKNOWN / anything else
+
+            buckets[key] += row["total"] or 0
+
+        labels = ["IFC2X3", "IFC4", "IFC4X3"]
+        data = [
+            buckets["IFC2X3"],
+            buckets["IFC4"],
+            buckets["IFC4X3"],
+        ]
+
+        return chart_response(
+            title="Requests by IFC schema (Total)",
+            labels=labels,
+            datasets=[{
+                "label": "Requests",
+                "backgroundColor": [
+                    SCHEMA_COLORS["IFC2X3"],
+                    SCHEMA_COLORS["IFC4"],
+                    SCHEMA_COLORS["IFC4X3"],
+                ],
+                "borderColor": [
+                    SCHEMA_COLORS["IFC2X3"],
+                    SCHEMA_COLORS["IFC4"],
+                    SCHEMA_COLORS["IFC4X3"],
+                ],
+                "data": data,
+            }],
+        )
+
+    # ------------------------------------------------------------------
+    # TIME-SPLIT VIEW (month/week/day/quarter) – stacked per schema
+    # ------------------------------------------------------------------
+
+    # Annotate with chosen period
+    annotated_qs = PERIODS[period]["annotate"](qs)
+
+    # Apply rolling window filter if requested
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated_qs = annotated_qs.filter(period__in=label_values)
+
+    # Group by period + schema
+    grouped = (
+        annotated_qs
+        .values("period", "model__schema")
+        .annotate(total=Count("id"))
+        .order_by("period", "model__schema")
+    )
+
+    # Prepare per-schema dicts keyed by period label
+    schema_keys = ["IFC2X3", "IFC4", "IFC4X3"]
+    schema_data = {
+        key: dict_for_period(period, year, window=window)
+        for key in schema_keys
+    }
+
+    for row in grouped:
+        key = normalize_schema(row["model__schema"])
+        if not key:
+            continue  # skip UNKNOWN / anything else
+
+        period_label = PERIODS[period]["label"](row)
+        if period_label not in schema_data[key]:
+            # Shouldn't really happen because dict_for_period built the keys,
+            # but guard just in case.
+            continue
+
+        schema_data[key][period_label] += int(row["total"] or 0)
+
+    # Labels = period labels (same for all buckets)
+    labels = list(next(iter(schema_data.values())).keys()) if schema_data else []
+
+    datasets = [
+        {
+            "label": "IFC2X3",
+            "backgroundColor": SCHEMA_COLORS["IFC2X3"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC2X3"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+        {
+            "label": "IFC4",
+            "backgroundColor": SCHEMA_COLORS["IFC4"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC4"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+        {
+            "label": "IFC4X3",
+            "backgroundColor": SCHEMA_COLORS["IFC4X3"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC4X3"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+    ]
+
+    return chart_response(
+        title=f"Requests by IFC schema in {year}",
+        labels=labels,
+        datasets=datasets,
     )
 
 
@@ -548,6 +876,70 @@ def get_user_registrations_chart(request, year):
             "data": list(regs_dict.values()),
         }],
     )
+
+@staff_member_required
+def get_active_user_registrations_chart(request, year):
+    """
+    New user registrations for users who have uploaded at least one file.
+    Grouped by registration date (UserAdditionalInfo.created).
+    """
+    window = get_window(request)
+    period = get_period(request)
+
+    # Users who have at least one ValidationRequest
+    active_user_ids = (
+        ValidationRequest.objects
+        .values_list("created_by_id", flat=True)
+        .distinct()
+    )
+
+    # Base queryset: registered users that are active (have uploads)
+    base_qs = UserAdditionalInfo.objects.filter(user_id__in=active_user_ids)
+
+    if period == "total":
+        total = base_qs.count()
+
+        return chart_response(
+            title="Active user registrations (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Active registrations",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [total],
+            }],
+        )
+
+    users_qs = base_qs.filter(created__year=year)
+
+    grouped = group_by_period(
+        users_qs,
+        period,
+        "registrations",
+        Count("id"),
+        window=window,
+    )
+
+    regs_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="registrations",
+        transform=int,
+        window=window,
+    )
+
+    return chart_response(
+        title=f"Active user registrations in {year}",
+        labels=list(regs_dict.keys()),
+        datasets=[{
+            "label": "Active registrations",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": list(regs_dict.values()),
+        }],
+    )
+
 
 
 def _vendor_flag_map(user_ids):
@@ -883,6 +1275,64 @@ def get_tools_count_chart(request, year):
             "data": list(tools_dict.values()),
         }],
     )
+    
+@staff_member_required
+def get_top_tools_ifc2x3_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__iexact="IFC2X3",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC2X3",
+    )
+
+
+@staff_member_required
+def get_top_tools_ifc4_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__iexact="IFC4",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC4",
+    )
+
+
+@staff_member_required
+def get_top_tools_ifc4x3_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__icontains="IFC4X3",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC4X3",
+    )
+
+
 
 
 @staff_member_required
@@ -900,9 +1350,22 @@ def get_totals(request):
              .distinct()
              .count()
     )
+    
+    active_users_total = (
+        UserAdditionalInfo.objects
+        .filter(
+            Exists(
+                Model.objects.filter(
+                    uploaded_by_id=OuterRef("user_id")
+                )
+            )
+        )
+        .count()
+)
 
     return JsonResponse({
         "users": users_total,
+        "active_users": active_users_total,
         "files": files_total,
         "tools": tools_total,
     })
