@@ -172,6 +172,31 @@
           { id: "topToolsIFC2X3Chart",    type: "bar",  endpoint: "top-tools-ifc2x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC2X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
           { id: "topToolsIFC4Chart",      type: "bar",  endpoint: "top-tools-ifc4",         horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4 model${ctx.parsed.x === 1 ? "" : "s"}`},
           { id: "topToolsIFC4X3Chart",    type: "bar",  endpoint: "top-tools-ifc4x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          {
+            id: "requestsPerSchemaVendorIFC2X3Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc2x3",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC2X3 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          {
+            id: "requestsPerSchemaVendorIFC4Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc4",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC4 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          {
+            id: "requestsPerSchemaVendorIFC4X3Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc4x3",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC4X3 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          
           { id: "toolsCountChart",        type: "bar",  endpoint: "tools-count",            tooltip: ctx => `${ctx.parsed.y} tool${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "queueP95Chart",          type: "line", endpoint: "queue-p95",              tooltip: ctx => `${ctx.parsed.y} s`},
           { id: "stuckPerDayChart",       type: "bar",  endpoint: "stuck-per-day",          tooltip: ctx => `${ctx.parsed.y} stuck`},
@@ -312,11 +337,15 @@
         
               if (def.id === "usageByVendorChart" && isTotal) {
                 const $canvas = $("#" + def.id);
-                const [endUsers, vendors] = data.datasets[0].data;
+                const [endUsers, vendors, devTeam] = data.datasets[0].data;
                 $canvas.replaceWith(`
                   <div class="kpi-tile" id="${def.id}">
                     <h3>${title}</h3>
-                    <p><strong>${endUsers}</strong> end-users<br><strong>${vendors}</strong> vendors</p>
+                    <p>
+                      <strong>${endUsers}</strong> end-users<br>
+                      <strong>${vendors}</strong> vendors<br>
+                      <strong>${devTeam}</strong> dev team
+                    </p>
                   </div>
                 `);
                 return;
