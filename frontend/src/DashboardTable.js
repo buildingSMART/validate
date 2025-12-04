@@ -434,9 +434,12 @@ export default function DashboardTable({ models }) {
                   }
 
                   <TableCell align="left">
-                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick={evt => evt.stopPropagation()}>
-                      {'Download file'}
-                    </Link>
+                  { 
+                    (row.status_magic_clamav != 'i') ?
+                      <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick={evt => evt.stopPropagation()}>
+                        {'Download file'}
+                      </Link> : 'File unavailable'
+                  }
                   </TableCell>
                 </TableRow>
               );

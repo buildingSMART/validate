@@ -5,6 +5,8 @@ from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import ValidationOutcome
 from apps.ifc_validation_models.models import Model
 
+from .pydantic_bridge import PydanticValidatorMixin
+from .schemas import ValidationRequestIn
 
 class BaseSerializer(serializers.ModelSerializer):
 
@@ -21,20 +23,25 @@ class BaseSerializer(serializers.ModelSerializer):
             expanded_fields = list(set(expanded_fields) - set(self.Meta.hide))
         
         return expanded_fields
+
+    class Meta:
+        abstract = True
         
 
-class ValidationRequestSerializer(BaseSerializer):
+class ValidationRequestSerializer(PydanticValidatorMixin, BaseSerializer):
+
+    Schema = ValidationRequestIn
     
     class Meta:
         model = ValidationRequest
         fields = '__all__'
         show = ["public_id", "model_public_id"]
-        hide = ["id", "model", "deleted", "created_by", "updated_by"]
-        read_only_fields = ['size', 'created_by', 'updated_by']
+        hide = ["id", "model", "deleted", "created_by", "updated_by", "status_reason"]
+        read_only_fields = ['size', 'created', 'updated', 'created_by', 'updated_by', 'channel', 'completed', 'started', 'progress', 'status']
 
 
-class ValidationTaskSerializer(BaseSerializer):
-
+class ValidationTaskSerializer(PydanticValidatorMixin, BaseSerializer):
+    
     class Meta:
         model = ValidationTask
         fields = '__all__'
@@ -42,8 +49,8 @@ class ValidationTaskSerializer(BaseSerializer):
         hide = ["id", "process_id", "process_cmd", "request"]
 
 
-class ValidationOutcomeSerializer(BaseSerializer):
-
+class ValidationOutcomeSerializer(PydanticValidatorMixin, BaseSerializer):
+    
     class Meta:
         model = ValidationOutcome
         fields = '__all__'
@@ -51,7 +58,7 @@ class ValidationOutcomeSerializer(BaseSerializer):
         hide = ["id", "instance", "validation_task"]
 
 
-class ModelSerializer(BaseSerializer):
+class ModelSerializer(PydanticValidatorMixin, BaseSerializer):
 
     class Meta:
         model = Model
