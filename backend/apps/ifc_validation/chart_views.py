@@ -91,7 +91,8 @@ COLORS = {
     "prereq": "#b4acb4",
     "digital_signatures": "#73d0d8",
     "inst_completion": "#e76565",
-    "dev_team": "#f1c40f"
+    "dev_team": "#f1c40f",
+    "magic_and_av": "#a29bfe",
 }
 
 SYNTAX_TASK_TYPES = {
@@ -110,6 +111,7 @@ TASK_TYPES = {
     "INDUSTRY": ("Industry", COLORS["industry"]),
     "PREREQ": ("Prereq", COLORS["prereq"]),
     "INST_COMPLETION": ("Inst Completion", COLORS["inst_completion"]),
+    "MAGIC_AND_CLAMAV": ("Magic/AV", COLORS["magic_and_av"]),
 }
 
 SCHEMA_COLORS = {
@@ -351,7 +353,6 @@ def normalize_tool_label(tool: AuthoringTool) -> str:
 
     # Revit → group by year
     if "REVIT" in up:
-        # Look for a 4-digit year such as 2025, 2024, ...
         m = re.search(r"(20\d{2})", name)
         if m:
             year = m.group(1)
