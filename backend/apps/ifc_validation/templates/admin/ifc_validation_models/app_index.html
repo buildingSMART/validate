@@ -81,6 +81,66 @@
     <div id="charts"></div>
 
     <script>
+      const valueLabelPlugin = {
+        id: "valueLabelPlugin",
+        afterDatasetsDraw(chart, args, pluginOptions) {
+          const opts = chart.options.plugins.valueLabels;
+          if (!opts || !opts.display) return;
+      
+          const { ctx } = chart;
+          ctx.save();
+      
+          const fontSize   = opts.fontSize || 10;
+          const color      = opts.color || "#ffffff";
+          const outline    = opts.outline !== false;   // default: true
+          const stagger    = opts.stagger === true;    // stagger labels per dataset?
+      
+          // determine visible datasets (so we only stagger those)
+          const visibleDatasets = chart.data.datasets
+            .map((ds, i) => ({ ds, meta: chart.getDatasetMeta(i), index: i }))
+            .filter(({ meta }) => !meta.hidden);
+      
+          const totalVisible = visibleDatasets.length;
+          const baseStep = fontSize + 4;  // vertical distance between labels
+      
+          visibleDatasets.forEach(({ ds, meta }, visibleIdx) => {
+            meta.data.forEach((element, pointIdx) => {
+              const value = ds.data[pointIdx];
+              if (value == null || isNaN(value)) return;
+      
+              const pos = element.tooltipPosition();
+      
+              // base position just above the point
+              let x = pos.x;
+              let y = pos.y - 4;
+      
+              // stagger: spread visible datasets around the point vertically
+              if (stagger && totalVisible > 1) {
+                const offsetIndex = visibleIdx - (totalVisible - 1) / 2; // -1,0,1 for 3 lines
+                y -= offsetIndex * baseStep;
+              }
+      
+              ctx.font = fontSize + "px sans-serif";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "bottom";
+      
+              if (outline) {
+                ctx.strokeStyle = "rgba(0,0,0,0.8)";
+                ctx.lineWidth = 3;
+                ctx.strokeText(value, x, y);  // dark outline
+              }
+      
+              ctx.fillStyle = color;
+              ctx.fillText(value, x, y);
+            });
+          });
+      
+          ctx.restore();
+        }
+      };
+      
+      Chart.register(valueLabelPlugin);
+      
       (function ($) {
         "use strict";
 
@@ -88,17 +148,55 @@
         // CHARTS
         // ------------------------------------------------------------------
         const chartDefs = [
+          { id: "requestsTotalChart",  type: "bar", endpoint: "requests-total", tooltip: ctx => `${ctx.parsed.y} request${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "requestsChart",          type: "bar",  endpoint: "requests",               stacked: true },
+          {
+            id: "requestsBySchemaChart",
+            type: "line",                        
+            endpoint: "requests-by-schema",
+            stacked: false,                      
+            valueLabels: true,                   
+            tooltip: ctx => `${ctx.parsed.y} request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
           { id: "durationPerRequestChart",type: "line", endpoint: "duration-per-request",   tooltip: ctx => `${ctx.parsed.y} m` },
           { id: "durationPerTaskChart",   type: "bar",  endpoint: "duration-per-task",      stacked: true },
           // { id: "processingStatusChart",  type: "pie",  endpoint: "processing-status" },
           { id: "avgSizeChart",           type: "line", endpoint: "avg-size" },
           { id: "uploadsBy2hChart",       type: "bar",  endpoint: "uploads-per-2h",         tooltip: ctx => `${ctx.parsed.y} uploads` },
           { id: "userRegistrationsChart", type: "bar",  endpoint: "user-registrations",     tooltip: ctx => `${ctx.parsed.y} user${ctx.parsed.y === 1 ? "" : "s"}` },
+          { id: "activeUserRegistrationsChart", type: "bar", endpoint: "user-registrations-active", tooltip: ctx => `${ctx.parsed.y} active user${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "usageByChannelChart",    type: "bar",  endpoint: "usage-by-channel",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "usageByVendorChart",     type: "bar",  endpoint: "usage-by-vendor",        stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "modelsByVendorChart",    type: "bar",  endpoint: "models-by-vendor",       stacked: true,  tooltip: ctx => `${ctx.parsed.y} ${ctx.dataset.label.toLowerCase()}` },
           { id: "topToolsChart",          type: "bar",  endpoint: "top-tools",              horizontal: true, tooltip: ctx => `${ctx.parsed.x} model${ctx.parsed.x === 1 ? "" : "s"}` },
+          { id: "topToolsIFC2X3Chart",    type: "bar",  endpoint: "top-tools-ifc2x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC2X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          { id: "topToolsIFC4Chart",      type: "bar",  endpoint: "top-tools-ifc4",         horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          { id: "topToolsIFC4X3Chart",    type: "bar",  endpoint: "top-tools-ifc4x3",       horizontal: true, tooltip: ctx => `${ctx.parsed.x} IFC4X3 model${ctx.parsed.x === 1 ? "" : "s"}`},
+          {
+            id: "requestsPerSchemaVendorIFC2X3Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc2x3",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC2X3 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          {
+            id: "requestsPerSchemaVendorIFC4Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc4",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC4 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          {
+            id: "requestsPerSchemaVendorIFC4X3Chart",
+            type: "bar",
+            endpoint: "requests-per-schema-vendor-ifc4x3",
+            stacked: true,
+            tooltip: ctx =>
+              `${ctx.parsed.y} IFC4X3 request${ctx.parsed.y === 1 ? "" : "s"}`
+          },
+          
           { id: "toolsCountChart",        type: "bar",  endpoint: "tools-count",            tooltip: ctx => `${ctx.parsed.y} tool${ctx.parsed.y === 1 ? "" : "s"}` },
           { id: "queueP95Chart",          type: "line", endpoint: "queue-p95",              tooltip: ctx => `${ctx.parsed.y} s`},
           { id: "stuckPerDayChart",       type: "bar",  endpoint: "stuck-per-day",          tooltip: ctx => `${ctx.parsed.y} stuck`},
@@ -145,7 +243,9 @@
         function buildOptions(def) {
           const base = {
             responsive: true,
-            plugins: { title: { display: false, text: "" } }
+            plugins: {
+              title: { display: false, text: "" },
+            }
           };
 
           if (def.stacked) {
@@ -157,8 +257,35 @@
           if (def.tooltip) {
             base.plugins.tooltip = { callbacks: { label: def.tooltip } };
           }
+          if (def.valueLabels) {
+            base.plugins.valueLabels = {
+              display: true,
+              fontSize: 10,
+              color: "#ffffff",
+              stagger: def.id === "requestsBySchemaChart", // 🔹 stagger only there
+              outline: true,
+            };
+          }
+          if (def.id === "requestsBySchemaChart") {
+            base.elements = {
+              line: {
+                borderWidth: 2,   // thinner lines
+                tension: 0.25,    // smoother curve
+              },
+              point: {
+                radius: 3,        // smaller dots
+                hoverRadius: 5,
+                backgroundColor: "#000",
+                borderWidth: 2,
+              },
+            };
+            base.elements.point.backgroundColor = "#000";
+            base.elements.point.borderWidth = 2;
+          }
+
           return base;
         }
+
 
         function initCharts() {
           Object.keys(charts).forEach(id => delete charts[id]); 
@@ -185,17 +312,17 @@
           $.getJSON(endpoint)
             .done(({ title, data }) => {
               const isTotal = $period.val() === "total";
-
+        
               if (def.id === "durationPerRequestChart" && isTotal) {
                 showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
                 return;
               }
-
+        
               if (def.id === "avgSizeChart" && isTotal) {
                 showTile(def, title, `<p><strong>${data.datasets[0].data[0]} min</strong></p>`);
                 return;
               }
-
+        
               if (def.id === "userRegistrationsChart" && isTotal) {
                 const $canvas = $("#" + def.id);
                 const total = data.datasets[0].data[0];
@@ -207,19 +334,23 @@
                 `);
                 return;
               }
-
+        
               if (def.id === "usageByVendorChart" && isTotal) {
                 const $canvas = $("#" + def.id);
-                const [endUsers, vendors] = data.datasets[0].data;
+                const [endUsers, vendors, devTeam] = data.datasets[0].data;
                 $canvas.replaceWith(`
                   <div class="kpi-tile" id="${def.id}">
                     <h3>${title}</h3>
-                    <p><strong>${endUsers}</strong> end-users<br><strong>${vendors}</strong> vendors</p>
+                    <p>
+                      <strong>${endUsers}</strong> end-users<br>
+                      <strong>${vendors}</strong> vendors<br>
+                      <strong>${devTeam}</strong> dev team
+                    </p>
                   </div>
                 `);
                 return;
               }
-
+        
               if (def.id === "toolsCountChart" && isTotal) {
                 const $canvas = $("#" + def.id);
                 const total = data.datasets[0].data[0];
@@ -231,7 +362,41 @@
                 `);
                 return;
               }
-              
+        
+              if (def.id === "requestsBySchemaChart" && data && Array.isArray(data.datasets)) {
+                const isTotal = $period.val() === "total";
+
+                // for now: always use the type defined in chartDefs ("line")
+                // (Total will just be a single line with 3 points; that's fine.)
+
+                if (!isTotal) {
+                  // 1) remove stacking so Y matches the actual value
+                  data.datasets.forEach(ds => {
+                    if (ds.stack !== undefined) {
+                      delete ds.stack;
+                    }
+                  });
+
+                  // 2) sort datasets so the one with the highest total is drawn last (on top)
+                  data.datasets.sort((a, b) => {
+                    const sum = ds =>
+                      (ds.data || []).reduce((s, v) => s + (+v || 0), 0);
+                    return sum(a) - sum(b);   // smallest first, biggest last
+                  });
+
+                  // 3) style datasets & align line colour with point colour
+                  data.datasets.forEach(ds => {
+                    ds.fill = false;
+                    ds.tension = 0.3;
+                    ds.pointRadius = 4;
+                    ds.pointHoverRadius = 6;
+
+                    ds.borderColor = ds.backgroundColor;
+                    ds.pointBackgroundColor = ds.backgroundColor;
+                    ds.pointBorderColor = ds.backgroundColor;
+                  });
+                }
+              }
         
               chart.data = data;
               chart.options.plugins.title.text = title;
@@ -240,7 +405,6 @@
             })
             .fail(() => console.error("Failed to fetch chart data from " + endpoint));
         }
-
         function loadAllCharts(year) {
           const period = $period.val();
           const windowVal = $window.val();              
@@ -265,6 +429,7 @@
             $.getJSON("/api/charts/totals/", data => {
               $("#totals").html(
                 `<strong>${data.users}</strong> users&nbsp;&nbsp;|&nbsp;&nbsp;` +
+                `<strong>${data.active_users}</strong> active users&nbsp;&nbsp;|&nbsp;&nbsp;` +
                 `<strong>${data.files}</strong> files processed&nbsp;&nbsp;|&nbsp;&nbsp;` +
                 `<strong>${data.tools}</strong> tools observed`
               );
