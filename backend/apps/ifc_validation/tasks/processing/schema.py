@@ -59,4 +59,4 @@ def process_schema(context:TaskContext):
 
         model.save(update_fields=['status_schema'])
 
-        return "No IFC schema errors." if success else f"'ifcopenshell.validate' returned exit code {context.proc.returncode} and {len(output):,} errors."
+        return "No IFC schema errors." if success else f"'ifcopenshell.validate' returned {len(output):,} errors."
