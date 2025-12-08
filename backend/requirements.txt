@@ -46,6 +46,7 @@ shapely==2.1.1
 python-ranges==1.2.2
 pyproj==3.7.1
 python-dateutil==2.9.0.post0
+filetype==1.2.0
 
 # dev
 django-debug-toolbar==6.0.0
