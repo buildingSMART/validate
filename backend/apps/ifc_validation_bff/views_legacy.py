@@ -125,7 +125,7 @@ def get_feature_url(feature_code):
     feature_files = get_feature_filename(feature_code)
 
     if feature_files:
-        return os.path.join(FEATURE_URL, feature_code[:3], os.path.basename(feature_files[0]))
+        return os.path.join(FEATURE_URL, os.path.basename(feature_files[0].replace(".feature", ".html")))
     return None
 
 
