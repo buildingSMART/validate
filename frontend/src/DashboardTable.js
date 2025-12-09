@@ -43,7 +43,6 @@ const statusToIcon = {
   "info-valid": <InfoIcon sx={{ color: "#2ab672" }}/>, // For passing header validation
 };
 
-
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
     return statusToIcon[status];
@@ -52,7 +51,7 @@ function wrap_status(status, href) {
       {statusToIcon[status]}
     </IconButton>;
   }
-}
+};
 
 function computeRelativeDates(modelDate) {
   var offset = modelDate.getTimezoneOffset();
@@ -82,7 +81,15 @@ function computeRelativeDates(modelDate) {
   } else {
     return modelDate.toLocaleString();
   }
-}
+};
+
+function isRowAllowedToBeDeleted(row) {
+      
+  const isCompleted = row.progress >= 100;
+  const isPending = row.progress === -1;
+  const isError = row.progress === -2;
+  return isCompleted || isPending || isError;
+};
 
 const headCells = [
   {
@@ -266,20 +273,31 @@ export default function DashboardTable({ models }) {
 
 
   const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelected = rows.map((n) => n.id);
+
+    const isChecked = event.target.checked;
+    const isIndeterminate = (event.target.dataset.indeterminate === true);
+    const allEnabledSelected = (selected.length > 0) && (selected.length === rows.filter(row => isRowAllowedToBeDeleted(row)).length);
+
+    if (!isIndeterminate && !allEnabledSelected && isChecked) {
+      const newSelected = rows.map((row) => isRowAllowedToBeDeleted(row) ? row.id : null).filter(row => row !== null);
       setSelected(newSelected);
       return;
     }
     setSelected([]);
   };
 
-  const handleClick = (event, filename) => {
-    const selectedIndex = selected.indexOf(filename);
+  const handleClick = (event, row) => {
+
+    if (!isRowAllowedToBeDeleted(row)) {
+      event.stopPropagation();
+      return;
+    }
+
+    const selectedIndex = selected.indexOf(row.id);
     let newSelected = [];
 
     if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, filename);
+      newSelected = newSelected.concat(selected, row.id);
     } else if (selectedIndex === 0) {
       newSelected = newSelected.concat(selected.slice(1));
     } else if (selectedIndex === selected.length - 1) {
@@ -375,7 +393,7 @@ export default function DashboardTable({ models }) {
               return (
                 <TableRow
                   hover
-                  onClick={(event) => handleClick(event, row.id)}
+                  onClick={(event) => handleClick(event, row)}
                   role="checkbox"
                   aria-checked={isItemSelected}
                   tabIndex={-1}
@@ -383,13 +401,19 @@ export default function DashboardTable({ models }) {
                   selected={isItemSelected}
                 >
                   <TableCell padding="checkbox">
-                    <Checkbox
-                      color="primary"
-                      checked={isItemSelected}
-                      inputProps={{
-                        'aria-labelledby': labelId,
-                      }}
-                    />
+                  
+                    <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
+                    <span>
+                      <Checkbox
+                        color="primary"
+                        checked={isItemSelected && isRowAllowedToBeDeleted(row)}
+                        disabled={!isRowAllowedToBeDeleted(row)}
+                        inputProps={{
+                          'aria-labelledby': labelId,
+                        }}
+                      />                      
+                    </span>
+                  </Tooltip>
                   </TableCell>
                   <TableCell align="left">
                   {row.filename}{" "}

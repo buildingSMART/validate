@@ -31,7 +31,6 @@ class MagicClamAVTaskTestCase(TransactionTestCase):
             id=request.id, 
             file_name=request.file_name
         )
-        print(task)
 
         # assert
         model = Model.objects.get(id=request.id)
@@ -61,10 +60,68 @@ class MagicClamAVTaskTestCase(TransactionTestCase):
             id=request.id, 
             file_name=request.file_name
         )
-        print(task)
 
         # assert
         model = Model.objects.get(id=request.id)
         self.assertIsNotNone(model)
         self.assertEqual(model.status_magic_clamav, Model.Status.INVALID)
-        
+    
+    def test_magic_clamav_task_detects_very_large_testfile(self):
+
+        # arrange
+        MagicClamAVTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='very_large_testfile.ifc',
+            file='very_large_testfile.ifc', 
+            size=128*1024*1024 # >128 MB
+        )
+        request.mark_as_initiated()
+
+        # make sure the test file contains text
+        file_path = get_absolute_file_path(request.file.name)
+        with open(file_path, "wb") as f:
+            f.write(b'\0' * 1024 * 1024)
+            for _ in range(128 - 1):
+                f.write(b'\0' * 1024 * 1024)
+
+        # act
+        task = magic_clamav_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        # assert
+        model = Model.objects.get(id=request.id)
+        self.assertIsNotNone(model)
+        self.assertEqual(model.status_magic_clamav, Model.Status.VALID)
+
+    def test_magic_clamav_task_detects_too_large_testfile(self):
+
+        # arrange
+        MagicClamAVTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='too_large_file.ifc',
+            file='too_large_file.ifc', 
+            size=300*1024*1024 # >300 MB
+        )
+        request.mark_as_initiated()
+
+        # make sure the test file contains text
+        file_path = get_absolute_file_path(request.file.name)
+        with open(file_path, "wb") as f:
+            f.write(b'\0' * 1024 * 1024)
+            for _ in range(300 - 1):
+                f.write(b'\0' * 1024 * 1024)
+
+        # act
+        task = magic_clamav_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        # assert
+        model = Model.objects.get(id=request.id)
+        self.assertIsNotNone(model)
+        self.assertEqual(model.status_magic_clamav, Model.Status.INVALID)

@@ -11,6 +11,7 @@ from collections import defaultdict
 import glob
 
 from django.db import transaction
+from django.db.models import Count
 from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound, HttpResponseNotAllowed
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
@@ -124,7 +125,7 @@ def get_feature_url(feature_code):
     feature_files = get_feature_filename(feature_code)
 
     if feature_files:
-        return os.path.join(FEATURE_URL, feature_code[:3], os.path.basename(feature_files[0]))
+        return os.path.join(FEATURE_URL, os.path.basename(feature_files[0].replace(".feature", ".html")))
     return None
 
 
@@ -160,7 +161,7 @@ def status_combine(*args, allow_not_executed=False):
     return statuses[max(map(statuses.index, args))]
 
 
-def format_request(request):
+def format_request(request : ValidationRequest):
     return {
         "id": request.public_id,
         "code": request.public_id,
@@ -491,8 +492,6 @@ def report(request, id: str):
                     })
             logger.info('Fetching and mapping syntax done.')
     
-    
-
     # retrieve and map schema outcome(s) + instances
     schema_results_count = defaultdict(int)
     schema_results = []
@@ -554,46 +553,54 @@ def report(request, id: str):
 
         logger.info(f'Fetching and mapping {label} gherkin results...')
 
-        print(*(request.id for t in types))
-
         tasks = [ValidationTask.objects.filter(request_id=request.id, type=t).last() for t in types]
-        all_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(t.outcomes.iterator() for t in tasks)
-        for outcome in all_outcomes:
-            mapped = {                
-                "id": outcome.public_id,
-                "feature": outcome.feature,
-                "feature_version": outcome.feature_version,
-                "feature_url": get_feature_url(outcome.feature[0:6]),
-                "feature_text": get_feature_description(outcome.feature[0:6]),
-                "step": outcome.get_severity_display(), # TODO
-                "severity": outcome.severity,
-                "instance_id": outcome.instance_public_id,
-                "expected": outcome.expected,
-                "observed": outcome.observed,
-                "message": str(outcome) if outcome.expected and outcome.observed else None,
-                "task_id": outcome.validation_task_public_id,
-                "msg": outcome.observed,                    
-            }
-            
+        all_features = itertools.chain.from_iterable([t.outcomes.values('feature').distinct().annotate(count=Count('feature')) for t in tasks])
+        for item in all_features:
+
+            feature = item.get('feature')
+            count = item.get('count')
+
             # TODO: organize this differently?
-            key = 'Schema - Version' if label == 'prerequisites' else mapped['feature']
-            mapped['title'] = key
-            grouped_gherkin_outcomes_counts[label][key] += 1
-            if grouped_gherkin_outcomes_counts[label][key] > MAX_OUTCOMES_PER_RULE:
-                continue
+            key = 'Schema - Version' if label == 'prerequisites' else feature
+            grouped_gherkin_outcomes_counts[label][key] = count
 
-            grouped_gherkin_outcomes[label].append(mapped)
+            all_feature_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(
+                t.outcomes.filter(feature=feature)
+                 .prefetch_related("instance")                 
+                 [:MAX_OUTCOMES_PER_RULE]
+                 .iterator(chunk_size=100) for t in tasks)
+                 
+            for outcome in all_feature_outcomes:
 
-            inst = outcome.instance
-            if inst and inst.public_id not in instances:
-                instance = {
-                    "guid": f'#{inst.stepfile_id}',
-                    "type": inst.ifc_type
+                mapped = {
+                    "id": outcome.public_id,
+                    "title": key,
+                    "feature": feature,
+                    "feature_version": outcome.feature_version,
+                    "feature_url": get_feature_url(outcome.feature[0:6]),
+                    "feature_text": get_feature_description(outcome.feature[0:6]),
+                    "step": outcome.get_severity_display(), # TODO
+                    "severity": outcome.severity,
+                    "instance_id": outcome.instance_public_id,
+                    "expected": outcome.expected,
+                    "observed": outcome.observed,
+                    "message": str(outcome) if outcome.expected and outcome.observed else None,
+                    "task_id": outcome.validation_task_public_id,
+                    "msg": outcome.observed,
                 }
-                instances[inst.public_id] = instance
+                
+                grouped_gherkin_outcomes[label].append(mapped)
+
+                inst = outcome.instance
+                if inst and inst.public_id not in instances:
+                    instance = {
+                        "guid": f'#{inst.stepfile_id}',
+                        "type": inst.ifc_type
+                    }
+                    instances[inst.public_id] = instance
 
         logger.info(f'Mapped {label} gherkin results.')
-    
+        
     # retrieve and map bsdd results + instances
     bsdd_results = []
     if report_type == 'bsdd' and request.model:
