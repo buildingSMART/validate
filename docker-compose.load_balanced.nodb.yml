@@ -115,7 +115,7 @@ services:
 
     # Redis
     redis:
-        image: redis:7.2-alpine 
+        image: redis:8.4-alpine 
         restart: unless-stopped
         container_name: redis
         expose:
