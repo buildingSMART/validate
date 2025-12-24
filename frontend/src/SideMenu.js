@@ -21,26 +21,39 @@ const drawerWidth = 240;
 export default function SideMenu() {
 
     const context = useContext(PageContext);
+
+    const menuItems = [{
+      text: "Home",
+      href: context.sandboxId ? `/sandbox/${context.sandboxId}` : "/",
+      icon: <HomeIcon />,
+      displayText: "Home",
+    },
+    {
+      text: "Dashboard",
+      href: context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard",
+      icon: <CheckIcon />,
+      displayText: "Validation",
+    },];
+
     return (
         <Drawer
             variant="permanent"
             sx={{
                 width: drawerWidth,
                 flexShrink: 0,
-                [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+                [`& .MuiDrawer-paper`]: { position: 'relative', width: drawerWidth, boxSizing: 'border-box' },
                 display: { xs:'none', md: 'flex'},
             }}
         >
-            <Toolbar />
-            <Box sx={{ overflow: 'auto' , paddingTop:'5vh'}}>
+            <Box sx={{ overflow: 'auto'}}>
                 <List>
-                    {['Home', 'Dashboard'].map((text, index) => (
-                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle === text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
-                            <ListItemButton href={text === "Home" ? context.sandboxId ? `/sandbox/${context.sandboxId}` : "/" : context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard"}>
+                    {menuItems.map((item, index) => (
+                        <ListItem key={item.text} disablePadding style={{ 'borderLeft': context.pageTitle === item.text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
+                            <ListItemButton href={item.href}>
                                 <ListItemIcon>
-                                    {text === "Home" ? <HomeIcon /> : <CheckIcon />}
+                                    {item.icon}
                                 </ListItemIcon>
-                                <ListItemText primary={text === "Dashboard" ? "Validation" : text} />
+                                <ListItemText primary={item.displayText} />
                             </ListItemButton>
                         </ListItem>
                     ))}
