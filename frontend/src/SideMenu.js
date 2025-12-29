@@ -48,14 +48,29 @@ export default function SideMenu() {
             <Box sx={{ overflow: 'auto'}}>
                 <List>
                     {menuItems.map((item, index) => (
-                        <ListItem key={item.text} disablePadding style={{ 'borderLeft': context.pageTitle === item.text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
-                            <ListItemButton href={item.href}>
-                                <ListItemIcon>
-                                    {item.icon}
+                        <ListItem key={item.text} disablePadding>
+                            <ListItemButton
+                                href={item.href}
+                                sx={{
+                                boxShadow:
+                                    context.pageTitle === item.text.toLowerCase()
+                                    ? 'inset 4px 0 0 #1976d2'
+                                    : 'inset 4px 0 0 transparent',
+                                }}
+                            >
+                                <ListItemIcon
+                                sx={{
+                                    minWidth: 40,
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                }}
+                                >
+                                {item.icon}
                                 </ListItemIcon>
+
                                 <ListItemText primary={item.displayText} />
                             </ListItemButton>
-                        </ListItem>
+                            </ListItem>
                     ))}
                 </List>
 
