@@ -21,28 +21,56 @@ const drawerWidth = 240;
 export default function SideMenu() {
 
     const context = useContext(PageContext);
+
+    const menuItems = [{
+      text: "Home",
+      href: context.sandboxId ? `/sandbox/${context.sandboxId}` : "/",
+      icon: <HomeIcon />,
+      displayText: "Home",
+    },
+    {
+      text: "Dashboard",
+      href: context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard",
+      icon: <CheckIcon />,
+      displayText: "Validation",
+    },];
+
     return (
         <Drawer
             variant="permanent"
             sx={{
                 width: drawerWidth,
                 flexShrink: 0,
-                [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
+                [`& .MuiDrawer-paper`]: { position: 'relative', width: drawerWidth, boxSizing: 'border-box' },
                 display: { xs:'none', md: 'flex'},
             }}
         >
-            <Toolbar />
-            <Box sx={{ overflow: 'auto' , paddingTop:'5vh'}}>
+            <Box sx={{ overflow: 'auto'}}>
                 <List>
-                    {['Home', 'Dashboard'].map((text, index) => (
-                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle === text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
-                            <ListItemButton href={text === "Home" ? context.sandboxId ? `/sandbox/${context.sandboxId}` : "/" : context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard"}>
-                                <ListItemIcon>
-                                    {text === "Home" ? <HomeIcon /> : <CheckIcon />}
+                    {menuItems.map((item, index) => (
+                        <ListItem key={item.text} disablePadding>
+                            <ListItemButton
+                                href={item.href}
+                                sx={{
+                                boxShadow:
+                                    context.pageTitle === item.text.toLowerCase()
+                                    ? 'inset 4px 0 0 #1976d2'
+                                    : 'inset 4px 0 0 transparent',
+                                }}
+                            >
+                                <ListItemIcon
+                                sx={{
+                                    minWidth: 40,
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                }}
+                                >
+                                {item.icon}
                                 </ListItemIcon>
-                                <ListItemText primary={text === "Dashboard" ? "Validation" : text} />
+
+                                <ListItemText primary={item.displayText} />
                             </ListItemButton>
-                        </ListItem>
+                            </ListItem>
                     ))}
                 </List>
 
