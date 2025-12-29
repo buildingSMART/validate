@@ -55,6 +55,6 @@ export default function SideMenu() {
                     </ListItem>
                 </List>
             </Box>
-        </Drawer>
-    )
+        </Drawer> 
+    ) 
 }
