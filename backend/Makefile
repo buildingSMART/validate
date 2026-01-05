@@ -9,30 +9,30 @@ none:
 	@echo
 
 venv:
-	test -d $(VIRTUAL_ENV) || python3.11 -m venv $(VIRTUAL_ENV) 
+	test -d $(VIRTUAL_ENV) || python3.13 -m venv $(VIRTUAL_ENV) 
 
 install: venv
 	$(PIP) install --upgrade pip
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-linux64.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-313-v0.8.4-6924012-linux64.zip"
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.13/site-packages
+	unzip -f -d $(VIRTUAL_ENV)/lib/python3.13/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-macos64.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-313-v0.8.4-6924012-macos64.zip"
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.13/site-packages
+	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.13/site-packages
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos-m1: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-6924012-macosm164.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-313-v0.8.4-6924012-macosm164.zip"
+	mkdir -p $(VIRTUAL_ENV)/lib/python3.13/site-packages
+	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.13/site-packages
 	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
