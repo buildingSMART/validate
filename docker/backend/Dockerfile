@@ -1,5 +1,5 @@
 # BUILD image
-FROM python:3.11-slim-bookworm AS build
+FROM python:3.13-slim-bookworm AS build
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -55,7 +55,7 @@ ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
 
 # RUN image
 # NOTE: don't use Alpine images...
-FROM python:3.11-slim-bookworm AS run
+FROM python:3.13-slim-bookworm AS run
 
 WORKDIR /app
 
