@@ -32,29 +32,83 @@ export default function SideMenu() {
             }}
         >
             <Toolbar />
-            <Box sx={{ overflow: 'auto' , paddingTop:'5vh'}}>
-                <List>
-                    {['Home', 'Dashboard'].map((text, index) => (
-                        <ListItem key={text} disablePadding style={{ 'borderLeft': context.pageTitle === text.toLowerCase() ? 'thick solid #1976d2' : 'none' }}>
-                            <ListItemButton href={text === "Home" ? context.sandboxId ? `/sandbox/${context.sandboxId}` : "/" : context.sandboxId ? `/sandbox/dashboard/${context.sandboxId}` : "/dashboard"}>
-                                <ListItemIcon>
-                                    {text === "Home" ? <HomeIcon /> : <CheckIcon />}
-                                </ListItemIcon>
-                                <ListItemText primary={text === "Dashboard" ? "Validation" : text} />
-                            </ListItemButton>
-                        </ListItem>
-                    ))}
-                </List>
+            <Box
+    sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'auto',
+        paddingTop: '5vh',
+    }}
+>
+    <List>
+        {['Home', 'Dashboard'].map((text) => (
+            <ListItem
+                key={text}
+                disablePadding
+                sx={{
+                    borderLeft:
+                        context.pageTitle === text.toLowerCase()
+                            ? 'thick solid #1976d2'
+                            : 'none',
+                }}
+            >
+                <ListItemButton
+                    href={
+                        text === 'Home'
+                            ? context.sandboxId
+                                ? `/sandbox/${context.sandboxId}`
+                                : '/'
+                            : context.sandboxId
+                            ? `/sandbox/dashboard/${context.sandboxId}`
+                            : '/dashboard'
+                    }
+                >
+                    <ListItemIcon>
+                        {text === 'Home' ? <HomeIcon /> : <CheckIcon />}
+                    </ListItemIcon>
+                    <ListItemText
+                        primary={text === 'Dashboard' ? 'Validation' : text}
+                    />
+                </ListItemButton>
+            </ListItem>
+        ))}
+    </List>
 
-                <List style={{ position: "absolute", bottom: "0", width: "100%" }}>
-                <Divider />
-                    <ListItem key={"test"} disablePadding>
-                        <ListItemButton>
-                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} ${VERSION || ''} ${COMMIT_HASH ? ' - #' + COMMIT_HASH : ''}`} />
-                        </ListItemButton>
-                    </ListItem>
-                </List>
-            </Box>
+    <Box sx={{ mt: 'auto' }}>
+        <Divider />
+
+        <List>
+            <ListItem disablePadding>
+                <ListItemButton href="https://buildingsmart.github.io/validate/index.html">
+                    <ListItemText primary="Documentation" />
+                </ListItemButton>
+            </ListItem>
+
+            <ListItem disablePadding>
+                <ListItemButton href="https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/index.html">
+                    <ListItemText primary="IFC Gherkin Rules" />
+                </ListItemButton>
+            </ListItem>
+        </List>
+
+        <Divider />
+
+        <List>
+            <ListItem disablePadding>
+                <ListItemButton>
+                    <ListItemText
+                        sx={{ textAlign: 'center' }}
+                        primary={`${context.environment} ${VERSION || ''}${
+                            COMMIT_HASH ? ' - #' + COMMIT_HASH : ''
+                        }`}
+                    />
+                </ListItemButton>
+            </ListItem>
+        </List>
+    </Box>
+</Box>
+
         </Drawer>
     )
 }
