@@ -654,8 +654,8 @@ class AuthoringToolAdmin(BaseAdmin):
         ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company_link", "name", "version", "nbr_of_requests_link", "created", "updated"]
-    readonly_fields = ["id", "created", "updated"]
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
 
@@ -678,7 +678,7 @@ class AuthoringToolAdmin(BaseAdmin):
     company_link.admin_order_field = 'company'
 
     @admin.display(description="# Requests")
-    def nbr_of_requests_link(self, obj):
+    def nbr_of_requests(self, obj):
 
         link = reverse("admin:ifc_validation_models_validationrequest_changelist")
         query_string = '?model__produced_by__exact=' + str(obj.id)
@@ -688,7 +688,7 @@ class AuthoringToolAdmin(BaseAdmin):
             query_string,
             obj.nbr_of_requests
         )
-    nbr_of_requests_link.admin_order_field = 'nbr_of_requests'
+    nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
 class UserAdditionalInfoInlineAdmin(admin.StackedInline):

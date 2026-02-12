@@ -1,5 +1,5 @@
 # BUILD image
-FROM node:18-alpine AS build
+FROM node:25-alpine AS build
 
 RUN apk upgrade --no-cache && \
     apk update && \
@@ -28,7 +28,7 @@ RUN npm install && \
     rm -rf node_modules
 
 # RUN image
-FROM nginx:1.27-alpine3.19-slim AS run
+FROM nginx:1.29-alpine3.23-slim AS run
 
 # install certbot
 RUN set -ex && \

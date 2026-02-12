@@ -85,6 +85,22 @@ test.describe('UI - Django Admin', () => {
     await logout(page);
   });
 
+  test('navigate to Authoring Tool', async ({ page }) => {
+
+    // login
+    await login(page);
+
+    // navigate and check elements of the screen
+    await page.goto(`${BASE_URL}/ifc_validation_models/authoringtool/1/change`);
+    await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/authoringtool/1/change/`);
+    await expect(page.getByText('Change Authoring Tool')).toBeVisible();
+    await expect(page.getByText('General Information')).toBeVisible();
+    await expect(page.getByText('Auditing Information')).toBeVisible();
+
+    // logout
+    await logout(page);
+  });
+
   test('navigate to Validation Requests', async ({ page }) => {
 
     // login
