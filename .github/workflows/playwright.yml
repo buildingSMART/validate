@@ -86,12 +86,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: 3.13
 
       - name: Create venv
         run: |
           cd backend
-          python3.11 -m venv .dev/venv --clear
+          python3.13 -m venv .dev/venv --clear
           echo "venv/bin folder content:"
           ls -l .dev/venv/bin
         
@@ -104,14 +104,14 @@ jobs:
           
       - name: Download and install ifcopenshell
         run: |
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-linux64.zip"
-          mkdir -p .dev/venv/lib/python3.11/site-packages
-          unzip -o -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-313-v0.8.4-e8eb5e4-linux64.zip"
+          mkdir -p .dev/venv/lib/python3.13/site-packages
+          unzip -o -d .dev/venv/lib/python3.13/site-packages /tmp/ifcopenshell_python.zip
           rm /tmp/ifcopenshell_python.zip
           # Verify installation
-          ls -la .dev/venv/lib/python3.11/site-packages/
+          ls -la .dev/venv/lib/python3.13/site-packages/
           echo "Checking for ifcopenshell installation:"
-          find .dev/venv/lib/python3.11/site-packages -name "*ifcopenshell*" || echo "No ifcopenshell files found"
+          find .dev/venv/lib/python3.13/site-packages -name "*ifcopenshell*" || echo "No ifcopenshell files found"
         working-directory: ./backend
 
       - name: Cache frontend dependencies
