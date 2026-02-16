@@ -17,7 +17,8 @@ Follow these steps to add a new rule to the Validation Service
 In the buildingSMART [GitHub repository containing all rules](https://github.com/buildingSMART/ifc-gherkin-rules), create the branch that will be used to develop the new rule.
 
 - Name the branch with the name of the new rule. Example: `GEM900` for a new rule in the geometry functional part
-- Add 1 rule per branch, to facilitate review (1 rule = 1 `.feature` file)
+  - note: community contributions for new rules should first be proposed via github issue with the branch name also including a reference to the issue number  
+- Add one rule per branch, to facilitate review (one rule = one `.feature` file)
 
 ## 2. Rule development
 
@@ -27,7 +28,7 @@ A rule is considered complete when it has:
 - corresponding python implementation (aka, [**python steps**](22-write-python-steps))
 - a set of [**unit test files**](23-write-unit-test-files)
 
-Below are instructions for all these 3 components.
+Below are instructions for these three components.
 
 (21-write-feature-files-gherkin-rules-for-ifc)=
 ### 2.1) Write feature files (gherkin rules) for IFC
@@ -42,8 +43,8 @@ In the branch just created, add a Gherkin feature file following these instructi
 #### Naming convention for feature files
 
 - The file name is rule code_rule title
-- The rule code is made of 3 digits capital letters (taken from the list of [Functional parts](./functional_parts.md)) + 3 digits number
-- The rule code, and rule title, must be unique
+- The rule code is made of three digits capital letters (taken from the list of [Functional parts](./functional_parts.md)) + 3 digits number
+- The rule code and rule title must be unique
 - The rule title shall have no space and shall use `-` as separator
 
 <details><summary>wrong</summary>
@@ -65,7 +66,6 @@ SPS001_Basic-spatial-structure-for-buildings.feature
 
 `.feature` files:
 - must include one and only one of these tags to classify the validation category:
-    - `@critical`
     - `@implementer-agreement`
     - `@informal-proposition`
     - `@industry-practice` (warning; not a pass / fail)
@@ -75,8 +75,6 @@ SPS001_Basic-spatial-structure-for-buildings.feature
   - Example: `@version3` for the third version of a feature file
     - Minor changes such as fixing typos or re-wording the description do not increment the version
     - Any change to a **"Given"** or **"Then"** statement, or to a step implementation, requires the version number to be incremented by 1.
-- must include one or more tags indicating the [error code](error-codes) to be raised
-  - If all scenarios raise the same error, then this tag should be placed immediately above the **"Feature:"** line
 
     <details><summary>example</summary>
 
@@ -84,35 +82,12 @@ SPS001_Basic-spatial-structure-for-buildings.feature
     @implementer-agreement
     @GRF
     @version1
-    @E00050
     Feature: GRF001 - Identical....
     ```
 
     </details>
 
-    - If some scenarios raise different error codes, then this tag should be placed immediately above each **"Scenario"
-      ** line
-
-    <details><summary>example</summary>
-
-    ```
-    @implementer-agreement
-    @ALS
-    @version1
-    Feature: ALS005 - Alignment shape representation
-
-    Background: ...
-
-    @E00020
-    Scenario: Agreement on ... representation - Value
-
-    @E00010
-    Scenario: Agreement on ... representation - Type
-    ```
- 
-    </details>
-  
-- must include exactly 1 Feature
+- must include exactly one Feature
 - the naming convention for the Feature is the following: rule code - rule title (the same used for the file name). For the rule title blank spaces must be used instead of `-` 
 
 <details><summary>wrong</summary>
@@ -167,23 +142,21 @@ The rule verifies that an Alignment has a nesting relationship with its componen
 </details>
 
 #### Mandatory Given(s)
-If the rule in the feature file applies only to specific IFC version(s) and/or View Definition(s), then the feature file (or each of its Scenarios, if it has more than one) must start with Given steps specifying the applicability of the following steps
+If the rule in the feature file applies only to specific IFC version(s) then the feature file (or each of its Scenarios, if it has more than one) must start with Given steps specifying the applicability of the following steps
 
 <details><summary>examples</summary>
 
 ```
 Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
 ```
 ```
 Given A model with Schema "IFC2X3" or "IFC4"
-Given A file with Model View Definition "CoordinationView" or "ReferenceView"
 ```
 </details>
 
 #### Optional content
 `.feature` files:
-- can include 1 or more Scenarios
+- can include one or more Scenarios
 - Scenario titles have no constraints
 - can include the `@disabled` tag to temporarily remove them from processing
 
@@ -275,7 +248,6 @@ Use **must**, not **shall** to impose requirements.
 
 ```
 Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
 Then There shall be exactly 1 IfcSite element(s)
 ```
 </details>
@@ -283,7 +255,6 @@ Then There shall be exactly 1 IfcSite element(s)
 
 ```
 Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
 Then There must be exactly 1 IfcSite element(s)
 ```
 </details>
