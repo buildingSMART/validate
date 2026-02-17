@@ -8,6 +8,7 @@ import ListItemButton from '@mui/material/ListItemButton';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import HomeIcon from '@mui/icons-material/Home';
+import InfoIcon from '@mui/icons-material/Info';
 import CheckIcon from '@mui/icons-material/Check';
 import Divider from '@mui/material/Divider';
 
@@ -81,13 +82,10 @@ export default function SideMenu() {
         <List>
             <ListItem disablePadding>
                 <ListItemButton href="https://buildingsmart.github.io/validate/index.html">
+                    <ListItemIcon>
+                        <InfoIcon />
+                    </ListItemIcon>
                     <ListItemText primary="Documentation" />
-                </ListItemButton>
-            </ListItem>
-
-            <ListItem disablePadding>
-                <ListItemButton href="https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/index.html">
-                    <ListItemText primary="IFC Gherkin Rules" />
                 </ListItemButton>
             </ListItem>
         </List>
