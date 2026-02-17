@@ -182,93 +182,10 @@ Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
 ```
 </details>
 
-#### Watch out for extra blank spaces
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then  Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then  Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-
-#### Do not use punctuation at the end of the steps
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC4.3",
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment;
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment;
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment.
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-
-#### Be careful when typing parameters. They are case-sensitive!
-
-<details><summary>wrong</summary>
-
-```
-Given A model with schema "IFC4.3",
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-```
-</details>
-
 #### Must vs Shall
 Use **must**, not **shall** to impose requirements.
 [ALB001_Alignment-in-spatial-structure.feature](https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/ALB002_Alignment-layout.feature)
 "Shall" is ambiguous, also in the legal field the community is moving to a strong preference for “must” as the clearest way to express a requirement or obligation.
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC2X3"
-Then There shall be exactly 1 IfcSite element(s)
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC2X3"
-Then There must be exactly 1 IfcSite element(s)
-```
-</details>
-
-#### Verbs for IFC relationships
-
-When a rule requires a specific IFC relationship to exist, refer to the table below for the right verb to be used.
-
-| IFC relationship       | Verb for rules        | Examples                                                           |
-|------------------------|-----------------------|--------------------------------------------------------------------|
-| IfcRelAggregates       | aggregate, aggregates | Then IfcSite must aggregate IfcBuilding                            |
-| IfcRelNests            | nest, nests           | Then Each IfcAlignmentVertical nests a list of IfcAlignmentSegment |
-| ...                    |                       |
-
 
 #### Reference for schema versioning
 
@@ -280,7 +197,7 @@ in earlier schema versions.
 
 ```
 Given A model with Schema "IFC4.3"
-Given An IfcAlignment
+Given An .IfcAlignment.
 Then ...
 ```
 
@@ -310,21 +227,12 @@ In the same branch used for the Gherkin rules, change or add python steps follow
 
 **Location**: https://github.com/buildingSMART/ifc-gherkin-rules/tree/main/features/steps
 
-#### Naming convention for python files
-
-For the moment, all python steps are contained in [steps.py](https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/steps/steps.py). Therefore, **you should not create a new python file, just expand the existing one.**
-
-:construction: :construction: :construction:
-*In the future, when this file grows, python steps may be splitted in more files - using a certain criteria (e.g., functional parts). When this will be the case, the instruction will be: locate the best .py file to host your steps and start adding your steps*
-
-#### Steps parametrisation
-
-When creating a new step, think about parametrisation and optimisation of the step for future uses.
 
 #### Step re-use
 
-Before creating a new step, check if something similar already exist.
-Try to reuse existing steps.
+Before creating a new step, check the [rule catalog](https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/steps/index.html) 
+to see if something already exists that will fit your needs.
+Try to reuse existing steps whenever possible.
 
 #### Do not use "when" or "And" keywords
 
@@ -337,13 +245,6 @@ Allowed keywords are: `Given`, and `Then`.
 #### Use of existing IfcOpenShell APIs
 
 Try not to use existing functionality included in the `ifcopenshell.api` namespace.
-
-
-
-
-
-
-
 
 (23-write-unit-test-files)=
 ### 2.3) Write unit test files 
@@ -415,44 +316,6 @@ Example table describing unit test expected results
 ...
 ## 7. Approve and merge the pull request
 ...
-
-## Appendix
-
-(error-codes)=
-### Error Codes
-
-Error codes are used to classify and categorize outcomes from the validation service and are
-implemented in [ifc-validation-data-model/main/models.py#L937](https://github.com/buildingSMART/ifc-validation-data-model/blob/main/models.py#L937).
-
-| Error Code | Description                            |
-|------------|----------------------------------------|
-| P00010     | Passed                                 |
-| N00010     | Not Applicable                         |
-|            |                                        |
-| E00001     | Syntax Error                           |
-| E00002     | Schema Error                           |
-| E00010     | Type Error                             |
-| E00020     | Value Error                            |
-| E00030     | Geometry Error                         |
-| E00040     | Cardinality Error                      |
-| E00050     | Duplicate Error                        |
-| E00060     | Placement Error                        |
-| E00070     | Units Error                            |
-| E00080     | Quantity Error                         |
-| E00090     | Enumerated Value Error                 |
-| E00100     | Relationship Error                     |
-| E00110     | Naming Error                           |
-| E00120     | Reference Error                        |
-| E00130     | Resource Error                         |
-| E00140     | Deprecation Error                      |
-| E00150     | Shape Representation Error             |
-| E00160     | Instance Structure Error               |
-|            |                                        |
-| W00010     | Alignment Contains Business Logic Only |
-| W00020     | Alignment Contains Geometry Only       |
-| W00030     | Warning                                |
-|            |                                        |
-| X00040     | Executed                               |
 
 #### Notes
 
