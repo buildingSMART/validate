@@ -17,7 +17,8 @@ Follow these steps to add a new rule to the Validation Service
 In the buildingSMART [GitHub repository containing all rules](https://github.com/buildingSMART/ifc-gherkin-rules), create the branch that will be used to develop the new rule.
 
 - Name the branch with the name of the new rule. Example: `GEM900` for a new rule in the geometry functional part
-- Add 1 rule per branch, to facilitate review (1 rule = 1 `.feature` file)
+  - Note: community contributions for new rules should first be proposed via github issue with the branch name also including a reference to the issue number
+- Add one rule per branch, to facilitate review (one rule = one `.feature` file)
 
 ## 2. Rule development
 
@@ -27,7 +28,7 @@ A rule is considered complete when it has:
 - corresponding python implementation (aka, [**python steps**](22-write-python-steps))
 - a set of [**unit test files**](23-write-unit-test-files)
 
-Below are instructions for all these 3 components.
+Below are instructions for these three components.
 
 (21-write-feature-files-gherkin-rules-for-ifc)=
 ### 2.1) Write feature files (gherkin rules) for IFC
@@ -42,8 +43,8 @@ In the branch just created, add a Gherkin feature file following these instructi
 #### Naming convention for feature files
 
 - The file name is rule code_rule title
-- The rule code is made of 3 digits capital letters (taken from the list of [Functional parts](./functional_parts.md)) + 3 digits number
-- The rule code, and rule title, must be unique
+- The rule code is made of three digits capital letters (taken from the list of [Functional parts](./functional_parts.md)) + 3 digits number
+- The rule code and rule title must be unique
 - The rule title shall have no space and shall use `-` as separator
 
 <details><summary>wrong</summary>
@@ -65,7 +66,6 @@ SPS001_Basic-spatial-structure-for-buildings.feature
 
 `.feature` files:
 - must include one and only one of these tags to classify the validation category:
-    - `@critical`
     - `@implementer-agreement`
     - `@informal-proposition`
     - `@industry-practice` (warning; not a pass / fail)
@@ -75,8 +75,6 @@ SPS001_Basic-spatial-structure-for-buildings.feature
   - Example: `@version3` for the third version of a feature file
     - Minor changes such as fixing typos or re-wording the description do not increment the version
     - Any change to a **"Given"** or **"Then"** statement, or to a step implementation, requires the version number to be incremented by 1.
-- must include one or more tags indicating the [error code](error-codes) to be raised
-  - If all scenarios raise the same error, then this tag should be placed immediately above the **"Feature:"** line
 
     <details><summary>example</summary>
 
@@ -84,35 +82,12 @@ SPS001_Basic-spatial-structure-for-buildings.feature
     @implementer-agreement
     @GRF
     @version1
-    @E00050
     Feature: GRF001 - Identical....
     ```
 
     </details>
 
-    - If some scenarios raise different error codes, then this tag should be placed immediately above each **"Scenario"
-      ** line
-
-    <details><summary>example</summary>
-
-    ```
-    @implementer-agreement
-    @ALS
-    @version1
-    Feature: ALS005 - Alignment shape representation
-
-    Background: ...
-
-    @E00020
-    Scenario: Agreement on ... representation - Value
-
-    @E00010
-    Scenario: Agreement on ... representation - Type
-    ```
- 
-    </details>
-  
-- must include exactly 1 Feature
+- must include exactly one Feature
 - the naming convention for the Feature is the following: rule code - rule title (the same used for the file name). For the rule title blank spaces must be used instead of `-` 
 
 <details><summary>wrong</summary>
@@ -167,23 +142,21 @@ The rule verifies that an Alignment has a nesting relationship with its componen
 </details>
 
 #### Mandatory Given(s)
-If the rule in the feature file applies only to specific IFC version(s) and/or View Definition(s), then the feature file (or each of its Scenarios, if it has more than one) must start with Given steps specifying the applicability of the following steps
+If the rule in the feature file applies only to specific IFC version(s) then the feature file (or each of its Scenarios, if it has more than one) must start with Given steps specifying the applicability of the following steps
 
 <details><summary>examples</summary>
 
 ```
 Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
 ```
 ```
 Given A model with Schema "IFC2X3" or "IFC4"
-Given A file with Model View Definition "CoordinationView" or "ReferenceView"
 ```
 </details>
 
 #### Optional content
 `.feature` files:
-- can include 1 or more Scenarios
+- can include one or more Scenarios
 - Scenario titles have no constraints
 - can include the `@disabled` tag to temporarily remove them from processing
 
@@ -209,95 +182,10 @@ Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
 ```
 </details>
 
-#### Watch out for extra blank spaces
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then  Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then  Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-
-#### Do not use punctuation at the end of the steps
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC4.3",
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment;
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment;
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment.
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-Then Each IfcAlignmentHorizontal must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentVertical must be nested only by 1 IfcAlignment
-Then Each IfcAlignmentCant must be nested only by 1 IfcAlignment
-```
-</details>
-
-#### Be careful when typing parameters. They are case-sensitive!
-
-<details><summary>wrong</summary>
-
-```
-Given A model with schema "IFC4.3",
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC4.3"
-```
-</details>
-
 #### Must vs Shall
 Use **must**, not **shall** to impose requirements.
 [ALB001_Alignment-in-spatial-structure.feature](https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/ALB002_Alignment-layout.feature)
 "Shall" is ambiguous, also in the legal field the community is moving to a strong preference for “must” as the clearest way to express a requirement or obligation.
-
-<details><summary>wrong</summary>
-
-```
-Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
-Then There shall be exactly 1 IfcSite element(s)
-```
-</details>
-<details><summary>right</summary>
-
-```
-Given A model with Schema "IFC2X3"
-Given A file with Model View Definition "CoordinationView"
-Then There must be exactly 1 IfcSite element(s)
-```
-</details>
-
-#### Verbs for IFC relationships
-
-When a rule requires a specific IFC relationship to exist, refer to the table below for the right verb to be used.
-
-| IFC relationship       | Verb for rules        | Examples                                                           |
-|------------------------|-----------------------|--------------------------------------------------------------------|
-| IfcRelAggregates       | aggregate, aggregates | Then IfcSite must aggregate IfcBuilding                            |
-| IfcRelNests            | nest, nests           | Then Each IfcAlignmentVertical nests a list of IfcAlignmentSegment |
-| ...                    |                       |
-
 
 #### Reference for schema versioning
 
@@ -309,7 +197,7 @@ in earlier schema versions.
 
 ```
 Given A model with Schema "IFC4.3"
-Given An IfcAlignment
+Given An .IfcAlignment.
 Then ...
 ```
 
@@ -339,21 +227,12 @@ In the same branch used for the Gherkin rules, change or add python steps follow
 
 **Location**: https://github.com/buildingSMART/ifc-gherkin-rules/tree/main/features/steps
 
-#### Naming convention for python files
-
-For the moment, all python steps are contained in [steps.py](https://github.com/buildingSMART/ifc-gherkin-rules/blob/main/features/steps/steps.py). Therefore, **you should not create a new python file, just expand the existing one.**
-
-:construction: :construction: :construction:
-*In the future, when this file grows, python steps may be splitted in more files - using a certain criteria (e.g., functional parts). When this will be the case, the instruction will be: locate the best .py file to host your steps and start adding your steps*
-
-#### Steps parametrisation
-
-When creating a new step, think about parametrisation and optimisation of the step for future uses.
 
 #### Step re-use
 
-Before creating a new step, check if something similar already exist.
-Try to reuse existing steps.
+Before creating a new step, check the [rule catalog](https://buildingsmart.github.io/ifc-gherkin-rules/branches/main/steps/index.html) 
+to see if something already exists that will fit your needs.
+Try to reuse existing steps whenever possible.
 
 #### Do not use "when" or "And" keywords
 
@@ -366,13 +245,6 @@ Allowed keywords are: `Given`, and `Then`.
 #### Use of existing IfcOpenShell APIs
 
 Try not to use existing functionality included in the `ifcopenshell.api` namespace.
-
-
-
-
-
-
-
 
 (23-write-unit-test-files)=
 ### 2.3) Write unit test files 
@@ -444,44 +316,6 @@ Example table describing unit test expected results
 ...
 ## 7. Approve and merge the pull request
 ...
-
-## Appendix
-
-(error-codes)=
-### Error Codes
-
-Error codes are used to classify and categorize outcomes from the validation service and are
-implemented in [ifc-validation-data-model/main/models.py#L937](https://github.com/buildingSMART/ifc-validation-data-model/blob/main/models.py#L937).
-
-| Error Code | Description                            |
-|------------|----------------------------------------|
-| P00010     | Passed                                 |
-| N00010     | Not Applicable                         |
-|            |                                        |
-| E00001     | Syntax Error                           |
-| E00002     | Schema Error                           |
-| E00010     | Type Error                             |
-| E00020     | Value Error                            |
-| E00030     | Geometry Error                         |
-| E00040     | Cardinality Error                      |
-| E00050     | Duplicate Error                        |
-| E00060     | Placement Error                        |
-| E00070     | Units Error                            |
-| E00080     | Quantity Error                         |
-| E00090     | Enumerated Value Error                 |
-| E00100     | Relationship Error                     |
-| E00110     | Naming Error                           |
-| E00120     | Reference Error                        |
-| E00130     | Resource Error                         |
-| E00140     | Deprecation Error                      |
-| E00150     | Shape Representation Error             |
-| E00160     | Instance Structure Error               |
-|            |                                        |
-| W00010     | Alignment Contains Business Logic Only |
-| W00020     | Alignment Contains Geometry Only       |
-| W00030     | Warning                                |
-|            |                                        |
-| X00040     | Executed                               |
 
 #### Notes
 
