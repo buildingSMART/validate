@@ -334,7 +334,9 @@ export default function DashboardTable({ models }) {
   }, [deleted]);
 
   function onDelete() {
-    setDeleted(selected.join(','))
+    if (window.confirm(`Delete ${selected.length} selected IFC file(s)? This action cannot be undone.`)) {
+      setDeleted(selected.join(','))
+    }
   }
 
   return (
@@ -449,8 +451,9 @@ export default function DashboardTable({ models }) {
                            }}
                         onClick={ (evt) => { 
                           evt.stopPropagation(); 
-                          setDeleted(row.id);
-                        }}>{'Delete IFC file'
+                          if (window.confirm('Are you sure you want to delete this IFC file? This action cannot be undone.'))
+                              setDeleted(row.id);
+                          }}>{'Delete IFC file'
                       }</Button>
 
                         <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to delete your IFC file as it is still being processed." : "Delete your IFC file immediately from the Validation Service. In any case, your file will be deleted after 2 weeks - as per our file retention policy."}>
