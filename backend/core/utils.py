@@ -7,6 +7,8 @@ import logging
 
 from django.core.paginator import Paginator
 from django.db import connection, transaction, OperationalError
+from django.core.files.storage import FileSystemStorage 
+from django.utils.deconstruct import deconstructible
 
 logger = logging.getLogger()
 
@@ -170,3 +172,38 @@ class LargeTablePaginator(Paginator):
             
             except AttributeError:
                 return 0
+
+
+@deconstructible 
+class DeterministicAltNameStorage(FileSystemStorage):
+
+    """
+    Filesystem storage that always generates an alternative name for a given file (instead of trying the original name first, which is the default behavior of FileSystemStorage). 
+    This is useful when we want to allow overwriting files with the same name, but still want to generate a unique name in case of concurrent uploads of files with the same name.
+    """
+
+    def get_available_name(self, name, max_length=None):
+
+        """
+        Return a filename that's free on the target storage system and available for new content to be written to.
+        """
+
+        logger.debug(f"Generating alternative name for file '{name}'")
+
+        # always use the alternative name (do not try the original)
+        dir_name, file_name = os.path.split(name)
+        file_root, file_ext = os.path.splitext(file_name)
+
+        alt_name = self.get_alternative_name(file_root, file_ext)
+        final_name = os.path.join(dir_name, alt_name)
+
+        # iterate in extreme edge case of multiple collisions
+        candidate = final_name
+        while self.exists(candidate):
+            alt_name = self.get_alternative_name(file_root, file_ext)
+            final_name = os.path.join(dir_name, alt_name)
+            candidate = final_name
+
+        logger.debug(f"Generated alternative name for file '{name}' = '{final_name}'")
+
+        return candidate
