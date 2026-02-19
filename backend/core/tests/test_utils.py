@@ -37,7 +37,7 @@ class TestDeterministicAltNameStorage(TransactionTestCase):
             print('Generated name2: ', name2)
             assert name1 != name2
             assert len(name2.split('test_')[1].split('.txt')[0]) == 7
-        
+
     def test_generates_alternative_name_path_traversal(self):
 
         with tempfile.TemporaryDirectory() as tmpdir:
