@@ -273,39 +273,6 @@ def models_paginated(request, start: int, end: int):
 
 
 @ensure_csrf_cookie
-def download(request, id: int):
-
-    if request.method != "GET":
-        return HttpResponseNotAllowed()
-
-    # fetch current user
-    user = get_current_user(request)
-    if not user:
-        return create_redirect_response(login=True)
-
-    logger.debug(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}'")
-    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
-    if request:
-        file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
-        logger.debug(f"File to be downloaded is located at '{file_path}'")
-
-        if request.file.name.endswith('.gz'):
-            file_handle = open(file_path, 'rb')
-            response = FileResponse(file_handle, content_type="application/gzip")
-            response['Content-Length'] = os.path.getsize(file_path)
-            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
-        else:
-            response = HttpResponse(open(file_path), content_type="application/x-step")        
-            response['Content-Disposition'] = f'attachment; filename="{request.file_name}"'
-            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
-
-        return response
-    else:
-        logger.debug(f"Could not download file with id='{id}' for user.id='{user.id}' as it does not exist")
-        return HttpResponseNotFound()
-
-
-@ensure_csrf_cookie
 @csrf_protect
 def upload(request):
 
