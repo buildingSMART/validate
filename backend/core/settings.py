@@ -309,6 +309,16 @@ except Exception as err:
     msg = "Configuration for MEDIA_ROOT is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(MEDIA_ROOT, err))
 
+# always generate an alternative name for each uploaded file
+STORAGES = {
+    "default": {
+        "BACKEND": "core.utils.DeterministicAltNameStorage"
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    }
+}
+
 # Celery broker, timers and result
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 #CELERY_RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "redis://localhost:6379/0")
