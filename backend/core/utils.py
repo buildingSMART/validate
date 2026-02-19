@@ -190,11 +190,14 @@ class DeterministicAltNameStorage(FileSystemStorage):
 
         logger.debug(f"Generating alternative name for file '{name}'")
 
-        # always use the alternative name (do not try the original)
-        dir_name, file_name = os.path.split(name)
+        # apply base logic - might or might not yield a suffix
+        original_name = super().get_available_name(name, max_length)
+        dir_name, file_name = os.path.split(original_name)
         file_root, file_ext = os.path.splitext(file_name)
+        file_root_without_suffix = file_root.split('_')[0]
 
-        alt_name = self.get_alternative_name(file_root, file_ext)
+        # always use the alternative name
+        alt_name = self.get_alternative_name(file_root_without_suffix, file_ext)
         final_name = os.path.join(dir_name, alt_name)
 
         # iterate in extreme edge case of multiple collisions
