@@ -40,7 +40,7 @@ PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is no
 # URL for rule hyperlinks; determine the branch based on the environment
 FEATURE_BRANCH = "development" if DEVELOPMENT else "main"
 FEATURE_URL = os.getenv(
-    "FEATURE_URL", f"https://github.com/buildingSMART/ifc-gherkin-rules/blob/{FEATURE_BRANCH}/features/rules"
+    "FEATURE_URL", f"https://buildingsmart.github.io/ifc-gherkin-rules/branches/{FEATURE_BRANCH}/features/"
 )
 
 # Max. number of outcomes shown in UI
@@ -145,6 +145,10 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.MetadataLimitOffsetPagination",
+    "PAGE_SIZE": 25,
+    "DEFAULT_VERSIONING_CLASS": "core.versioning.OptionalURLPathVersioning",
+    "DEFAULT_VERSION": "v1",
     'DEFAULT_PERMISSION_CLASSES':(
         # 'rest_framework.permissions.AllowAny',
         'rest_framework.permissions.IsAuthenticated',
@@ -164,9 +168,29 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'IFC Validation Service API (PREVIEW)',
-    'DESCRIPTION': 'API for the buildingSMART Validation Service',
+    'DESCRIPTION': (
+        'API for the buildingSMART Validation Service.\n\n'
+        '[API Quickstart Documentation]'
+        '(https://github.com/buildingSMART/validate/blob/docs/gh-pages/docs/dev/api_quickstart.md)'
+    ),
+    'SCHEMA_PATH_PREFIX': r'/api/v[0-9]',
     'VERSION': os.environ.get("VERSION", "UNDEFINED"),
     'SERVE_INCLUDE_SCHEMA': False,
+    'SERVERS': [
+        {'url': f'{PUBLIC_URL}/api/v1', 'description': f'API for {ENVIRONMENT} environment'}
+    ],
+    "SWAGGER_UI_SETTINGS": """{
+        deepLinking: true,
+        displayOperationId: true,
+        persistAuthorization: true,
+        urls: [
+            {url: "/api/v1/schema", name: "Version 1"},
+        ],
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+    }""",
+    'COMPONENT_SPLIT_PATCH': True,
+    'COMPONENT_SPLIT_REQUEST': True,
 
     'SWAGGER_UI_DIST': 'SIDECAR',  # shorthand to use the sidecar instead
     'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
@@ -285,6 +309,16 @@ except Exception as err:
     msg = "Configuration for MEDIA_ROOT is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(MEDIA_ROOT, err))
 
+# always generate an alternative name for each uploaded file
+STORAGES = {
+    "default": {
+        "BACKEND": "core.utils.DeterministicAltNameStorage"
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    }
+}
+
 # Celery broker, timers and result
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 #CELERY_RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "redis://localhost:6379/0")
@@ -300,6 +334,7 @@ CELERY_TASK_SEND_SENT_EVENT = True
 CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_TRACK_STARTED = True
 CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
+CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
 CELERY_TASK_REJECT_ON_WORKER_LOST = True

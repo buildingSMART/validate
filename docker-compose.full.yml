@@ -114,7 +114,7 @@ services:
 
     # Redis
     redis:
-        image: redis:7.2-alpine 
+        image: redis:8.4-alpine 
         restart: unless-stopped
         container_name: redis
         expose:
@@ -124,7 +124,7 @@ services:
 
     # PostgreSQL DB
     db:
-        image: postgres:16.2-alpine
+        image: postgres:16.10-alpine #align with Azure PG version
         restart: unless-stopped
         container_name: db
         volumes:
@@ -138,7 +138,7 @@ services:
 
     # Prometheus
     prometheus:
-        image: prom/prometheus:v2.50.1
+        image: prom/prometheus:latest
         restart: unless-stopped
         container_name: prometheus
         command: --config.file=/etc/prometheus/prometheus.yml --no-scrape.adjust-timestamps
@@ -150,7 +150,7 @@ services:
 
     # Grafana
     grafana:
-        image: grafana/grafana:10.4.0
+        image: grafana/grafana:latest
         restart: unless-stopped
         container_name: grafana
         volumes:
@@ -164,7 +164,7 @@ services:
 
     # OpenTelemetry Collector
     otel_col:
-        image: otel/opentelemetry-collector-contrib:0.96.0 # contrib includes eg. Redis/PostgreSQL already
+        image: otel/opentelemetry-collector-contrib:latest # contrib includes eg. Redis/PostgreSQL already
         restart: unless-stopped
         container_name: otel_col
         expose:

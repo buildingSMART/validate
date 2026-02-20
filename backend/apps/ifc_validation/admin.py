@@ -26,6 +26,9 @@ from apps.ifc_validation_models.models import Version
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
+from .filters import ProducedByAdvancedFilter
+from .filters import ModelProducedByAdvancedFilter
+from .filters import CreatedByAdvancedFilter
 
 from core import utils
 from core.filters import AdvancedDateFilter
@@ -61,11 +64,20 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel", "created", "created_by", "updated", "updated_by"]
+    list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
     readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
     date_hierarchy = "created"
 
-    list_filter = ["status", "deleted", "model__produced_by", "channel", "created_by", "created_by__useradditionalinfo__is_vendor", "created_by__useradditionalinfo__is_vendor_self_declared", ('created', AdvancedDateFilter)]
+    list_filter = [
+        "status", 
+        "deleted", 
+        "model__produced_by",
+        ModelProducedByAdvancedFilter,
+        "channel", 
+        CreatedByAdvancedFilter, 
+        "created_by__useradditionalinfo__is_vendor", 
+        "created_by__useradditionalinfo__is_vendor_self_declared", 
+        ('created', AdvancedDateFilter)]
     search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
@@ -78,7 +90,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
                 When(completed__isnull=True, then=Now() - F('started')),
                 default=F('completed') - F('started'),
                 output_field=DurationField()
-            )
+            ),
+            _queue_time=Case( 
+                When(started__isnull=False, then=F('started') - F('created')),
+                default=None,
+                output_field=DurationField()
+            ),
         )
         return queryset
 
@@ -123,11 +140,38 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         )
     model_link.admin_order_field = 'model'
 
+    @admin.display(description="Created By")
+    def created_by_link(self, obj):
+        
+        link = reverse("admin:auth_user_change", args=[obj.created_by.id])
+        return format_html(
+            '<a href="{}">{}</a>',
+            link,
+            obj.created_by.username,
+        )
+    created_by_link.admin_order_field = 'created_by'
+
     @admin.display(description="Duration (sec)")
     def duration_text(self, obj):
 
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
     duration_text.admin_order_field = '_duration'
+    
+    @admin.display(description="Queue (sec)")
+    def queue_time_text(self, obj):
+        if not obj._queue_time:
+            return None
+        sec = obj._queue_time.total_seconds()
+        if sec > 3600:
+            color = "#b91c1c"  
+        elif sec > 60:
+            color = "#d97706"  
+        else:
+            color = "#16a34a"  
+
+        sec_str = f"{sec:.1f}"
+        return format_html('<b style="color:{}">{}</b>', color, sec_str)
+    queue_time_text.admin_order_field = '_queue_time'
 
     @admin.display(description="Is Vendor ?", boolean=True)
     def is_vendor(self, obj):
@@ -148,6 +192,11 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     def file_size_text(self, obj):
 
         return utils.format_human_readable_file_size(obj.size)
+
+    @admin.display(description="Channel")
+    def channel_text(self, obj):
+        return obj.get_channel_display().upper()
+    channel_text.admin_order_field = 'channel'
 
     @admin.action(
         description="Permanently delete selected Validation Requests",
@@ -239,18 +288,45 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         permissions=["change_status"]
     )
     def restart_processing_action(self, request, queryset):
+
         # TODO: move to middleware component?
         if request.user.is_authenticated:
             logger.info(f"Authenticated, user.id = {request.user.id}")
             set_user_context(request.user)
 
-        # reset and re-submit tasks for background execution
-        for obj in queryset:
-            obj.mark_as_pending(reason='Resubmitted for processing via Django admin UI')
-            if obj.model:
-                obj.model.reset_status()
-            ifc_file_validation_task.delay(obj.id, obj.file_name)
-            logger.info(f"Task 'ifc_file_validation_task' re-submitted for id:{obj.id} file_name: {obj.file_name}")
+        if 'apply' in request.POST:
+
+            # reset and re-submit tasks for background execution
+            count_requests = 0
+            for obj in queryset:
+                if 'valreq_' + str(obj.id) in request.POST:
+                    count_requests += 1
+                    obj.mark_as_pending(reason='Resubmitted for processing via Django admin UI')
+                    if obj.model:
+                        obj.model.reset_status()
+                    ifc_file_validation_task.delay(obj.id, obj.file_name)
+                    logger.info(f"Task 'ifc_file_validation_task' re-submitted for id:{obj.id} file_name: {obj.file_name}")
+
+            if count_requests == 0:
+                self.message_user(
+                    request,
+                    "No Validation Requests were selected for processing.",
+                    messages.WARNING,
+                )
+            else:
+                self.message_user(
+                    request,
+                    ngettext(
+                        "Processing of %d Validation Request was queued successfully.",
+                        "Processing of %d Validation Requests was queued successfully.",
+                        count_requests,
+                    )
+                    % count_requests,
+                    messages.SUCCESS,
+                )
+            return HttpResponseRedirect(request.get_full_path())
+        
+        return render(request, 'admin/restart_processing_intermediate.html', context={'val_requests': queryset, 'entity_name': 'Validation Request(s)'})
 
     def get_actions(self, request):
     
@@ -305,7 +381,12 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
                 When(ended__isnull=True, then=Now() - F('started')),
                 default=F('ended') - F('started'),
                 output_field=DurationField()
-            )
+            ),
+            _queue_time=Case(  
+                When(started__isnull=False, then=F('started') - F('created')),
+                default=None,
+                output_field=DurationField()
+            ),
         )
         return queryset
     
@@ -330,7 +411,24 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
     def duration_text(self, obj):
 
         return '{0:.1f}'.format(obj._duration.total_seconds()) if obj._duration else None
+    
     duration_text.admin_order_field = '_duration'
+    
+    @admin.display(description="Queue (sec)")
+    def queue_time_text(self, obj):
+        if not obj._queue_time:
+            return None
+        sec = obj._queue_time.total_seconds()
+        if sec > 3600:
+            color = "#b91c1c"  
+        elif sec > 60:
+            color = "#d97706"  
+        else:
+            color = "#16a34a"  
+
+        sec_str = f"{sec:.1f}"
+        return format_html('<b style="color:{}">{}</b>', color, sec_str)
+    queue_time_text.admin_order_field = '_queue_time'
 
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
@@ -358,12 +456,45 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
 class ModelAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "created", "updated"]
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": [
+            "id", 
+            "public_id", 
+            "file_name", 
+            "file", 
+            "schema", 
+            "mvd", 
+            "details",
+            "properties"
+        ]}),
+        ('Status Information',   {"classes": ("wide"), "fields": [
+            "status_header_syntax",
+            "status_syntax",
+            "status_prereq",
+            "status_schema",
+            "status_ia",
+            "status_ip",
+            "status_industry_practices",
+            "status_mvd",
+            "status_bsdd",
+            "status_signatures",
+            "status_magic_clamav",
+        ]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created",), ("updated")]})
+    ]
+
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
-    list_filter = ['schema', 'produced_by', ('date', AdvancedDateFilter), ('created', AdvancedDateFilter)]
+    list_filter = [
+        'schema', 
+        'status_signatures',
+        ProducedByAdvancedFilter,
+        ('date', AdvancedDateFilter), 
+        ('created', AdvancedDateFilter)
+    ]
     
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
@@ -379,6 +510,19 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     def timestamp(self, obj):
         
         return obj.date
+    
+    @admin.display(description="Valid Signature ?")
+    def is_signed(self, obj):
+
+        match obj.status_signatures:
+            case Model.Status.VALID:
+                return format_html('<img src="/django_static/admin/img/icon-yes.svg">')
+            case Model.Status.WARNING:
+                return format_html('<img src="/django_static/admin/img/icon-alert.svg">')
+            case Model.Status.INVALID:
+                return format_html('<img src="/django_static/admin/img/icon-no.svg">')
+            case _:
+                return '-'
     
     @admin.display(description="Authoring Tool")
     def authoring_tool_link(self, obj):
@@ -515,6 +659,10 @@ class AuthoringToolAdmin(BaseAdmin):
     list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "version", "company__name")
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
+
     @admin.display(description="Company")
     def company_link(self, obj):
 
@@ -529,13 +677,17 @@ class AuthoringToolAdmin(BaseAdmin):
         )
     company_link.admin_order_field = 'company'
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        return qs.annotate(nbr_of_requests=Count('models')) # good proxy, no direct link to Validation Request
-
     @admin.display(description="# Requests")
     def nbr_of_requests(self, obj):
-        return obj.nbr_of_requests
+
+        link = reverse("admin:ifc_validation_models_validationrequest_changelist")
+        query_string = '?model__produced_by__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Validation Requests for this Authoring Tool">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_requests
+        )
     nbr_of_requests.admin_order_field = 'nbr_of_requests'
 
 
@@ -556,7 +708,7 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
 
     inlines = [ UserAdditionalInfoInlineAdmin ]
 
-    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests", "date_joined", "last_login"]
+    list_display = ["id", "username", "email", "first_name", "last_name", "is_active", "is_staff", "company_link", "is_vendor", "is_vendor_self_declared", "nbr_of_requests_link", "date_joined", "last_login"]
     list_filter = [
         'is_staff', 
         'is_superuser', 
@@ -598,22 +750,30 @@ class CustomUserAdmin(UserAdmin, BaseAdmin):
         )
     company_link.admin_order_field = 'useradditionalinfo__company'
     
-    @admin.display(description="Is Vendor?")
+    @admin.display(description="Is Vendor?", boolean=True)
     def is_vendor(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor
     is_vendor.admin_order_field = 'useradditionalinfo__is_vendor'
 
-    @admin.display(description="Is Vendor (self-declared)?")
+    @admin.display(description="Is Vendor (self-declared)?", boolean=True)
     def is_vendor_self_declared(self, obj):
         
         return None if obj.useradditionalinfo is None else obj.useradditionalinfo.is_vendor_self_declared
     is_vendor_self_declared.admin_order_field = 'useradditionalinfo__is_vendor_self_declared'
 
     @admin.display(description="# Requests")
-    def nbr_of_requests(self, obj):
-        return obj.nbr_of_requests
-    nbr_of_requests.admin_order_field = 'nbr_of_requests'
+    def nbr_of_requests_link(self, obj):
+
+        link = reverse("admin:ifc_validation_models_validationrequest_changelist")
+        query_string = '?created_by__exact=' + str(obj.id)
+        return format_html(
+            '<a href="{}{}" title="Click to show a filtered list of Validation Requests for this User">{}</a>',
+            link,
+            query_string,
+            obj.nbr_of_requests
+        )
+    nbr_of_requests_link.admin_order_field = 'nbr_of_requests'
 
     @admin.action(
         description="Remove Company & is_vendor status from selected users",

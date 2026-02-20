@@ -1,7 +1,7 @@
 {
   "name": "validate-e2e",
   "description": "End-to-end tests for the IFC Validation Service using Playwright",
-  "version": "0.7.8",
+  "version": "0.0.1",
   "scripts": {
     "test": "playwright test --reporter=line",
     "test:html": "playwright test",

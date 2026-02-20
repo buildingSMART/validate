@@ -210,7 +210,7 @@ function Report({ kind }) {
                   }
                   {(kind === "file" && reportData && reportData.results && reportData.results.signatures) && 
                     <>
-                      {(reportData.results.signatures.length > 0) && <h2 id="signatures">Digital signatures</h2>}
+                      {(reportData.results.signatures.length > 0) && <h2 id="signatures">Digital Application Authentication</h2>}
                       {reportData.results.signatures.map((sig, sigIndex) => (
                         <TableContainer sx={{ maxWidth: 850, border: `solid 2px ${sig.signature === 'invalid' ? 'red' : sig.signature === 'valid_unknown_cert' ? 'gray' : 'green'}` }} component={Paper}>
                           <Table aria-label="simple table">

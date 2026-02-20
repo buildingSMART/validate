@@ -7,7 +7,7 @@ try:
 except:
     import apps.ifc_validation.checks.ifc_gherkin_rules as gherkin_rules  # tests
 
-def perform(ifc_fn, task_id, rule_type, verbose, purepythonparser=False):
+def perform(ifc_fn, task_id, rule_type, max_outcomes: int, verbose, purepythonparser=False):
 
     try:
         
@@ -15,6 +15,7 @@ def perform(ifc_fn, task_id, rule_type, verbose, purepythonparser=False):
         rules_run = gherkin_rules.run(
             filename=ifc_fn,
             rule_type=gherkin_rule_type,
+            max_outcomes=max_outcomes,
             task_id=task_id,
             with_console_output=verbose,
             purepythonparser=purepythonparser
@@ -34,6 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--file-name", "-f", type=str, required=True)
     parser.add_argument("--task-id", "-t", type=int, required=False, default=None)
     parser.add_argument("--rule-type", "-r", type=str, default='ALL')
+    parser.add_argument('--max-outcomes', "-m", type=int, default=0)
     parser.add_argument("--verbose", "-v", action='store_true')
     parser.add_argument("--purepythonparser", "-p", action="store_true")
     args = parser.parse_args()
@@ -42,6 +44,7 @@ if __name__ == "__main__":
         ifc_fn=args.file_name,
         task_id=args.task_id,
         rule_type=args.rule_type,
+        max_outcomes=args.max_outcomes,
         verbose=args.verbose,
         purepythonparser=args.purepythonparser
     )

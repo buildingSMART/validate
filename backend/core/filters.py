@@ -82,3 +82,29 @@ class AdvancedDateFilter(admin.DateFieldListFilter):
                 (_("No date"), {self.field_generic + "isnull": True}),
                 (_("Has date"), {self.field_generic + "isnull": False}),
             )
+
+
+class AdvancedInputFilter(admin.SimpleListFilter):
+    
+    template = 'admin/advanced_input_filter.html'
+
+    def lookups(self, request, model_admin):
+        
+        # required to show the filter
+        return ((),)
+    
+    def get_facet_counts(self, pk_attname, filtered_qs):
+
+        # not supported, return empty dict
+        return {}
+
+    def choices(self, changelist):
+        
+        # grab only the "all" option
+        all_choice = next(super().choices(changelist))
+        all_choice['query_parts'] = (
+            (k, v)
+            for k, v in changelist.get_filters_params().items()
+            if k != self.parameter_name
+        )
+        yield all_choice

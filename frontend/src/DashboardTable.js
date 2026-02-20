@@ -17,7 +17,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import MailLockIcon from '@mui/icons-material/MailLock';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
-//import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -26,6 +25,8 @@ import WarningIcon from '@mui/icons-material/Warning';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
 import BlockIcon from '@mui/icons-material/Block';
 import Link from '@mui/material/Link';
+import Button from '@mui/material/Button';
+
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
@@ -43,7 +44,6 @@ const statusToIcon = {
   "info-valid": <InfoIcon sx={{ color: "#2ab672" }}/>, // For passing header validation
 };
 
-
 function wrap_status(status, href) {
   if (status === 'n' || status === 'p' || status === '-') {
     return statusToIcon[status];
@@ -52,7 +52,7 @@ function wrap_status(status, href) {
       {statusToIcon[status]}
     </IconButton>;
   }
-}
+};
 
 function computeRelativeDates(modelDate) {
   var offset = modelDate.getTimezoneOffset();
@@ -82,7 +82,15 @@ function computeRelativeDates(modelDate) {
   } else {
     return modelDate.toLocaleString();
   }
-}
+};
+
+function isRowAllowedToBeDeleted(row) {
+      
+  const isCompleted = row.progress >= 100;
+  const isPending = row.progress === -1;
+  const isError = row.progress === -2;
+  return isCompleted || isPending || isError;
+};
 
 const headCells = [
   {
@@ -203,13 +211,6 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
           </IconButton>
         </Tooltip>)}
 
-      {/* {numSelected > 0 && (
-        <Tooltip title="Revalidate">
-          <IconButton onClick={onRevalidate}>
-            <ReplayIcon />
-          </IconButton>
-        </Tooltip>)} */}
-
       {numSelected > 0 ? (
         <Typography
           //sx={{ flex: '1 1 100%' }}
@@ -246,7 +247,6 @@ export default function DashboardTable({ models }) {
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [count, setCount] = React.useState(0);
   const [deleted, setDeleted] = useState('');
-  const [revalidated, setRevalidated] = useState('');
   const [progress, setProgress] = useState(0);
 
   const context = useContext(PageContext);
@@ -266,20 +266,31 @@ export default function DashboardTable({ models }) {
 
 
   const handleSelectAllClick = (event) => {
-    if (event.target.checked) {
-      const newSelected = rows.map((n) => n.id);
+
+    const isChecked = event.target.checked;
+    const isIndeterminate = (event.target.dataset.indeterminate === true);
+    const allEnabledSelected = (selected.length > 0) && (selected.length === rows.filter(row => isRowAllowedToBeDeleted(row)).length);
+
+    if (!isIndeterminate && !allEnabledSelected && isChecked) {
+      const newSelected = rows.map((row) => isRowAllowedToBeDeleted(row) ? row.id : null).filter(row => row !== null);
       setSelected(newSelected);
       return;
     }
     setSelected([]);
   };
 
-  const handleClick = (event, filename) => {
-    const selectedIndex = selected.indexOf(filename);
+  const handleClick = (event, row) => {
+
+    if (!isRowAllowedToBeDeleted(row)) {
+      event.stopPropagation();
+      return;
+    }
+
+    const selectedIndex = selected.indexOf(row.id);
     let newSelected = [];
 
     if (selectedIndex === -1) {
-      newSelected = newSelected.concat(selected, filename);
+      newSelected = newSelected.concat(selected, row.id);
     } else if (selectedIndex === 0) {
       newSelected = newSelected.concat(selected.slice(1));
     } else if (selectedIndex === selected.length - 1) {
@@ -305,7 +316,9 @@ export default function DashboardTable({ models }) {
     page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
 
   useEffect(() => {
-    if (deleted) {
+
+    if (deleted && deleted.length > 0) {
+
       fetch(`${FETCH_PATH}/api/delete/${deleted}`, {
         method: 'DELETE',
         headers: { 'x-csrf-token': getCookieValue('csrftoken') },
@@ -316,33 +329,19 @@ export default function DashboardTable({ models }) {
           setSelected([])
           setDeleted([])
         });
-    } else if (revalidated) {
-      fetch(`${FETCH_PATH}/api/revalidate/${revalidated}`, {
-        method: 'POST',
-        headers: { 'x-csrf-token': getCookieValue('csrftoken') },
-        credential: 'include'
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          setSelected([])
-          setRevalidated([])
-        });   
     }
 
-  }, [deleted, revalidated]);
+  }, [deleted]);
 
   function onDelete() {
-    setDeleted(selected.join(','))
+    if (window.confirm(`Delete ${selected.length} selected IFC file(s)? This action cannot be undone.`)) {
+      setDeleted(selected.join(','))
+    }
   }
-
-  // function onRevalidate() {
-  //   setRevalidated(selected.join(','))
-  // }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      {/* <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} /> */}
       <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
       <TableContainer>
         <Table
@@ -375,7 +374,7 @@ export default function DashboardTable({ models }) {
               return (
                 <TableRow
                   hover
-                  onClick={(event) => handleClick(event, row.id)}
+                  onClick={(event) => handleClick(event, row)}
                   role="checkbox"
                   aria-checked={isItemSelected}
                   tabIndex={-1}
@@ -383,13 +382,19 @@ export default function DashboardTable({ models }) {
                   selected={isItemSelected}
                 >
                   <TableCell padding="checkbox">
-                    <Checkbox
-                      color="primary"
-                      checked={isItemSelected}
-                      inputProps={{
-                        'aria-labelledby': labelId,
-                      }}
-                    />
+                  
+                    <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..." : ""}>
+                    <span>
+                      <Checkbox
+                        color="primary"
+                        checked={isItemSelected && isRowAllowedToBeDeleted(row)}
+                        disabled={!isRowAllowedToBeDeleted(row)}
+                        inputProps={{
+                          'aria-labelledby': labelId,
+                        }}
+                      />                      
+                    </span>
+                  </Tooltip>
                   </TableCell>
                   <TableCell align="left">
                   {row.filename}{" "}
@@ -434,9 +439,31 @@ export default function DashboardTable({ models }) {
                   }
 
                   <TableCell align="left">
-                    <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick={evt => evt.stopPropagation()}>
-                      {'Download file'}
-                    </Link>
+                  { 
+                    (row.deleted ? '-' : <div>
+                      <Button 
+                        variant="text" 
+                        disabled={!isRowAllowedToBeDeleted(row)} 
+                        sx={{ 
+                          textTransform: 'none', 
+                          color: 'primary.main', 
+                          '&:hover': { textDecoration: 'underline', backgroundColor: 'transparent', }, 
+                           }}
+                        onClick={ (evt) => { 
+                          evt.stopPropagation(); 
+                          if (window.confirm('Are you sure you want to delete this IFC file? This action cannot be undone.'))
+                              setDeleted(row.id);
+                          }}>{'Delete IFC file'
+                      }</Button>
+
+                        <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to delete your IFC file as it is still being processed." : "Delete your IFC file immediately from the Validation Service. In any case, your file will be deleted after 2 weeks - as per our file retention policy."}>
+                          <span style={{display: 'inline-block'}}>
+                            <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
+                          </span>
+                        </Tooltip>
+                      </div>
+                      )
+                  }
                   </TableCell>
                 </TableRow>
               );

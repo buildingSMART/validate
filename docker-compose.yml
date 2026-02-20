@@ -111,7 +111,7 @@ services:
 
     # Redis
     redis:
-        image: redis:7.2-alpine 
+        image: redis:8.4-alpine 
         restart: unless-stopped
         container_name: redis
         expose:
@@ -121,7 +121,7 @@ services:
 
     # PostgreSQL DB
     db:
-        image: postgres:16.2-alpine
+        image: postgres:16.10-alpine #align with Azure PG version
         restart: unless-stopped
         container_name: db
         volumes:

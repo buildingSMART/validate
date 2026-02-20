@@ -1,10 +1,14 @@
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.models import User
-from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField
-from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek
+from django.db.models import Count, Q, F, Avg, When, Case, DurationField, IntegerField, ExpressionWrapper, Exists, OuterRef
+from django.db.models.functions import ExtractMonth, ExtractYear, Now, TruncDate, ExtractWeek, ExtractHour, Trunc, ExtractWeekDay, Cast
 from django.http import JsonResponse
+
+from zoneinfo import ZoneInfo
+import math
 import calendar
 import datetime
+import re
 
 from apps.ifc_validation_models.models import (
     ValidationRequest,
@@ -14,13 +18,13 @@ from apps.ifc_validation_models.models import (
     AuthoringTool,
 )
 
-months = list(calendar.month_name)[1:] 
+MONTHS = list(calendar.month_name)[1:] 
 
 PERIODS = {
     "month": {
         "annotate": lambda qs: qs.annotate(period=ExtractMonth("created")),
-        "label":   lambda row: months[row["period"] - 1],         
-        "full_set": months,
+        "label":   lambda row: MONTHS[row["period"] - 1],         
+        "full_set": MONTHS,
     },
     "week": {
         "annotate": lambda qs: qs.annotate(period=ExtractWeek("created")),
@@ -50,6 +54,30 @@ PERIODS = {
 }
 
 
+DEV_TEAM_EMAILS = {
+    "hesselinkgeert@gmail.com",
+    "geert.hess@gmail.com",
+    "geertparallels@gmail.com",
+    "t.krijnen@gmail.com",
+    "rw-bsi@xeneo.biz",
+    "raphael@xeneo.biz",
+    "raphael.wouters@gmail.com",
+    "evandro.alfieri@buildingsmart.org",
+    "evandroalfieri@gmail.com",
+}
+
+def _dev_team_ids() -> set[int]:
+    """
+    Return a set of user IDs that should be classified as 'dev-team'.
+
+    Defined by DEV_TEAM_EMAILS. Keeps classification separate from is_vendor.
+    """
+    return set(
+        User.objects
+            .filter(email__in=DEV_TEAM_EMAILS)
+            .values_list("id", flat=True)
+    )
+
 COLORS = {
     "primary": "#79aec8",
     "success": "#55efc4",
@@ -63,13 +91,14 @@ COLORS = {
     "prereq": "#b4acb4",
     "digital_signatures": "#73d0d8",
     "inst_completion": "#e76565",
+    "dev_team": "#f1c40f",
+    "magic_and_av": "#a29bfe",
 }
 
 SYNTAX_TASK_TYPES = {
     "SYNTAX_HEADER": "SYNTAX",
     "HEADER_SYNTAX": "SYNTAX",
 }
-
 
 TASK_TYPES = {
     "SYNTAX": ("Syntax", COLORS["success"]),
@@ -82,7 +111,36 @@ TASK_TYPES = {
     "INDUSTRY": ("Industry", COLORS["industry"]),
     "PREREQ": ("Prereq", COLORS["prereq"]),
     "INST_COMPLETION": ("Inst Completion", COLORS["inst_completion"]),
+    "MAGIC_AND_CLAMAV": ("Magic/AV", COLORS["magic_and_av"]),
 }
+
+SCHEMA_COLORS = {
+    "IFC2X3": COLORS["norm_ia"],
+    "IFC4": COLORS["success"],
+    "IFC4X3": COLORS["danger"],
+    "UNKNOWN": COLORS["prereq"],  
+}
+
+def normalize_schema(schema: str | None) -> str | None:
+    """
+    Map various schema strings to one of our canonical buckets:
+    IFC2X3, IFC4, IFC4X3, or None (for 'unknown/other').
+
+    Examples that end up as IFC4X3:
+      - "IFC4X3"
+      - "IFC4X3_ADD1"
+      - "IFC4X3_ADD2"
+    """
+    s = (schema or "").upper()
+
+    if "IFC4X3" in s:
+        return "IFC4X3"
+    if s.startswith("IFC4"):
+        return "IFC4"
+    if s.startswith("IFC2X3"):
+        return "IFC2X3"
+    return None
+
 
 SECONDS_PER_MINUTE = 60
 BYTES_PER_MB = 1024 * 1024
@@ -117,7 +175,8 @@ def chart_response(title, labels, datasets):
             "datasets": datasets,
         },
     })
-    
+
+
 def group_by_period(qs, period, agg_key, agg_expression, window=None):
     cfg = PERIODS[period]
     qs = cfg["annotate"](qs)
@@ -128,7 +187,7 @@ def group_by_period(qs, period, agg_key, agg_expression, window=None):
         qs = qs.filter(
             Q(period__in=[
                 int(lbl[1:]) if period in ["week", "quarter"]
-                else months.index(lbl) + 1 if period == "month"
+                else MONTHS.index(lbl) + 1 if period == "month"
                 else lbl
                 for lbl in valid_labels
             ])
@@ -138,6 +197,7 @@ def group_by_period(qs, period, agg_key, agg_expression, window=None):
           .annotate(**{agg_key: agg_expression})
           .order_by("period")
     )
+
 
 def fill_period_dict(grouped_qs, period, year, *, key, transform=lambda x: x, window=None):
     data = dict_for_period(period, year=year, window=window)   
@@ -150,8 +210,10 @@ def fill_period_dict(grouped_qs, period, year, *, key, transform=lambda x: x, wi
             data[label] = round(value, 2)
     return data
 
+
 def get_period(request):
     return request.GET.get("period", "month").lower()
+
 
 def get_window(request) -> int | None:
     try:
@@ -198,9 +260,107 @@ def _rolling_labels(period: str, window: int, today: datetime.date | None = None
     month_cursor = today.replace(day=1) 
     labels = []
     for _ in range(window):
-        labels.insert(0, months[month_cursor.month - 1])
+        labels.insert(0, MONTHS[month_cursor.month - 1])
         month_cursor = (month_cursor - datetime.timedelta(days=1)).replace(day=1)
     return labels
+
+
+def _top_tools_chart_response(qs, period, year, title_prefix):
+    """
+    Helper to build a 'top 10 authoring tools' chart response
+    for a given queryset of Models.
+    """
+    # Aggregate models per AuthoringTool first
+    agg = (
+        qs.values("produced_by")
+          .annotate(total=Count("id"))
+    )
+
+    if not agg:
+        title = f"No uploads in {year}" if period != "total" else "No uploads (Total)"
+        return chart_response(title, [], [])
+
+    tool_map = AuthoringTool.objects.in_bulk([row["produced_by"] for row in agg])
+
+    # Group by *normalised* label
+    buckets: dict[str, int] = {}
+    for row in agg:
+        tool = tool_map.get(row["produced_by"])
+        if not tool:
+            continue
+        label = normalize_tool_label(tool)
+        buckets[label] = buckets.get(label, 0) + (row["total"] or 0)
+
+    # Take top 10 labels by total
+    sorted_items = sorted(buckets.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    labels = [label for label, _ in sorted_items]
+    data   = [total for _, total in sorted_items]
+
+    title = (
+        f"{title_prefix} in {year}"
+        if period != "total"
+        else f"{title_prefix} (Total)"
+    )
+
+    return chart_response(
+        title=title,
+        labels=labels,
+        datasets=[{
+            "label": "Models uploaded",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": data,
+        }],
+    )
+
+    
+def normalize_tool_label(tool: AuthoringTool) -> str:
+    """
+    Map AuthoringTool instances to a display label that groups:
+    - Revit by year (Revit 2025, Revit 2024, …)
+    - All Quadri tools into a single 'Quadri (all)' bucket
+    - All Washington State tools into 'Washington State (all)'
+    Otherwise: keep the original full_name.
+    """
+    name = tool.full_name or ""
+    up = name.upper()
+
+    # Quadri → one bucket
+    if "QUADRI" in up:
+        return "Quadri"
+
+    # Washington State → one bucket
+    if "WASHINGTON STATE" in up:
+        return "Washington State Department"
+    
+    if "ACCA" in up:
+        return "ACCA"
+    
+    if "Civil3D" in up:
+        return "Civil3D"
+    
+    if "BricsCAD" in up:
+        return "BricsCAD"
+    
+    if "Bocad Steel" in up:
+        return "Bocad Steel"
+    
+    if "Civil Designer" in up:
+        return "Civil Designer"
+    
+    if "sketchup" in up.lower():
+        return "Trimble SketchUp"
+
+    # Revit → group by year
+    if "REVIT" in up:
+        m = re.search(r"(20\d{2})", name)
+        if m:
+            year = m.group(1)
+            return f"Revit {year}"
+        return "Revit (other)"
+
+    # Fallback: keep the tool name as-is
+    return name
 
 
 @staff_member_required
@@ -215,6 +375,66 @@ def get_filter_options(request):
     )
     return JsonResponse({"options": list(years)})
 
+@staff_member_required
+def get_requests_total_chart(request, year):
+    """
+    Total number of validation requests (no status split).
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    # ---------------------------
+    # TOTAL VIEW (all years)
+    # ---------------------------
+    if period == "total":
+        total = ValidationRequest.objects.count()
+
+        return chart_response(
+            title="Total requests (all years)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Requests",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [total],
+            }],
+        )
+
+    # ---------------------------
+    # TIME-SPLIT VIEW
+    # ---------------------------
+    qs = ValidationRequest.objects.all()
+    if not window:
+        qs = qs.filter(created__year=year)
+
+    grouped = group_by_period(
+        qs,
+        period,
+        "count",
+        Count("id"),
+        window=window,
+    )
+
+    total_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="count",
+        transform=int,
+        window=window,
+    )
+
+    return chart_response(
+        title=f"Total requests in {year}",
+        labels=list(total_dict.keys()),
+        datasets=[{
+            "label": "Requests",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": list(total_dict.values()),
+        }],
+    )
+    
 
 @staff_member_required
 def get_requests_chart(request, year):
@@ -263,6 +483,146 @@ def get_requests_chart(request, year):
                 "data": list(failed_dict.values()),
             },
         ],
+    )
+
+
+@staff_member_required
+def get_requests_by_schema_chart(request, year):
+    """
+    Number of validation requests, split by IFC schema (IFC2X3, IFC4, IFC4X3).
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    # Base queryset: only requests that have a model
+    qs = ValidationRequest.objects.filter(model__isnull=False)
+
+    # For non-total views (month/week/day/quarter), limit to the given year
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    # ------------------------------------------------------------------
+    # TOTAL VIEW (no time splitting, just counts per schema)
+    # ------------------------------------------------------------------
+    if period == "total":
+        agg = (
+            qs.values("model__schema")
+              .annotate(total=Count("id"))
+              .order_by("model__schema")
+        )
+
+        # Only track the 3 known schemas
+        buckets = {"IFC2X3": 0, "IFC4": 0, "IFC4X3": 0}
+        for row in agg:
+            key = normalize_schema(row["model__schema"])
+            if not key:
+                continue  # skip UNKNOWN / anything else
+
+            buckets[key] += row["total"] or 0
+
+        labels = ["IFC2X3", "IFC4", "IFC4X3"]
+        data = [
+            buckets["IFC2X3"],
+            buckets["IFC4"],
+            buckets["IFC4X3"],
+        ]
+
+        return chart_response(
+            title="Requests by IFC schema (Total)",
+            labels=labels,
+            datasets=[{
+                "label": "Requests",
+                "backgroundColor": [
+                    SCHEMA_COLORS["IFC2X3"],
+                    SCHEMA_COLORS["IFC4"],
+                    SCHEMA_COLORS["IFC4X3"],
+                ],
+                "borderColor": [
+                    SCHEMA_COLORS["IFC2X3"],
+                    SCHEMA_COLORS["IFC4"],
+                    SCHEMA_COLORS["IFC4X3"],
+                ],
+                "data": data,
+            }],
+        )
+
+    # ------------------------------------------------------------------
+    # TIME-SPLIT VIEW (month/week/day/quarter) – stacked per schema
+    # ------------------------------------------------------------------
+
+    # Annotate with chosen period
+    annotated_qs = PERIODS[period]["annotate"](qs)
+
+    # Apply rolling window filter if requested
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated_qs = annotated_qs.filter(period__in=label_values)
+
+    # Group by period + schema
+    grouped = (
+        annotated_qs
+        .values("period", "model__schema")
+        .annotate(total=Count("id"))
+        .order_by("period", "model__schema")
+    )
+
+    # Prepare per-schema dicts keyed by period label
+    schema_keys = ["IFC2X3", "IFC4", "IFC4X3"]
+    schema_data = {
+        key: dict_for_period(period, year, window=window)
+        for key in schema_keys
+    }
+
+    for row in grouped:
+        key = normalize_schema(row["model__schema"])
+        if not key:
+            continue  # skip UNKNOWN / anything else
+
+        period_label = PERIODS[period]["label"](row)
+        if period_label not in schema_data[key]:
+            # Shouldn't really happen because dict_for_period built the keys,
+            # but guard just in case.
+            continue
+
+        schema_data[key][period_label] += int(row["total"] or 0)
+
+    # Labels = period labels (same for all buckets)
+    labels = list(next(iter(schema_data.values())).keys()) if schema_data else []
+
+    datasets = [
+        {
+            "label": "IFC2X3",
+            "backgroundColor": SCHEMA_COLORS["IFC2X3"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC2X3"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+        {
+            "label": "IFC4",
+            "backgroundColor": SCHEMA_COLORS["IFC4"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC4"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+        {
+            "label": "IFC4X3",
+            "backgroundColor": SCHEMA_COLORS["IFC4X3"],
+            "borderColor": COLORS["primary"],
+            "data": [schema_data["IFC4X3"][lbl] for lbl in labels],
+            "stack": "stack1",
+        },
+    ]
+
+    return chart_response(
+        title=f"Requests by IFC schema in {year}",
+        labels=labels,
+        datasets=datasets,
     )
 
 
@@ -387,7 +747,7 @@ def get_duration_per_task_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -415,24 +775,23 @@ def get_duration_per_task_chart(request, year):
         seconds = row["avg_duration"].total_seconds() if row["avg_duration"] else 0
         task_data[task_type][period_label] += round(seconds, 2)
 
-    labels = list(task_data[next(iter(task_data))].keys())  # labels from any type
+    labels = list(next(iter(task_data.values())).keys()) if task_data else []
 
     datasets = [
-    {
-        "label": TASK_TYPES[t][0],
-        "backgroundColor": TASK_TYPES[t][1],
-        "borderColor": COLORS["primary"],
-        "data": [task_data[t][lbl] for lbl in labels],
-    }
-    for t in task_data 
-]
+        {
+            "label": TASK_TYPES[t][0],
+            "backgroundColor": TASK_TYPES[t][1],
+            "borderColor": COLORS["primary"],
+            "data": [task_data[t][lbl] for lbl in labels],
+        }
+        for t in task_data 
+    ]
 
     return chart_response(
         title=f"Duration per Task in {year}",
         labels=labels,
         datasets=datasets,
     )
-
 
 
 @staff_member_required
@@ -545,6 +904,70 @@ def get_user_registrations_chart(request, year):
         }],
     )
 
+@staff_member_required
+def get_active_user_registrations_chart(request, year):
+    """
+    New user registrations for users who have uploaded at least one file.
+    Grouped by registration date (UserAdditionalInfo.created).
+    """
+    window = get_window(request)
+    period = get_period(request)
+
+    # Users who have at least one ValidationRequest
+    active_user_ids = (
+        ValidationRequest.objects
+        .values_list("created_by_id", flat=True)
+        .distinct()
+    )
+
+    # Base queryset: registered users that are active (have uploads)
+    base_qs = UserAdditionalInfo.objects.filter(user_id__in=active_user_ids)
+
+    if period == "total":
+        total = base_qs.count()
+
+        return chart_response(
+            title="Active user registrations (Total)",
+            labels=["Total"],
+            datasets=[{
+                "label": "Active registrations",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [total],
+            }],
+        )
+
+    users_qs = base_qs.filter(created__year=year)
+
+    grouped = group_by_period(
+        users_qs,
+        period,
+        "registrations",
+        Count("id"),
+        window=window,
+    )
+
+    regs_dict = fill_period_dict(
+        grouped,
+        period,
+        year,
+        key="registrations",
+        transform=int,
+        window=window,
+    )
+
+    return chart_response(
+        title=f"Active user registrations in {year}",
+        labels=list(regs_dict.keys()),
+        datasets=[{
+            "label": "Active registrations",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": list(regs_dict.values()),
+        }],
+    )
+
+
 
 def _vendor_flag_map(user_ids):
     """Return {user_id: is_vendor} for the ids in *user_ids*."""
@@ -556,30 +979,53 @@ def _vendor_flag_map(user_ids):
 @staff_member_required
 def get_usage_by_vendor_chart(request, year):
     """
-    Distinct uploaders per period, split into end-users vs vendors.
+    Distinct uploaders per period, split into end-users vs vendors vs dev-team.
     """
     period = get_period(request)
     window = get_window(request)
+    dev_ids = _dev_team_ids()
 
     if period == "total":
         qs = ValidationRequest.objects.all()
+
         total_uploaders = qs.values("created_by").distinct().count()
-        vendor_uploaders = qs.filter(
-            created_by__useradditionalinfo__is_vendor=True
-        ).values("created_by").distinct().count()
-        enduser_uploaders = total_uploaders - vendor_uploaders
+        dev_uploaders = (
+            qs.filter(created_by_id__in=dev_ids)
+              .values("created_by")
+              .distinct()
+              .count()
+        )
+        vendor_uploaders_all = (
+            qs.filter(created_by__useradditionalinfo__is_vendor=True)
+              .values("created_by")
+              .distinct()
+              .count()
+        )
+        vendor_uploaders = vendor_uploaders_all - dev_uploaders
+        enduser_uploaders = total_uploaders - vendor_uploaders - dev_uploaders
 
         return chart_response(
-            title="Uploaders (vendors vs end-users, Total)",
-            labels=["End users", "Vendors"],
+            title="Uploaders (vendors vs end-users vs dev-team, Total)",
+            labels=["End users", "Vendors", "Dev team"],
             datasets=[{
                 "label": "Uploaders",
-                "backgroundColor": [COLORS["primary"], COLORS["success"]],
-                "borderColor": [COLORS["primary"], COLORS["success"]],
-                "data": [enduser_uploaders, vendor_uploaders],
+                "backgroundColor": [
+                    COLORS["primary"],
+                    COLORS["success"],
+                    COLORS["dev_team"],
+                ],
+                "borderColor": [
+                    COLORS["primary"],
+                    COLORS["success"],
+                    COLORS["dev_team"],
+                ],
+                "data": [
+                    enduser_uploaders,
+                    vendor_uploaders,
+                    dev_uploaders,
+                ],
             }]
         )
-
     qs = ValidationRequest.objects.filter(created__year=year)
 
     total_qs = group_by_period(
@@ -590,7 +1036,15 @@ def get_usage_by_vendor_chart(request, year):
         window=window
     )
 
-    vendor_qs = group_by_period(
+    dev_qs = group_by_period(
+        qs.filter(created_by_id__in=dev_ids),
+        period,
+        "dev",
+        Count("created_by", distinct=True),
+        window=window
+    )
+
+    vendor_qs_all = group_by_period(
         qs.filter(created_by__useradditionalinfo__is_vendor=True),
         period,
         "vendors",
@@ -598,14 +1052,31 @@ def get_usage_by_vendor_chart(request, year):
         window=window
     )
 
-    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=window)
-    vendor_dict = fill_period_dict(vendor_qs, period, year, key="vendors", transform=int, window=window)
+    total_dict = fill_period_dict(
+        total_qs, period, year, key="total", transform=int, window=window
+    )
+    dev_dict = fill_period_dict(
+        dev_qs, period, year, key="dev", transform=int, window=window
+    )
+    vendor_all_dict = fill_period_dict(
+        vendor_qs_all, period, year, key="vendors", transform=int, window=window
+    )
 
-    enduser_dict = {lbl: total_dict[lbl] - vendor_dict.get(lbl, 0) for lbl in total_dict}
+    vendor_dict = {
+        lbl: vendor_all_dict.get(lbl, 0) - dev_dict.get(lbl, 0)
+        for lbl in total_dict
+    }
+    enduser_dict = {
+        lbl: total_dict[lbl]
+        - vendor_dict.get(lbl, 0)
+        - dev_dict.get(lbl, 0)
+        for lbl in total_dict
+    }
+
     labels = list(total_dict.keys())
 
     return chart_response(
-        title=f"Uploaders (end-users vs vendors) in {year}",
+        title=f"Uploaders (end-users vs vendors vs dev-team) in {year}",
         labels=labels,
         datasets=[
             {
@@ -622,17 +1093,98 @@ def get_usage_by_vendor_chart(request, year):
                 "data": [vendor_dict[lbl] for lbl in labels],
                 "stack": "stack1",
             },
+            {
+                "label": "Dev team",
+                "backgroundColor": COLORS["dev_team"],
+                "borderColor": COLORS["dev_team"],
+                "data": [dev_dict[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
         ],
     )
+
     
+
+@staff_member_required
+def get_usage_by_channel_chart(request, year):
+    """
+    Distinct channels per period, split into WebUI vs API.
+    """
+    period = get_period(request)
+    window = get_window(request)
+
+    if period == "total":
+        qs = ValidationRequest.objects.all()
+        total_uploaders = qs.values("channel").distinct().count()
+        api_uploaders = qs.filter(
+            channel=ValidationRequest.Channel.API
+        ).values("id").distinct().count()
+        webui_uploaders = total_uploaders - api_uploaders
+
+        return chart_response(
+            title="Channels (WebUI vs API, Total)",
+            labels=["WebUI", "API"],
+            datasets=[{
+                "label": "Channels",
+                "backgroundColor": [COLORS["primary"], COLORS["success"]],
+                "borderColor": [COLORS["primary"], COLORS["success"]],
+                "data": [webui_uploaders, api_uploaders],
+            }]
+        )
+
+    qs = ValidationRequest.objects.filter(created__year=year)
+
+    total_qs = group_by_period(
+        qs,
+        period,
+        "total",
+        Count("id", distinct=True),
+        window=window
+    )
+
+    api_qs = group_by_period(
+        qs.filter(channel=ValidationRequest.Channel.API),
+        period,
+        ValidationRequest.Channel.API,
+        Count("id", distinct=True),
+        window=window
+    )
+
+    total_dict = fill_period_dict(total_qs, period, year, key="total", transform=int, window=window)
+    api_dict = fill_period_dict(api_qs, period, year, key="API", transform=int, window=window)
+    webui_dict = {lbl: total_dict[lbl] - api_dict.get(lbl, 0) for lbl in total_dict}
+    labels = list(total_dict.keys())
+
+    return chart_response(
+        title=f"Channels (WebUI vs API) in {year}",
+        labels=labels,
+        datasets=[
+            {
+                "label": "WebUI",
+                "backgroundColor": COLORS["primary"],
+                "borderColor": COLORS["primary"],
+                "data": [webui_dict[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
+            {
+                "label": "API",
+                "backgroundColor": COLORS["success"],
+                "borderColor": COLORS["success"],
+                "data": [api_dict[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
+        ],
+    )
+
 
 @staff_member_required
 def get_models_by_vendor_chart(request, year):
     """
-    Count models uploaded per period, split by vendor vs end-user.
+    Count models uploaded per period, split by vendor vs end-user vs dev-team.
     """
     period = get_period(request)
     window = get_window(request)
+    dev_ids = _dev_team_ids()
 
     if period == "total":
         qs = Model.objects.all()
@@ -641,24 +1193,37 @@ def get_models_by_vendor_chart(request, year):
 
         vendor_count = 0
         enduser_count = 0
+        dev_count = 0
 
         for uid in uploader_ids:
-            if vendor_flags.get(uid):
-                vendor_count += qs.filter(uploaded_by_id=uid).count()
+            count = qs.filter(uploaded_by_id=uid).count()
+            if uid in dev_ids:
+                dev_count += count
+            elif vendor_flags.get(uid):
+                vendor_count += count
             else:
-                enduser_count += qs.filter(uploaded_by_id=uid).count()
+                enduser_count += count
 
         return chart_response(
-            title="Model uploads (vendors vs end-users, Total)",
-            labels=["End‑user models", "Vendor models"],
+            title="Model uploads (vendors vs end-users vs dev-team, Total)",
+            labels=["End-user models", "Vendor models", "Dev-team models"],
             datasets=[{
                 "label": "Model uploads",
-                "backgroundColor": [COLORS["primary"], COLORS["success"]],
-                "borderColor": [COLORS["primary"], COLORS["success"]],
-                "data": [enduser_count, vendor_count],
+                "backgroundColor": [
+                    COLORS["primary"],
+                    COLORS["success"],
+                    COLORS["dev_team"],
+                ],
+                "borderColor": [
+                    COLORS["primary"],
+                    COLORS["success"],
+                    COLORS["dev_team"],
+                ],
+                "data": [enduser_count, vendor_count, dev_count],
             }]
         )
 
+    # -------- per-period view --------
     qs = Model.objects.filter(created__year=year).annotate(
         uploader_id=F("uploaded_by_id")
     )
@@ -673,7 +1238,7 @@ def get_models_by_vendor_chart(request, year):
         valid_labels = set(_rolling_labels(period, window))
         label_values = [
             int(lbl[1:]) if period in ["week", "quarter"]
-            else months.index(lbl) + 1 if period == "month"
+            else MONTHS.index(lbl) + 1 if period == "month"
             else lbl
             for lbl in valid_labels
         ]
@@ -683,6 +1248,7 @@ def get_models_by_vendor_chart(request, year):
 
     vendor_counts = dict_for_period(period, year, window=window)
     enduser_counts = dict_for_period(period, year, window=window)
+    dev_counts = dict_for_period(period, year, window=window)
 
     for row in grouped:
         uid = row["uploader_id"]
@@ -691,7 +1257,9 @@ def get_models_by_vendor_chart(request, year):
         if period_label not in vendor_counts:
             continue
 
-        if vendor_flags.get(uid):
+        if uid in dev_ids:
+            dev_counts[period_label] += 1
+        elif vendor_flags.get(uid):
             vendor_counts[period_label] += 1
         else:
             enduser_counts[period_label] += 1
@@ -699,11 +1267,11 @@ def get_models_by_vendor_chart(request, year):
     labels = list(vendor_counts.keys())
 
     return chart_response(
-        title=f"Model uploads (vendors vs end-users) in {year}",
+        title=f"Model uploads (vendors vs end-users vs dev-team) in {year}",
         labels=labels,
         datasets=[
             {
-                "label": "End‑user models",
+                "label": "End-user models",
                 "backgroundColor": COLORS["primary"],
                 "borderColor": COLORS["primary"],
                 "data": [enduser_counts[lbl] for lbl in labels],
@@ -716,8 +1284,16 @@ def get_models_by_vendor_chart(request, year):
                 "data": [vendor_counts[lbl] for lbl in labels],
                 "stack": "stack1",
             },
+            {
+                "label": "Dev-team models",
+                "backgroundColor": COLORS["dev_team"],
+                "borderColor": COLORS["dev_team"],
+                "data": [dev_counts[lbl] for lbl in labels],
+                "stack": "stack1",
+            },
         ],
     )
+
 
 
 @staff_member_required
@@ -807,8 +1383,203 @@ def get_tools_count_chart(request, year):
             "data": list(tools_dict.values()),
         }],
     )
+    
+@staff_member_required
+def get_top_tools_ifc2x3_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__iexact="IFC2X3",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC2X3",
+    )
 
 
+@staff_member_required
+def get_top_tools_ifc4_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__iexact="IFC4",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC4",
+    )
+
+
+@staff_member_required
+def get_top_tools_ifc4x3_chart(request, year):
+    period = get_period(request)
+
+    qs = Model.objects.filter(
+        produced_by__isnull=False,
+        schema__icontains="IFC4X3",
+    )
+    if period != "total":
+        qs = qs.filter(created__year=year)
+
+    return _top_tools_chart_response(
+        qs,
+        period,
+        year,
+        title_prefix="Top 10 authoring tools for IFC4X3",
+    )
+
+
+def _requests_by_schema_vendor_for(request, year: int, schema_key: str):
+    period = get_period(request)
+    window = get_window(request)
+    dev_ids = _dev_team_ids()
+
+    # Base queryset: requests that have a model
+    qs = ValidationRequest.objects.filter(model__isnull=False)
+
+    # Filter by schema bucket
+    if schema_key == "IFC2X3":
+        qs = qs.filter(model__schema__istartswith="IFC2X3")
+    elif schema_key == "IFC4":
+        qs = qs.filter(
+            model__schema__istartswith="IFC4"
+        ).exclude(model__schema__icontains="IFC4X3")
+    elif schema_key == "IFC4X3":
+        qs = qs.filter(model__schema__icontains="IFC4X3")
+
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    # ---------------- TOTAL VIEW ----------------
+    if period == "total":
+        total = qs.count()
+        dev_total = qs.filter(created_by_id__in=dev_ids).count()
+        vendor_total_all = qs.filter(
+            created_by__useradditionalinfo__is_vendor=True
+        ).count()
+        vendor_total = vendor_total_all - dev_total
+        enduser_total = total - vendor_total - dev_total
+
+        labels = ["Total"]
+        return labels, enduser_total, vendor_total, dev_total
+
+    # ---------------- TIME-SPLIT VIEW ----------------
+    # Split by user type *first*, then group by period
+    base = PERIODS[period]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        base = base.filter(period__in=label_values)
+
+    dev_qs = base.filter(created_by_id__in=dev_ids)
+    vendor_qs = base.filter(
+        created_by__useradditionalinfo__is_vendor=True
+    ).exclude(created_by_id__in=dev_ids)
+    enduser_qs = base.exclude(
+        created_by__useradditionalinfo__is_vendor=True
+    ).exclude(created_by_id__in=dev_ids)
+
+    dev_grouped = (
+        dev_qs.values("period")
+              .annotate(count=Count("id"))
+              .order_by("period")
+    )
+    vendor_grouped = (
+        vendor_qs.values("period")
+                 .annotate(count=Count("id"))
+                 .order_by("period")
+    )
+    enduser_grouped = (
+        enduser_qs.values("period")
+                  .annotate(count=Count("id"))
+                  .order_by("period")
+    )
+
+    dev_dict = fill_period_dict(
+        dev_grouped, period, year, key="count", transform=int, window=window
+    )
+    vendor_dict = fill_period_dict(
+        vendor_grouped, period, year, key="count", transform=int, window=window
+    )
+    enduser_dict = fill_period_dict(
+        enduser_grouped, period, year, key="count", transform=int, window=window
+    )
+
+    labels = list(enduser_dict.keys())
+    return labels, enduser_dict, vendor_dict, dev_dict
+
+
+
+def _stacked_vendor_schema_datasets(labels, enduser, vendor, dev):
+    return [
+        {
+            "label": "End-user requests",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": [enduser[lbl] for lbl in labels] if isinstance(enduser, dict) else [enduser],
+            "stack": "stack1",
+        },
+        {
+            "label": "Vendor requests",
+            "backgroundColor": COLORS["success"],
+            "borderColor": COLORS["success"],
+            "data": [vendor[lbl] for lbl in labels] if isinstance(vendor, dict) else [vendor],
+            "stack": "stack1",
+        },
+        {
+            "label": "Dev-team requests",
+            "backgroundColor": COLORS["dev_team"],
+            "borderColor": COLORS["dev_team"],
+            "data": [dev[lbl] for lbl in labels] if isinstance(dev, dict) else [dev],
+            "stack": "stack1",
+        },
+    ]
+
+
+@staff_member_required
+def get_requests_by_schema_vendor_ifc2x3_chart(request, year):
+    labels, enduser, vendor, dev = _requests_by_schema_vendor_for(request, year, "IFC2X3")
+    return chart_response(
+        title=f"IFC2X3 models by uploader type in {year}",
+        labels=labels,
+        datasets=_stacked_vendor_schema_datasets(labels, enduser, vendor, dev)
+    )
+
+@staff_member_required
+def get_requests_by_schema_vendor_ifc4_chart(request, year):
+    labels, enduser, vendor, dev = _requests_by_schema_vendor_for(request, year, "IFC4")
+    return chart_response(
+        title=f"IFC4 models by uploader type in {year}",
+        labels=labels,
+        datasets=_stacked_vendor_schema_datasets(labels, enduser, vendor, dev)
+    )
+
+@staff_member_required
+def get_requests_by_schema_vendor_ifc4x3_chart(request, year):
+    labels, enduser, vendor, dev = _requests_by_schema_vendor_for(request, year, "IFC4X3")
+    return chart_response(
+        title=f"IFC4X3 models by uploader type in {year}",
+        labels=labels,
+        datasets=_stacked_vendor_schema_datasets(labels, enduser, vendor, dev)
+    )
 
 @staff_member_required
 def get_totals(request):
@@ -825,9 +1596,241 @@ def get_totals(request):
              .distinct()
              .count()
     )
+    
+    active_users_total = (
+        UserAdditionalInfo.objects
+        .filter(
+            Exists(
+                Model.objects.filter(
+                    uploaded_by_id=OuterRef("user_id")
+                )
+            )
+        )
+        .count()
+)
 
     return JsonResponse({
         "users": users_total,
+        "active_users": active_users_total,
         "files": files_total,
         "tools": tools_total,
     })
+
+
+@staff_member_required
+def get_uploads_per_2h_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = Model.objects.all()
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    agg = (
+        annotated.annotate(local_hour=ExtractHour(Trunc("created", "hour", tzinfo=tz)))
+                 .annotate(block_num=F("local_hour") / 2)
+                 .values("block_num")
+                 .annotate(uploads=Count("id"))
+                 .order_by("block_num")
+    )
+
+    labels = [f"{b*2:02d}:00–{(b*2+2)%24:02d}:00" for b in range(12)]
+    counts = [0] * 12
+    for row in agg:
+        b = int(row["block_num"])
+        if 0 <= b <= 11:
+            counts[b] = row["uploads"] or 0
+
+    return chart_response(
+        title="Uploads per 2-hour block",
+        labels=labels,
+        datasets=[{
+            "label": "Uploads",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": counts,
+        }],
+    )
+
+
+@staff_member_required
+def get_queue_p95_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = ValidationRequest.objects.filter(started__isnull=False)
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        local_hour=ExtractHour(Trunc("created", "hour", tzinfo=tz)),
+        block_num=Cast(F("local_hour") / 2, IntegerField()),
+    )
+
+    rows = annotated.values_list("block_num", "created", "started")
+
+    buckets = {b: [] for b in range(12)}
+    for b, created, started in rows:
+        if b is None:
+            continue
+        bi = int(b)
+        if 0 <= bi <= 11 and created and started:
+            delta = (started - created).total_seconds()
+            if delta is not None and delta >= 0:
+                buckets[bi].append(delta)
+
+    def pct95(values: list[float]) -> float:
+        if not values:
+            return 0.0
+        values = sorted(values)
+        k = 0.95 * (len(values) - 1)
+        f = math.floor(k)
+        c = math.ceil(k)
+        if f == c:
+            return float(values[int(k)])
+        return float(values[f] + (k - f) * (values[c] - values[f]))
+
+    labels = [f"{b*2:02d}:00–{(b*2+2)%24:02d}:00" for b in range(12)]
+    p95 = [round(pct95(buckets[b]), 1) for b in range(12)]
+
+    return chart_response(
+        title="Queue p95 per 2-hour block",
+        labels=labels,
+        datasets=[{
+            "label": "p95 queue (s)",
+            "type": "line",
+            "backgroundColor": COLORS["info"],
+            "borderColor": COLORS["info"],
+            "data": p95,
+        }],
+    )
+
+
+@staff_member_required
+def get_stuck_per_day_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = ValidationRequest.objects.filter(started__isnull=False)
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        queue_d=ExpressionWrapper(F("started") - F("created"), output_field=DurationField()),
+        local_day=Trunc("created", "day", tzinfo=tz),
+    )
+
+    stuck_qs = (
+        annotated.filter(queue_d__gt=datetime.timedelta(hours=1))
+                 .values("local_day")
+                 .annotate(stuck=Count("id"))
+                 .order_by("local_day")
+    )
+
+    labels = [row["local_day"].date().isoformat() for row in stuck_qs]
+    data   = [row["stuck"] for row in stuck_qs]
+
+    return chart_response(
+        title="Requests with queue > 1h (per day)",
+        labels=labels,
+        datasets=[{
+            "label": "Stuck (>1h) requests",
+            "backgroundColor": COLORS["danger"],
+            "borderColor": COLORS["danger"],
+            "data": data,
+        }],
+    )
+
+
+@staff_member_required
+def get_uploads_per_weekday_chart(request, year):
+    period = get_period(request)
+    window = get_window(request)
+    tz = ZoneInfo("Europe/Amsterdam")
+
+    qs = Model.objects.all()
+    if period != "total" and not window:
+        qs = qs.filter(created__year=year)
+
+    annotated = PERIODS[period]["annotate"](qs) if period != "total" else PERIODS["month"]["annotate"](qs)
+
+    if window:
+        valid_labels = set(_rolling_labels(period, window))
+        label_values = [
+            int(lbl[1:]) if period in ["week", "quarter"]
+            else MONTHS.index(lbl) + 1 if period == "month"
+            else lbl
+            for lbl in valid_labels
+        ]
+        annotated = annotated.filter(period__in=label_values)
+
+    annotated = annotated.annotate(
+        local_day=Trunc("created", "day", tzinfo=tz),
+        dow=ExtractWeekDay(F("local_day")),
+    )
+
+    agg = (
+        annotated.values("dow")
+        .annotate(uploads=Count("id"))
+        .order_by("dow")
+    )
+
+    name_map = {1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat"}
+    items = []
+    for row in agg:
+        dow = int(row["dow"] or 0)
+        sort_key = 7 if dow == 1 else dow - 1
+        items.append((sort_key, name_map.get(dow, str(dow)), int(row["uploads"])))
+
+    items.sort(key=lambda x: x[0])
+    labels = [i[1] for i in items]
+    data   = [i[2] for i in items]
+
+    return chart_response(
+        title="Uploads per weekday",
+        labels=labels,
+        datasets=[{
+            "label": "Uploads",
+            "backgroundColor": COLORS["primary"],
+            "borderColor": COLORS["primary"],
+            "data": data,
+        }],
+    )
