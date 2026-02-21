@@ -438,12 +438,12 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
+    list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
     date_hierarchy = "created"
 
-    list_filter = ['validation_task__type', 'severity', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
-    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
+    list_filter = ['validation_task__type', 'severity_in_db', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
+    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
 
     paginator = utils.LargeTablePaginator
     show_full_result_count = False # do not use COUNT(*) twice
@@ -477,6 +477,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
             "status_syntax",
             "status_prereq",
             "status_schema",
+            "status_schema_calculated",
             "status_ia",
             "status_ip",
             "status_industry_practices",
@@ -489,7 +490,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     ]
 
     list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "created", "updated"]
-    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
+    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated", "status_schema_calculated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
@@ -875,7 +876,7 @@ class WhiteListEntryAdmin(BaseAdmin):
                 entry = form.cleaned_data["whitelist_entry"]
                 outcome_id = form.cleaned_data["outcome_id"]
 
-                matched: bool = entry.apply(ValidationOutcome.objects.filter(pk=outcome_id)).exists()
+                matched: bool = entry.build().apply(ValidationOutcome.objects.filter(pk=outcome_id)).exists()
                 result = {
                     "matched": matched,
                     "entry_id": entry.id,
@@ -884,7 +885,7 @@ class WhiteListEntryAdmin(BaseAdmin):
                 }
 
                 try:
-                    qs = entry.apply(ValidationOutcome.objects.filter(pk=outcome_id))
+                    qs = entry.build().apply(ValidationOutcome.objects.filter(pk=outcome_id))
                     sql = str(qs.query)
                     try:
                         # This is most likely a transitive dependency from django, but

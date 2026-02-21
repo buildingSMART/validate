@@ -487,6 +487,8 @@ def report(request, id: str):
                         "lineno": m.group(1) if m else None,
                         "column": m.group(2) if m else None,
                         "severity": outcome.severity,
+                        "severity_pre_allowlist": outcome.severity_in_db,
+                        "allowlisted": outcome.is_whitelisted, 
                         "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
                         "task_id": outcome.validation_task_public_id,
                     })
@@ -501,7 +503,8 @@ def report(request, id: str):
         
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SCHEMA).last()
         if task.outcomes:
-            for outcome in task.outcomes.order_by('-severity').iterator():
+            # we can only sort on severity_in_db, not on severity because that is a computed field
+            for outcome in task.outcomes.order_by('-severity_in_db').iterator():
 
                 mapped = {
                     "id": outcome.public_id,
@@ -509,6 +512,8 @@ def report(request, id: str):
                     "constraint_type": json.loads(outcome.feature)['type'] if outcome.feature else None,  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
                     "instance_id": outcome.instance_public_id,
                     "severity": outcome.severity,
+                    "severity_pre_allowlist": outcome.severity_in_db,
+                    "allowlisted": outcome.is_whitelisted, 
                     "msg": outcome.observed,
                     "task_id": outcome.validation_task_public_id
                 }
@@ -579,8 +584,9 @@ def report(request, id: str):
                     "feature_version": outcome.feature_version,
                     "feature_url": get_feature_url(outcome.feature[0:6]),
                     "feature_text": get_feature_description(outcome.feature[0:6]),
-                    "step": outcome.get_severity_display(), # TODO
                     "severity": outcome.severity,
+                    "severity_pre_allowlist": outcome.severity_in_db,
+                    "allowlisted": outcome.is_whitelisted, 
                     "instance_id": outcome.instance_public_id,
                     "expected": outcome.expected,
                     "observed": outcome.observed,
