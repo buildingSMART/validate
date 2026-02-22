@@ -570,10 +570,10 @@ def report(request, id: str):
             grouped_gherkin_outcomes_counts[label][key] = count
 
             all_feature_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(
-                t.outcomes.filter(feature=feature)
+                list(t.outcomes.filter(feature=feature)
                  .prefetch_related("instance")                 
-                 [:MAX_OUTCOMES_PER_RULE]
-                 .iterator(chunk_size=100) for t in tasks)
+                 [:MAX_OUTCOMES_PER_RULE])
+                 for t in tasks)
                  
             for outcome in all_feature_outcomes:
 
