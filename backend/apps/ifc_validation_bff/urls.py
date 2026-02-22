@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views_legacy import me, models_paginated, download, upload, delete, revalidate
+from .views_legacy import get_allowlist, me, models_paginated, download, upload, delete, revalidate
 from .views_legacy import report, report_error
 
 urlpatterns = [
@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/revalidate/<str:ids>',                            revalidate),
     path('api/report/<str:id>',                                 report),
     path('api/report_error',                                    report_error),
+    path('api/allowlist',                                       get_allowlist),
 
     # vs
 

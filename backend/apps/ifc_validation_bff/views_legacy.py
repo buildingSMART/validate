@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import operator
 import os
 import re
@@ -16,7 +17,7 @@ from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNo
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
-from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
+from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, WhiteListEntry, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
@@ -185,7 +186,7 @@ def format_request(request : ValidationRequest):
             allow_not_executed=True
         ),
         "status_schema": status_combine(
-            "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
+            "p" if (request.model is None or request.model.status_schema_calculated is None) else request.model.status_schema_calculated,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
         ),
         "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
@@ -193,8 +194,8 @@ def format_request(request : ValidationRequest):
         "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
         "status_header": "p" if (request.model is None or request.model.status_header is None) else request.model.status_header,
         "status_rules": status_combine(
-            "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
-            "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
+            "p" if (request.model is None or request.model.status_ia_calculated is None) else request.model.status_ia_calculated,
+            "p" if (request.model is None or request.model.status_ip_calculated is None)  else request.model.status_ip_calculated
         ),
         "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
         "status_signatures": "p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures,
@@ -702,3 +703,8 @@ def report_error(request):
         logger.info(f"Received error report: {error}")
 
     return HttpResponse(content='OK')
+
+def get_allowlist(request):
+    snaps = WhiteListEntry.get_all()
+    payload = [asdict(d) for d in snaps]
+    return JsonResponse({'entries': payload})
