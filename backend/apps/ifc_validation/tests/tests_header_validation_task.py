@@ -7,21 +7,13 @@ from apps.ifc_validation_models.models import *
 
 from ..tasks import header_validation_subtask
 
-from contextlib import contextmanager
-from unittest.mock import patch
-
-@contextmanager
-def dummy_lock(*args, **kwargs):
-    yield
-
-@patch("redis.Redis.lock")   
 class HeaderValidationTaskTestCase(TransactionTestCase):
 
     def set_user_context():
         user = User.objects.create(id=1, username='SYSTEM', is_active=True)
         set_user_context(user)
 
-    def test_header_validation_task_valid_file_does_not_create_validation_outcome(self, mock_lock):
+    def test_header_validation_task_valid_file_does_not_create_validation_outcome(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -44,7 +36,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(outcomes)
         self.assertEqual(len(outcomes), 0)
     
-    def test_header_validation_task_invalid_version_does_not_create_validation_outcome(self, mock_lock):
+    def test_header_validation_task_invalid_version_does_not_create_validation_outcome(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -67,7 +59,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(outcomes)
         self.assertEqual(len(outcomes), 0)
 
-    def test_header_validation_task_correctly_parses_properties(self, mock_lock):
+    def test_header_validation_task_correctly_parses_properties(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -91,7 +83,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertEqual(model.mvd, 'CoordinationView')
         self.assertEqual(model.schema, 'IFC4')
 
-    def test_header_validation_task_correctly_parses_date(self, mock_lock):
+    def test_header_validation_task_correctly_parses_date(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -114,7 +106,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(model)
         self.assertEqual(model.date, datetime.datetime(2022, 5, 4, 8, 8, 30, tzinfo=datetime.timezone.utc))
 
-    def test_header_validation_task_correctly_parses_date_with_timezone(self, mock_lock):
+    def test_header_validation_task_correctly_parses_date_with_timezone(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -137,7 +129,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertIsNotNone(model)
         self.assertEqual(model.date, datetime.datetime(2025, 2, 13, 13, 58, 45, tzinfo=datetime.timezone.utc))
 
-    def test_header_validation_task_correctly_parses_authoring_tool(self, mock_lock):
+    def test_header_validation_task_correctly_parses_authoring_tool(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -162,7 +154,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertEquals('2025.1', model.produced_by.version)
         self.assertEquals('Acme Inc.', model.produced_by.company.name)
 
-    def test_header_validation_task_correctly_parses_existing_authoring_tool(self, mock_lock):
+    def test_header_validation_task_correctly_parses_existing_authoring_tool(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
@@ -189,7 +181,7 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertEquals('Acme Inc.', model.produced_by.company.name)
         self.assertEquals(company.id, model.produced_by.id)
 
-    def test_header_validation_task_correctly_parses_existing_authoring_tool2(self, mock_lock):
+    def test_header_validation_task_correctly_parses_existing_authoring_tool2(self):
 
         # arrange
         HeaderValidationTaskTestCase.set_user_context()
