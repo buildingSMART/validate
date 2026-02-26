@@ -89,7 +89,7 @@ def is_schema_error(line):
 def check_schema(context:TaskContext):
     proc = run_subprocess(
         task = context.task, 
-        command = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", context.file_path ]
+        command = [sys.executable, "-m", "ifcopenshell.validate", "--json", "--rules", "--fields", "--recursion-limit", "10000", context.file_path]
     )
     output = list(filter(is_schema_error, proc.stdout.split("\n")))
     success = proc.returncode >= 0
