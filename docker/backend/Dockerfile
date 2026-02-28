@@ -1,5 +1,5 @@
 # BUILD image
-FROM python:3.11-slim-bookworm AS build
+FROM python:3.13-slim-bookworm AS build
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -37,9 +37,9 @@ RUN --mount=type=cache,target=/root/.cache \
     find /app/backend -name 'requirements.txt' -exec pip install --no-cache-dir -r {} \; && \
     # use version of ifcopenshell with desired schema parsing
     # TODO: revert to pyPI when schema parsing is published in the future
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-linux64.zip" && \
-    mkdir -p /opt/venv/lib/python3.11/site-packages  && \
-    unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-313-v0.8.4-e8eb5e4-linux64.zip" && \
+    mkdir -p /opt/venv/lib/python3.13/site-packages  && \
+    unzip -d /opt/venv/lib/python3.13/site-packages /tmp/ifcopenshell_python.zip && \
     # some cleanup
     find /         -type d -name setuptools   -prune -exec rm -rf {} \; && \
     find /         -type d -name pip          -prune -exec rm -rf {} \; && \
@@ -55,7 +55,7 @@ ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
 
 # RUN image
 # NOTE: don't use Alpine images...
-FROM python:3.11-slim-bookworm AS run
+FROM python:3.13-slim-bookworm AS run
 
 WORKDIR /app
 

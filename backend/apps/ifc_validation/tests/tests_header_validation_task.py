@@ -150,9 +150,9 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         # assert
         model = Model.objects.get(id=request.id)
         self.assertIsNotNone(model)
-        self.assertEquals('MyFabTool', model.produced_by.name)
-        self.assertEquals('2025.1', model.produced_by.version)
-        self.assertEquals('Acme Inc.', model.produced_by.company.name)
+        self.assertEqual('MyFabTool', model.produced_by.name)
+        self.assertEqual('2025.1', model.produced_by.version)
+        self.assertEqual('Acme Inc.', model.produced_by.company.name)
 
     def test_header_validation_task_correctly_parses_existing_authoring_tool(self):
 
@@ -176,10 +176,10 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         # assert
         model = Model.objects.get(id=request.id)
         self.assertIsNotNone(model)
-        self.assertEquals('MyFabTool', model.produced_by.name)
-        self.assertEquals('2025.1', model.produced_by.version)
-        self.assertEquals('Acme Inc.', model.produced_by.company.name)
-        self.assertEquals(company.id, model.produced_by.id)
+        self.assertEqual('MyFabTool', model.produced_by.name)
+        self.assertEqual('2025.1', model.produced_by.version)
+        self.assertEqual('Acme Inc.', model.produced_by.company.name)
+        self.assertEqual(company.id, model.produced_by.id)
 
     def test_header_validation_task_correctly_parses_existing_authoring_tool2(self):
 
@@ -204,6 +204,6 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         # assert
         model = Model.objects.get(id=request.id)
         self.assertIsNotNone(model)
-        self.assertEquals('MyFabTool', model.produced_by.name)
-        self.assertEquals('2025.1', model.produced_by.version)
-        self.assertEquals('Acme Inc.', model.produced_by.company.name)
+        self.assertEqual('MyFabTool', model.produced_by.name)
+        self.assertEqual('2025.1', model.produced_by.version)
+        self.assertEqual('Acme Inc.', model.produced_by.company.name)
