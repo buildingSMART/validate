@@ -52,6 +52,7 @@ RUN --mount=type=cache,target=/root/.cache \
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
+ADD --chmod=777 ./docker/backend/worker-beat-entrypoint.sh /app/backend
 
 # RUN image
 # NOTE: don't use Alpine images...
