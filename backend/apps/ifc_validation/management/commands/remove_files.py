@@ -1,6 +1,5 @@
 import os
-import gzip
-import shutil
+import logging
 from datetime import timedelta
 
 from django.core.management.base import BaseCommand
@@ -8,9 +7,13 @@ from django.utils import timezone
 from django.db import transaction
 
 from apps.ifc_validation_models.models import ValidationRequest
-from apps.ifc_validation.tasks.utils import get_absolute_file_path
 from apps.ifc_validation_models.decorators import requires_django_user_context
+
+from apps.ifc_validation.tasks.utils import get_absolute_file_path
 from core.utils import format_human_readable_file_size
+
+logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
     
@@ -73,9 +76,9 @@ class Command(BaseCommand):
             qs = qs.filter(deleted=True)
 
         total = qs.count()
-        self.stdout.write(f"Found {total} Validation Request(s) older than {days} day(s){' (deleted only)' if deleted_only else ''}.")
+        logger.info(f"Found {total} Validation Request(s) older than {days} day(s){' (deleted only)' if deleted_only else ''}.")
         if dry_run:
-            self.stdout.write(self.style.WARNING("NOTE: Running in DRY-RUN mode. No changes will be made. Use --confirm to apply changes."))
+            logger.warning("NOTE: Running in DRY-RUN mode. No changes will be made. Use --confirm to apply changes.")
 
         removed = 0
         skipped = 0
@@ -89,13 +92,13 @@ class Command(BaseCommand):
                 file_path = get_absolute_file_path(file_name)
                 os.path.getsize(file_path)
             except FileNotFoundError:
-                self.stdout.write(f"WARNING: File not found for Validation Request with id={request.id} ({request.file.name}) - skipping...")
+                logger.warning(f"WARNING: File not found for Validation Request with id={request.id} ({request.file.name}) - skipping...")
                 skipped += 1
                 continue
             
             # only report what would happen
             if dry_run:
-                self.stdout.write(f"[DRY-RUN] Would update ValidationRequest with id={request.id} and remove file {file_name}")
+                logger.info(f"[DRY-RUN] Would update ValidationRequest with id={request.id} and remove file {file_name}")
                 removed += 1
                 total_savings += os.path.getsize(file_path)
                 continue
@@ -114,15 +117,15 @@ class Command(BaseCommand):
                         raise RuntimeError(f"Failed to remove original file: {e}")
             except Exception as e:
                 skipped += 1
-                self.stdout.write(self.style.ERROR(f"Failed to remove Validation Request with id={request.id}: {e} - rolling back changes..."))
+                logger.error(f"Failed to remove Validation Request with id={request.id}: {e} - rolling back changes...")
                 continue
             
             removed += 1
-            self.stdout.write(f"Removed file and updated Validation Request with id={request.id}: {file_name}")
+            logger.info(f"Removed file and updated Validation Request with id={request.id}: {file_name}")
 
         # show summary
         total_savings = format_human_readable_file_size(total_savings)
         if dry_run:
-            self.stdout.write(f"Actual run would have removed {removed}, skipped {skipped}, total considered {total}. Would free up approx. {total_savings}.")
+            logger.info(f"Actual run would have removed {removed}, skipped {skipped}, total considered {total}. Would free up approx. {total_savings}.")
         else:
-            self.stdout.write(self.style.SUCCESS(f"Removed {removed}, skipped {skipped}, total considered {total}. Freed up {total_savings}."))
+            logger.info(f"Removed {removed}, skipped {skipped}, total considered {total}. Freed up {total_savings}.")
