@@ -47,7 +47,7 @@ start-backend:
 	$(PYTHON) manage.py runserver
 
 start-worker:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
+	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
 start-worker2:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
@@ -57,9 +57,6 @@ start-worker3:
 
 start-worker4:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
-
-start-worker-scheduler:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 5 --task-events --beat
 
 .PHONY: stop-worker
 stop-worker:
@@ -89,11 +86,17 @@ test-magic-and-av-task:
 test-utils:
 	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
 
-archive-dry-run:
-	$(PYTHON) manage.py archive_requests --days 180 --all --dry-run
+archive-files:
+	$(PYTHON) manage.py archive_files --days 90 --all --dry-run
 
-archive:
-	$(PYTHON) manage.py archive_requests --days 180 --all --confirm
+archive-files-confirm:
+	$(PYTHON) manage.py archive_files --days 90 --all --confirm
+
+remove-files:
+	$(PYTHON) manage.py remove_files --days 180 --all --dry-run
+
+remove-files-confirm:
+	$(PYTHON) manage.py remove_files --days 180 --all --confirm
 
 clean:
 	rm -rf .dev

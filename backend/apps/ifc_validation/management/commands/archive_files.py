@@ -18,31 +18,31 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
 
-        # how many days to look back (default: 180)
+        # how many days to look back (default: 90)
         parser.add_argument(
             '--days', '-d',
             type=int,
-            default=180,
-            help='Number of days to look back for old Validation Requests (default: 180).'
+            default=90,
+            help='Number of days to look back for old Validation Requests (default: 90).'
         )
 
-        # whether to restrict to deleted requests only (default) or include non-deleted as well
+        # whether to restrict to deleted requests only or include non-deleted as well (default)
         deleted_group = parser.add_mutually_exclusive_group()
         deleted_group.add_argument(
             '--deleted-only', '--deleted',
             dest='deleted_only',
             action='store_true',
-            help='Archive only deleted Validation Requests (default).'
+            help='Archive only deleted Validation Requests.'
         )
         deleted_group.add_argument(
             '--include-non-deleted', '--all',
             dest='deleted_only',
             action='store_false',
-            help='Include non-deleted Validation Requests as well.'
+            help='Include non-deleted Validation Requests as well (default).'
         )
-        parser.set_defaults(deleted_only=True)
+        parser.set_defaults(deleted_only=False)
 
-        #  dry-run mode: perform a simulation, do not modify any files or database records
+        # dry-run mode: perform a simulation, do not modify any files or database records
         # just logs intended actions and outcomes to stdout
         dry_group = parser.add_mutually_exclusive_group()
         dry_group.add_argument(
@@ -67,8 +67,8 @@ class Command(BaseCommand):
 
         cutoff_date = timezone.now() - timedelta(days=days)
 
-        # query by age, deleted flag and file name ending with .ifc
-        qs = ValidationRequest.objects.filter(created__lt=cutoff_date, file__iendswith='.ifc')
+        # query by age, deleted flag and file name ending with .ifc, and empty file names
+        qs = ValidationRequest.objects.filter(created__lt=cutoff_date, file__iendswith='.ifc').exclude(file__exact='')
         
         if deleted_only:
             qs = qs.filter(deleted=True)
@@ -87,8 +87,9 @@ class Command(BaseCommand):
             # validate presence of file
             try:
                 file_path = get_absolute_file_path(request.file.name)
+                os.path.getsize(file_path)
             except FileNotFoundError:
-                self.stdout.write(f"WARNING: File not found for Validation Request with id={request.id} - skipping...")
+                self.stdout.write(f"WARNING: File not found for Validation Request with id={request.id} ({request.file.name}) - skipping...")
                 skipped += 1
                 continue
             
@@ -134,8 +135,6 @@ class Command(BaseCommand):
         # show summary
         total_savings = format_human_readable_file_size(total_savings)
         if dry_run:
-            self.stdout.write(self.style.WARNING(f"DRY-RUN would have archived {archived}, skipped {skipped}, total considered {total}."))
-            self.stdout.write(self.style.WARNING(f"DRY-RUN would free up approx. {total_savings} (compression ratio of 80%)."))
+            self.stdout.write(f"Actual run would have archived {archived}, skipped {skipped}, total considered {total}. Would free up approx. {total_savings} (compression ratio of 80%).")
         else:
-            self.stdout.write(self.style.SUCCESS(f"Archived {archived}, skipped {skipped}, total considered {total}."))
-            self.stdout.write(self.style.SUCCESS(f"Freed up {total_savings}."))
+            self.stdout.write(self.style.SUCCESS(f"Archived {archived}, skipped {skipped}, total considered {total}. Freed up {total_savings}."))

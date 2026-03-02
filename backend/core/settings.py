@@ -13,10 +13,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 import logging
 import ast
-
 from dotenv import load_dotenv
 from pathlib import Path
+
 from django.core.exceptions import ImproperlyConfigured
+from celery.schedules import crontab
 
 load_dotenv()
 
@@ -355,6 +356,21 @@ try:
 except Exception as err:
     msg = "Configuration for CELERY_BEAT_SCHEDULE_FILENAME is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(os.path.dirname(CELERY_BEAT_SCHEDULE_FILENAME), err))
+
+ARCHIVE_FILES_LOOKBACK_PERIOD = os.environ.get("ARCHIVE_FILES_LOOKBACK_PERIOD", 90)
+REMOVE_FILES_LOOKBACK_PERIOD = os.environ.get("REMOVE_FILES_LOOKBACK_PERIOD", 180)
+CELERY_BEAT_SCHEDULE = {
+        'archive-files-90days-every-15min': {
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.archive_files',
+            'schedule': crontab(minute='15,30,45'),  # runs every 15 min, except at the hour
+            'kwargs': { 'days': ARCHIVE_FILES_LOOKBACK_PERIOD, 'dry_run': False },
+        },
+        'remove-files-180days-every-1hours': {
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.remove_files',
+            'schedule': crontab(minute=0, hour='*/1'),  # runs every hour, at the hour
+            'kwargs': { 'days': REMOVE_FILES_LOOKBACK_PERIOD, 'dry_run': False }
+        },
+    }
 
 # LOGGING
 
