@@ -115,6 +115,48 @@ services:
             - db
             - redis
 
+    # Worker - Celery worker + beat
+    scheduler:
+        image: buildingsmart/validationsvc-backend
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
+        entrypoint: /app/backend/worker-beat-entrypoint.sh
+        restart: unless-stopped
+        volumes:
+            - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
+        environment:
+            PUBLIC_URL: ${PUBLIC_URL} # for email links
+            ENV: ${ENV}
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT}
+            CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT}
+            TASK_TIMEOUT_LIMIT: ${TASK_TIMEOUT_LIMIT}
+            CELERY_CONCURRENCY: ${CELERY_CONCURRENCY}
+            DJANGO_DB: ${DJANGO_DB}
+            DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+            DJANGO_DB_BULK_CREATE_BATCH_SIZE: ${DJANGO_DB_BULK_CREATE_BATCH_SIZE}
+            GHERKIN_LOG_FOLDER: ${GHERKIN_LOG_FOLDER}
+            POSTGRES_HOST: ${POSTGRES_HOST}
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            MAILGUN_API_URL: ${MAILGUN_API_URL}
+            MAILGUN_API_KEY: ${MAILGUN_API_KEY}
+            MAILGUN_FROM_NAME: ${MAILGUN_FROM_NAME}
+            MAILGUN_FROM_EMAIL: ${MAILGUN_FROM_EMAIL}            
+            ADMIN_EMAIL: ${ADMIN_EMAIL}
+            CONTACT_EMAIL: ${CONTACT_EMAIL}
+        depends_on:
+            - db
+            - redis
+
     # Redis
     redis:
         image: redis:8.4-alpine 

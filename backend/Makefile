@@ -47,6 +47,9 @@ start-backend:
 	$(PYTHON) manage.py runserver
 
 start-worker:
+	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
+
+start-worker-with-scheduler:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
 start-worker2:
