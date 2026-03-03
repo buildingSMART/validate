@@ -69,7 +69,7 @@ services:
             - db
             - redis
 
-    # Worker - Celery worker (x2)
+    # Worker - Celery worker (x1)
     worker:
         image: buildingsmart/validationsvc-backend
         build:
@@ -109,13 +109,13 @@ services:
             CONTACT_EMAIL: ${CONTACT_EMAIL}             
         deploy: # example only
             mode: replicated
-            replicas: 2 
+            replicas: 1 
             endpoint_mode: vip
         depends_on:
             - db
             - redis
 
-    # Worker - Celery worker + beat
+    # Worker - Celery worker (x1) + beat
     scheduler:
         image: buildingsmart/validationsvc-backend
         build:
