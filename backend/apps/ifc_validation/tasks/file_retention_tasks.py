@@ -10,11 +10,5 @@ logger = get_task_logger(__name__)
 
 @shared_task(bind=True)
 @log_execution
-def archive_files(self, *args, **kwargs):
-    call_command("archive_files", **kwargs)
-
-
-@shared_task(bind=True)
-@log_execution
-def remove_files(self, *args, **kwargs):
-    call_command("remove_files", **kwargs)
+def apply_file_retention(self, *args, **kwargs):
+    call_command("apply_file_retention", **kwargs)

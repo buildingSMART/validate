@@ -361,14 +361,14 @@ ARCHIVE_FILES_LOOKBACK_PERIOD = os.environ.get("ARCHIVE_FILES_LOOKBACK_PERIOD", 
 REMOVE_FILES_LOOKBACK_PERIOD = os.environ.get("REMOVE_FILES_LOOKBACK_PERIOD", 180)
 CELERY_BEAT_SCHEDULE = {
         'archive-files-90days-every-15min': {
-            'task': 'apps.ifc_validation.tasks.file_retention_tasks.archive_files',
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',
             'schedule': crontab(minute='15,30,45'),  # runs every 15 min, except at the hour
-            'kwargs': { 'days': ARCHIVE_FILES_LOOKBACK_PERIOD, 'dry_run': False },
+            'kwargs': { 'days': ARCHIVE_FILES_LOOKBACK_PERIOD, 'dry_run': False, 'action': 'archive' },
         },
         'remove-files-180days-every-1hours': {
-            'task': 'apps.ifc_validation.tasks.file_retention_tasks.remove_files',
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',
             'schedule': crontab(minute=0, hour='*/1'),  # runs every hour, at the hour
-            'kwargs': { 'days': REMOVE_FILES_LOOKBACK_PERIOD, 'dry_run': False }
+            'kwargs': { 'days': REMOVE_FILES_LOOKBACK_PERIOD, 'dry_run': False, 'action': 'remove' }
         },
     }
 
