@@ -66,7 +66,7 @@ stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -85,6 +85,9 @@ test-schema-task:
 
 test-magic-and-av-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_magic_clamav_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-utils:
+	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
 
 archive-dry-run:
 	$(PYTHON) manage.py archive_requests --days 180 --all --dry-run
