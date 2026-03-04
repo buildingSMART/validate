@@ -68,7 +68,7 @@ services:
     # Worker - Celery worker + beat
     worker:
         image: buildingsmart/validationsvc-backend
-        entrypoint: /app/backend/worker-entrypoint.sh
+        entrypoint: /app/backend/worker-beat-entrypoint.sh
         restart: unless-stopped
         container_name: worker
         volumes:

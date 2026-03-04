@@ -59,18 +59,20 @@ class NonAdminAddable(admin.ModelAdmin):
 class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "file_name", "file", "file_size_text", "model", "deleted"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "public_id", "model" ]}),
+        ('File Information',     {"classes": ("wide"), "fields": ["file_name", "file", "file_size_text", "deleted", "file_removed" ]}),
         ('Status Information',   {"classes": ("wide"), "fields": ["status", "status_reason", "progress", "started", "completed", "channel" ]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "created_by"), ("updated", "updated_by")]})
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
-    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by"] 
+    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"] 
     date_hierarchy = "created"
 
     list_filter = [
         "status", 
-        "deleted", 
+        "deleted",
+        "file_removed", 
         "model__produced_by",
         ModelProducedByAdvancedFilter,
         "channel", 
