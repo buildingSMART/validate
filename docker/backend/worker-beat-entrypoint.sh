@@ -18,6 +18,11 @@ do
 done
 echo "DB is ready."
 
+# start clamav update & daemon
+freshclam
+service clamav-freshclam start
+service clamav-daemon start
+
 python manage.py makemigrations
 python manage.py migrate
 
