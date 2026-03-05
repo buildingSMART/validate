@@ -14,6 +14,7 @@ from .context import TaskContext
 from .utils import get_absolute_file_path
 from .logger import logger
 from .email_tasks import *
+from .file_retention_tasks import *
 
 
 def terminate_subprocesses():
