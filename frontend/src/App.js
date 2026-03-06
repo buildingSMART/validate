@@ -125,15 +125,18 @@ function App() {
       .then(response => response.json())
       .then((data) => {
         if (data["redirect"] !== undefined && data["redirect"] !== null) {
+          /*
+          // In Dashboard.js we do redirect, but not here
+          // @todo clean-up some duplication in the react code
           if (!window.location.href.endsWith(data.redirect)) {
             window.location.href = data.redirect;
           }
+          */
         }
         else {
           setLogin(true);
           setUser(data["user_data"]);
           data["sandbox_info"]["pr_title"] && setPrTitle(data["sandbox_info"]["pr_title"]);
-
         }
       })
   }, []);
@@ -238,7 +241,7 @@ function App() {
                     <div style={{ background: '#D9D9D9', padding: '5em', marginTop: '5em' }}>
                       <Typography variant='h5' style={{ fontWeight: 'bold' }}>Validate your IFC files against the standard</Typography>
                       <Typography style={{ margin: '1em 0 2em 0' }}>A free, online platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.</Typography>
-                      <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#444'}}} href='/dashboard'>Start validating →</Link>
+                      <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#333'}}} href='/dashboard'>Start validating →</Link>
                     </div>
 
                     <Typography variant='h6'>How it checks</Typography>
