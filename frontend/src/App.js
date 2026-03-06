@@ -2,7 +2,6 @@ import { Link, Typography } from '@mui/material';
 
 import Dz from './Dz'
 import ResponsiveAppBar from './ResponsiveAppBar'
-import Disclaimer from './Disclaimer';
 import Footer from './Footer'
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
@@ -124,16 +123,7 @@ function App() {
     fetch(context.sandboxId ? `${FETCH_PATH}/api/sandbox/me/${context.sandboxId}` : `${FETCH_PATH}/api/me`, { credentials: 'include', 'x-csrf-token': getCookieValue('csrftoken') })
       .then(response => response.json())
       .then((data) => {
-        if (data["redirect"] !== undefined && data["redirect"] !== null) {
-          /*
-          // In Dashboard.js we do redirect, but not here
-          // @todo clean-up some duplication in the react code
-          if (!window.location.href.endsWith(data.redirect)) {
-            window.location.href = data.redirect;
-          }
-          */
-        }
-        else {
+        if (data["redirect"] === undefined || data["redirect"] === null) {
           setLogin(true);
           setUser(data["user_data"]);
           data["sandbox_info"]["pr_title"] && setPrTitle(data["sandbox_info"]["pr_title"]);
@@ -199,33 +189,6 @@ function App() {
                     borderRadius: "0 0 16px 16px"
                   }}
                 >Sandbox for <b>{prTitle}</b></h2>}
-                {
-                  false && <Disclaimer />
-                }
-
-                {false && <Box sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  alignSelf: 'center',
-                  borderRadius: '4px',
-                  boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
-                  backgroundColor: '#ffffff',
-                  padding: '0px 32px 0px 0px'
-                }}>
-                  <Box
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      marginLeft: '5px',
-                      gap: '55px'
-                    }}>
-                    <Dz />
-                    <VerticalLinearStepper />
-                  </Box>
-                </Box>}
-
                 <Box sx={{
                   alignSelf: "start",
                   background: "#fff",
@@ -238,11 +201,37 @@ function App() {
                   "& .MuiTypography-h6": { fontWeight: 100, margin: '3em 0 0 0', padding: 0, textTransform: 'uppercase' },
                 }}>
                   <Container maxWidth="lg">
-                    <div style={{ background: '#D9D9D9', padding: '5em', marginTop: '5em' }}>
-                      <Typography variant='h5' style={{ fontWeight: 'bold' }}>Validate your IFC files against the standard</Typography>
-                      <Typography style={{ margin: '1em 0 2em 0' }}>A free, online platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.</Typography>
-                      <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#333'}}} href='/dashboard'>Start validating →</Link>
-                    </div>
+                    {isLoggedIn ? (
+                      <Box sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        alignSelf: 'center',
+                        borderRadius: '4px',
+                        boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
+                        backgroundColor: '#ffffff',
+                        padding: '0px 32px 0px 0px',
+                        marginTop: '5em'
+                      }}>
+                        <Box
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            marginLeft: '5px',
+                            gap: '55px'
+                          }}>
+                          <Dz />
+                          <VerticalLinearStepper />
+                        </Box>
+                      </Box>
+                    ) : (
+                      <div style={{ background: '#D9D9D9', padding: '5em', marginTop: '5em' }}>
+                        <Typography variant='h5' style={{ fontWeight: 'bold' }}>Validate your IFC files against the standard</Typography>
+                        <Typography style={{ margin: '1em 0 2em 0' }}>A free, online platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.</Typography>
+                        <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#333'}}} href='/login'>Start validating →</Link>
+                      </div>
+                    )}
 
                     <Typography variant='h6'>How it checks</Typography>
                     <Typography variant='h5'>Four layers of validation</Typography>
