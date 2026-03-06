@@ -176,7 +176,6 @@ function App() {
                   background: `url(${require('./background.jpg')}) fixed`,
                   backgroundSize: 'cover',
                   border: context.sandboxId ? 'solid 12px red' : 'none',
-                  gap: '12em'
                 }}
               >
                 {context.sandboxId && <h2
@@ -189,11 +188,46 @@ function App() {
                     borderRadius: "0 0 16px 16px"
                   }}
                 >Sandbox for <b>{prTitle}</b></h2>}
+
+                <Box sx={{
+                  width: '100%',
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'rgba(0,0,0,0.30)',
+                  padding: '5em 2em',
+                  boxSizing: 'border-box',
+                }}>
+                  <Container maxWidth="md" sx={{ textAlign: 'center', color: '#fff' }}>
+                    <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                      IFC Validation Service
+                    </Typography>
+                    <Typography variant="h6" sx={{ mb: 4, fontWeight: 400, textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}>
+                      A free, open platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.
+                    </Typography>
+                    {isLoggedIn ? (
+                      <Link href="/dashboard" sx={{
+                        color: '#fff', fontWeight: 700, textDecoration: 'none', fontSize: '1.1rem',
+                        background: 'rgba(0,0,0,0.35)', border: 'solid 2px #fff',
+                        padding: '0.6em 2em', borderRadius: '0.4em',
+                        '&:hover': { background: 'rgba(0,0,0,0.55)' }
+                      }}>Go to dashboard →</Link>
+                    ) : (
+                      <Link href="/login" sx={{
+                        color: '#fff', fontWeight: 700, textDecoration: 'none', fontSize: '1.1rem',
+                        background: 'rgba(0,0,0,0.35)', border: 'solid 2px #fff',
+                        padding: '0.6em 2em', borderRadius: '0.4em',
+                        '&:hover': { background: 'rgba(0,0,0,0.55)' }
+                      }}>Sign in to start validating →</Link>
+                    )}
+                  </Container>
+                </Box>
+
                 <Box sx={{
                   alignSelf: "start",
                   background: "#fff",
                   padding: '0.5em 5em',
-                  marginTop: '300px',
                   boxSizing: 'border-box',
                   borderTop: '2px solid gray',
                   width: '100%',
@@ -201,36 +235,33 @@ function App() {
                   "& .MuiTypography-h6": { fontWeight: 100, margin: '3em 0 0 0', padding: 0, textTransform: 'uppercase' },
                 }}>
                   <Container maxWidth="lg">
-                    {isLoggedIn ? (
-                      <Box sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        alignSelf: 'center',
-                        borderRadius: '4px',
-                        boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
-                        backgroundColor: '#ffffff',
-                        padding: '0px 32px 0px 0px',
-                        marginTop: '5em'
-                      }}>
-                        <Box
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            marginLeft: '5px',
-                            gap: '55px'
-                          }}>
-                          <Dz />
-                          <VerticalLinearStepper />
+                    {isLoggedIn && (
+                      <>
+                        <Box sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          alignSelf: 'center',
+                          borderRadius: '4px',
+                          boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
+                          backgroundColor: '#ffffff',
+                          padding: '0px 32px 0px 0px',
+                          marginTop: '3em'
+                        }}>
+                          <Box
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              marginLeft: '5px',
+                              gap: '55px'
+                            }}>
+                            <Dz />
+                            <VerticalLinearStepper />
+                          </Box>
                         </Box>
-                      </Box>
-                    ) : (
-                      <div style={{ background: '#D9D9D9', padding: '5em', marginTop: '5em' }}>
-                        <Typography variant='h5' style={{ fontWeight: 'bold' }}>Validate your IFC files against the standard</Typography>
-                        <Typography style={{ margin: '1em 0 2em 0' }}>A free, online platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.</Typography>
-                        <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#333'}}} href='/login'>Start validating →</Link>
-                      </div>
+                        <Link href="/dashboard" sx={{ display: 'inline-block', mt: 1, fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': { borderBottom: 'dotted 1px black', color: '#333' } }}>View past validations →</Link>
+                      </>
                     )}
 
                     <Typography variant='h6'>How it checks</Typography>
@@ -305,7 +336,7 @@ function App() {
                     <Typography variant='h5'>Common questions</Typography>
 
 
-                    <Box sx={{ p: '1em 8em', mx: "auto" }}>
+                    <Box sx={{ mx: "auto" }}>
                       {faqs.map((item, idx) => (
                         <Accordion
                           key={item.q}
@@ -373,7 +404,7 @@ function App() {
                             underline="none"
                             color="inherit"
                             target={r.href.startsWith("http") ? "_blank" : undefined}
-                            rel={r.href.startsWith("http") ? "noreferrer" : undefined}
+                            rel={r.href.startsWith("http") ? "noopener noreferrer" : undefined}
                             sx={{
                               display: "block",
                               height: "100%",
