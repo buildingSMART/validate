@@ -75,53 +75,60 @@ function ResponsiveAppBar({ user }) {
           <Box sx={{ flexGrow: 1 }} />
 
           {user &&
-            <>
-              <Box sx={{ flexGrow: 0 }}>
-                <Tooltip title="Navigation">
-                  <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: "grey",
-                        "&:hover": {
-                          border: "2px solid darkgrey",
-                        },
-                      }}
-                    >
-                      {user ? (Array.from(user["given_name"])[0] + Array.from(user["family_name"])[0]) : ""}
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
-                <Menu
-                  sx={{ mt: '45px' }}
-                  id="menu-appbar"
-                  anchorEl={anchorElUser}
-                  anchorOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  keepMounted
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  open={Boolean(anchorElUser)}
-                  onClose={handleCloseUserMenu}
-                >
-                  {pages.map((p) => (
-                    <MenuItem key={p.label} onClick={handleCloseUserMenu}>
-                      <Link color="grey" href={p.href} underline="none">
-                        <Typography textAlign="center">{p.label}</Typography>
-                      </Link>
-                    </MenuItem>
-                  ))}
-                </Menu>
-              </Box>
-            </>
+            <Box sx={{ flexGrow: 0 }}>
+              <Tooltip title="Navigation">
+                <IconButton onClick={handleOpenUserMenu} sx={{ p: 0 }}>
+                  <Avatar
+                    sx={{
+                      bgcolor: "grey",
+                      "&:hover": {
+                        border: "2px solid darkgrey",
+                      },
+                    }}
+                  >
+                    {user ? (Array.from(user["given_name"])[0] + Array.from(user["family_name"])[0]) : ""}
+                  </Avatar>
+                </IconButton>
+              </Tooltip>
+              <Menu
+                sx={{ mt: '45px' }}
+                id="menu-appbar"
+                anchorEl={anchorElUser}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(anchorElUser)}
+                onClose={handleCloseUserMenu}
+              >
+                {pages.map((p) => (
+                  <MenuItem key={p.label} onClick={handleCloseUserMenu}>
+                    <Link color="grey" href={p.href} underline="none">
+                      <Typography textAlign="center">{p.label}</Typography>
+                    </Link>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </Box>
           }
 
           {!user &&
-            <Box sx={{ flexGrow: 1 }}>
-              <Link href="/login">Sign In</Link>
+            <Box sx={{ flexGrow: 0 }}>
+              <Link sx={{
+                textDecoration: 'none',
+                color: 'black',
+                display: 'inline-block',
+                border: 'solid 1px black',
+                padding: '0.5em 1em',
+                borderRadius: '0.5em',
+                fontWeight: 'bold',
+                '&:hover': {textDecoration: 'underline', color: '#333'}
+              }} href="/login">Sign In</Link>
             </Box>
           }
         </Toolbar>
