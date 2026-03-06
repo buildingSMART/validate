@@ -1,4 +1,4 @@
-import { Typography } from '@mui/material';
+import { Link, Typography } from '@mui/material';
 
 import Dz from './Dz'
 import ResponsiveAppBar from './ResponsiveAppBar'
@@ -6,8 +6,11 @@ import Disclaimer from './Disclaimer';
 import Footer from './Footer'
 import Grid from '@mui/material/Grid';
 import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import SideMenu from './SideMenu';
 import VerticalLinearStepper from './VerticalLinearStepper'
+import Container from '@mui/material/Container';
+import Stack from '@mui/material/Stack';
 
 import FeedbackWidget from './FeedbackWidget';
 import SelfDeclarationDialog from './SelfDeclarationDialog';
@@ -17,14 +20,103 @@ import { PageContext } from './Page';
 import { FETCH_PATH } from './environment';
 import { getCookieValue } from './Cookies';
 
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
+} from "@mui/material";
+
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
+import DataObjectOutlinedIcon from "@mui/icons-material/DataObjectOutlined";
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
+import CheckOutlinedIcon from "@mui/icons-material/CheckOutlined";
+import StarOutlineOutlinedIcon from "@mui/icons-material/StarOutlineOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
+
 import './App.css';
+
+const items = [
+  {
+    icon: DataObjectOutlinedIcon,
+    title: "STEP Syntax",
+    desc: "Confirms the uploaded file is a valid STEP Physical File (SPF) in accordance with ISO 10303-21.",
+  },
+  {
+    icon: DescriptionOutlinedIcon,
+    title: "IFC Schema",
+    desc: "Checks against the referenced IFC schema version, including formal propositions and EXPRESS-encoded functions.",
+  },
+  {
+    icon: CheckOutlinedIcon,
+    title: "Normative Rules",
+    desc: "Validates implementer agreements and informal propositions defined in the IFC specification.",
+  },
+  {
+    icon: StarOutlineOutlinedIcon,
+    title: "Industry Practices",
+    desc: "Non-normative checks against common practices and sensible defaults used across the industry.",
+  },
+];
+
+const steps = [
+  { n: "01", title: "Upload", desc: "Upload your .ifc file (256mb max)" },
+  { n: "02", title: "Validate", desc: "Automated checks run against the IFC standard" },
+  { n: "03", title: "Review", desc: "Get a detailed conformity report with errors and warnings" },
+];
+
+const faqs = [
+  {
+    q: "Is the Validation Service free?",
+    a: "Yes. The service is free and provided by buildingSMART international to improve interoperability of IFC.",
+  },
+  {
+    q: "Do I need an account?",
+    a: "Yes. An account is required for progress notifications and to gather statistics on authoring tools; developer accounts are excluded from these statistics.",
+  },
+  {
+    q: "Does it include geometric visualisation?",
+    a: "The emphasis is on the four validation layers outlined above, while there are rules that relate to geometry there is no geometric visualization of the model or coordination features."
+  },
+  {
+    q: "What IFC schema versions are supported?",
+    a: "The supported schemas are IFC2X3, IFC4 and IFC 4.3 (IFC4X3_ADD2)",
+  },
+];
+
+const resources = [
+  {
+    kicker: "buildingSMART",
+    title: "About buildingSMART",
+    desc: "In-depth information on everything we do at buildingSMART.org",
+    href: "https://buildingsmart.org",
+  },
+  {
+    kicker: "Docs",
+    title: "User Guide & Documentation",
+    desc: "Step-by-step guide and technical reference",
+    href: "https://buildingsmart.github.io/validate/index.html",
+  },
+  {
+    kicker: "GitHub",
+    title: "Source Code on GitHub",
+    desc: "Open-source repository - run it on your own infrastructure",
+    href: "https://github.com/buildingSMART/validate",
+  },
+  {
+    kicker: "Forum",
+    title: "Community Forum",
+    desc: "Updates, discussions, and feedback",
+    href: "https://forums.buildingsmart.org/",
+  },
+];
 
 function App() {
 
   const context = useContext(PageContext);
 
   const [isLoggedIn, setLogin] = useState(false);
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(null);
 
   const [prTitle, setPrTitle] = useState("")
 
@@ -41,156 +133,301 @@ function App() {
           setLogin(true);
           setUser(data["user_data"]);
           data["sandbox_info"]["pr_title"] && setPrTitle(data["sandbox_info"]["pr_title"]);
-          
+
         }
       })
   }, []);
 
   document.body.style.overflow = "hidden";
-  if (isLoggedIn) {
-
-    return (
-      <div class="home">
-        <Grid direction="column"
+  return (
+    <div class="home">
+      <Grid direction="column"
+        container
+        style={{
+          minHeight: '100vh', alignItems: 'stretch',
+        }} >
+        <ResponsiveAppBar user={isLoggedIn ? user : null}></ResponsiveAppBar>
+        <Grid
           container
+          flex={1}
+          direction="row"
           style={{
-            minHeight: '100vh', alignItems: 'stretch',
-          }} >
-          <ResponsiveAppBar user={user} />
+          }}
+        >
+          {isLoggedIn && <SideMenu />}
+
           <Grid
             container
             flex={1}
-            direction="row"
+            direction="column"
             style={{
+              justifyContent: "space-between",
+              overflow: 'scroll',
+              boxSizing: 'border-box',
+              maxHeight: '90vh',
+              overflowX: 'hidden'
             }}
           >
-            <SideMenu />
-
-            <Grid
-              container
-              flex={1}
-              direction="column"
-              style={{
-                justifyContent: "space-between",
-                overflow: 'scroll',
-                boxSizing: 'border-box',
-                maxHeight: '90vh',
-                overflowX: 'hidden'
-              }}
-            >
-              <div style={{
-                gap: '10px',
-                flex: 1
-              }}>
-                <Grid
-                  container
-                  spacing={0}
-                  direction="column"
-                  alignItems="center"
-                  justifyContent="space-between"
+            <div style={{
+              gap: '10px',
+              flex: 1
+            }}>
+              <Grid
+                container
+                spacing={0}
+                direction="column"
+                alignItems="center"
+                justifyContent="space-between"
+                style={{
+                  minHeight: '100vh',
+                  background: `url(${require('./background.jpg')}) fixed`,
+                  backgroundSize: 'cover',
+                  border: context.sandboxId ? 'solid 12px red' : 'none',
+                  gap: '12em'
+                }}
+              >
+                {context.sandboxId && <h2
                   style={{
-                    minHeight: '100vh',
-                    background: `url(${require('./background.jpg')}) fixed`,
-                    backgroundSize: 'cover',
-                    border: context.sandboxId ? 'solid 12px red' : 'none',
-                    gap: '12em'
+                    background: "red",
+                    color: "white",
+                    marginTop: "-16px",
+                    lineHeight: "30px",
+                    padding: "12px",
+                    borderRadius: "0 0 16px 16px"
                   }}
-                >
-                  {context.sandboxId && <h2
+                >Sandbox for <b>{prTitle}</b></h2>}
+                {
+                  false && <Disclaimer />
+                }
+
+                {false && <Box sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  alignSelf: 'center',
+                  borderRadius: '4px',
+                  boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
+                  backgroundColor: '#ffffff',
+                  padding: '0px 32px 0px 0px'
+                }}>
+                  <Box
                     style={{
-                      background: "red",
-                      color: "white",
-                      marginTop: "-16px",
-                      lineHeight: "30px",
-                      padding: "12px",
-                      borderRadius: "0 0 16px 16px"
-                    }}
-                  >Sandbox for <b>{prTitle}</b></h2>}
-                  <Disclaimer />
-
-                  <Box sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    alignSelf: 'center',
-                    borderRadius: '4px',
-                    boxShadow: 'rgb(0 0 0 / 50%) 2px 2px 8px',
-                    backgroundColor: '#ffffff',
-                    padding: '0px 32px 0px 0px'
-                  }}>
-                    <Box
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        marginLeft: '5px',
-                        gap: '55px'
-                      }}>
-                      <Dz />
-                      <VerticalLinearStepper />
-                    </Box>
+                      display: 'flex',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      marginLeft: '5px',
+                      gap: '55px'
+                    }}>
+                    <Dz />
+                    <VerticalLinearStepper />
                   </Box>
+                </Box>}
 
-                  <div style={{alignSelf:"start", backgroundColor: '#ffffffe0', padding: '0.5em 5em', boxSizing: 'border-box', borderTop: 'thin solid rgb(238, 238, 238)', width: '100%'}}>
-                    <Typography style={{fontWeight: 'bold'}} sx={{paddingTop: '2em'}}>What it is</Typography>
-                    <Typography align='left' paragraph>The bSI Validation Service is a free, online platform for validating IFC files, developed by buildingSMART – with the help of software vendors and bSI projects.</Typography>
+                <Box sx={{
+                  alignSelf: "start",
+                  background: "#fff",
+                  padding: '0.5em 5em',
+                  marginTop: '300px',
+                  boxSizing: 'border-box',
+                  borderTop: '2px solid gray',
+                  width: '100%',
+                  "& .MuiTypography-h5": { fontWeight: 700, margin: '0 0 2em 0', padding: 0, },
+                  "& .MuiTypography-h6": { fontWeight: 100, margin: '3em 0 0 0', padding: 0, textTransform: 'uppercase' },
+                }}>
+                  <Container maxWidth="lg">
+                    <div style={{ background: '#D9D9D9', padding: '5em', marginTop: '5em' }}>
+                      <Typography variant='h5' style={{ fontWeight: 'bold' }}>Validate your IFC files against the standard</Typography>
+                      <Typography style={{ margin: '1em 0 2em 0' }}>A free, online platform by buildingSMART for checking IFC file conformity against STEP syntax, IFC schema, and normative specification rules.</Typography>
+                      <Link sx={{fontWeight: 700, textDecoration: 'none', color: '#000', '&:hover': {borderBottom: 'dotted 1px black', color: '#444'}}} href='/dashboard'>Start validating →</Link>
+                    </div>
 
-                    <Typography style={{fontWeight: 'bold'}}>What it does</Typography>
+                    <Typography variant='h6'>How it checks</Typography>
+                    <Typography variant='h5'>Four layers of validation</Typography>
 
-                    <Typography align='left' paragraph>Given an IFC file, the Validation Service provides a judgment of conformity for such file against the IFC standard (schema and specification).</Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                        gap: 2,
+                        p: 0,
+                      }}
+                    >
+                      {items.map(({ icon: Icon, title, desc }) => (
+                        <Paper
+                          key={title}
+                          elevation={0}
+                          sx={{
+                            bgcolor: "#e7e7e7",
+                            borderRadius: 3,
+                            p: 3,
+                            minHeight: 130,
+                          }}
+                        >
+                          <Icon sx={{ fontSize: 22, mb: 1 }} />
+                          <Typography sx={{ fontWeight: 700, mb: 1 }}>{title}</Typography>
+                          <Typography variant="body2" sx={{ color: "text.secondary", lineHeight: 1.5 }}>
+                            {desc}
+                          </Typography>
+                        </Paper>
+                      ))}
+                    </Box>
 
-                    <Typography style={{fontWeight: 'bold'}}>What is being checked</Typography>
+                    <Typography variant='h6'>How it works</Typography>
+                    <Typography variant='h5'>Three simple steps</Typography>
 
-                    <Typography align='left' paragraph>The IFC file is valid when it conforms to:
+                    <Stack spacing={3}>
+                      {steps.map((s) => (
+                        <Box
+                          key={s.n}
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: "80px 1fr",
+                            columnGap: 0,
+                            alignItems: "start",
+                          }}
+                        >
+                          <Typography
+                            sx={{
+                              fontSize: 44,
+                              fontWeight: 800,
+                              lineHeight: 1,
+                              color: "rgba(0,0,0,0.22)",
+                            }}
+                          >
+                            {s.n}
+                          </Typography>
 
-                    <ul>
-                        <li><b>STEP Syntax</b> The STEP Physical File syntax</li>
-                        <li><b>IFC Schema</b> An up-to-date (not withdrawn and latest revision) IFC schema referenced in the file, including formal propositions and functions encoded in the EXPRESS schema language</li>
-                        <li><b>Normative IFC Rules</b> Other normative rules of the IFC specification (e.g. implementer agreements and informal propositions)</li>
-                    </ul>
+                          <Box>
+                            <Typography sx={{ fontWeight: 800, lineHeight: 1.1 }}>
+                              {s.title}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+                              {s.desc}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))}
+                    </Stack>
 
-                    </Typography>
-                    <Typography align='left' paragraph>Additionally, the Validation Service performs non-normative checks including:
+                    <Typography variant='h6'>FAQ</Typography>
+                    <Typography variant='h5'>Common questions</Typography>
 
-                    <ul>
-                        <li><b>Industry Practices</b> Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid. Therefore, any issues identified result in warnings rather than errors</li>
-                        <li><b>bSDD Compliance (disabled)</b> Checking whether references to classifications and properties from bSDD, found in an IFC file, comply with the source definitions in bSDD</li>
-                    </ul>
 
-                    </Typography>
+                    <Box sx={{ p: '1em 8em', mx: "auto" }}>
+                      {faqs.map((item, idx) => (
+                        <Accordion
+                          key={item.q}
+                          disableGutters
+                          elevation={0}
+                          sx={{
+                            borderTop: idx === 0 ? "1px solid rgba(0,0,0,0.2)" : "none",
+                            borderBottom: "1px solid rgba(0,0,0,0.2)",
+                            "&:before": { display: "none" },
+                          }}
+                        >
+                          <AccordionSummary
+                            sx={{
+                              py: 3,
+                              px: 0,
+                              "& .MuiAccordionSummary-content": { my: 0 },
+                            }}
+                            expandIcon={
+                              <Box sx={{ display: "grid", placeItems: "center" }}>
+                                <AddIcon sx={{ fontSize: 22, ".Mui-expanded &": { display: "none" } }} />
+                                <RemoveIcon
+                                  sx={{ fontSize: 22, display: "none", ".Mui-expanded &": { display: "block" } }}
+                                />
+                              </Box>
+                            }
+                          >
+                            <Typography sx={{ fontSize: 18, fontWeight: 700 }}>
+                              {item.q}
+                            </Typography>
+                          </AccordionSummary>
 
-                    <Typography style={{fontWeight: 'bold'}}>What is NOT being checked</Typography>
+                          <AccordionDetails sx={{ px: 0, pt: 0, pb: 3 }}>
+                            <Typography sx={{ color: "text.secondary", maxWidth: 900 }}>
+                              {item.a}
+                            </Typography>
+                          </AccordionDetails>
+                        </Accordion>
+                      ))}
+                    </Box>
 
-                    <Typography align='left' paragraph>Outside of the constraints encoded in bSDD, the bSI Validation Service does not check project-specific, national-specific, organization-specific rules or constraints. Case-specific validation is where the mandate of the bSI Validation Service ends.</Typography>
+                    <Typography variant='h6'>Resources</Typography>
+                    <Typography variant='h5'>Go deeper</Typography>
 
-                    <Typography style={{fontWeight: 'bold'}}>Visualisation</Typography>
+                    <Box
+                      sx={{
+                        display: "grid",
+                        gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                        gap: 2,
+                        mb: '5em'
+                      }}
+                    >
+                      {resources.map((r) => (
+                        <Paper
+                          key={r.title}
+                          elevation={0}
+                          sx={{
+                            bgcolor: "#e7e7e7",
+                            borderRadius: 3,
+                            p: 3,
+                            position: "relative",
+                          }}
+                        >
+                          <Link
+                            href={r.href}
+                            underline="none"
+                            color="inherit"
+                            target={r.href.startsWith("http") ? "_blank" : undefined}
+                            rel={r.href.startsWith("http") ? "noreferrer" : undefined}
+                            sx={{
+                              display: "block",
+                              height: "100%",
+                              "&:hover .openIcon": { opacity: 1 },
+                            }}
+                          >
+                            <OpenInNewIcon
+                              className="openIcon"
+                              sx={{
+                                position: "absolute",
+                                top: 14,
+                                right: 14,
+                                fontSize: 18,
+                                opacity: 0.7,
+                              }}
+                            />
+                            <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 1 }}>
+                              {r.kicker}
+                            </Typography>
+                            <Typography sx={{ fontSize: 18, fontWeight: 800, mb: 0.5 }}>
+                              {r.title}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                              {r.desc}
+                            </Typography>
+                          </Link>
+                        </Paper>
+                      ))}
+                    </Box>
 
-                    <Typography align='left' paragraph sx={{paddingBottom: '2em'}}>For multiple reasons, geometric visualisation is not within the scope nor the mandate of the Validation Service. Many errors are invisible in a viewer or unrelated to a geometric representation or prevent visualisation altogether.</Typography>
+                    <Footer />
+                  </Container>
+                </Box>
 
-                    <Footer/>
-                  </div>
-
-                </Grid>
-              </div>
-            </Grid>
-
-            <FeedbackWidget user={user} />
-            <SelfDeclarationDialog user={user} />
-
+              </Grid>
+            </div>
           </Grid>
-        </Grid>
-      </div>
 
-    );
-  } else {
-    return (
-      <div>
-        Thank you! We will review your request to activate your account soon.<br />
-        <br />
-        <a href="/logout">Logout</a>
-      </div>
-    );
-  }
+          {isLoggedIn && <FeedbackWidget user={user} />}
+          {isLoggedIn && <SelfDeclarationDialog user={user} />}
+
+        </Grid>
+      </Grid>
+    </div>
+
+  );
 }
 
 export default App;
