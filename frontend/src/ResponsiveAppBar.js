@@ -19,13 +19,13 @@ import { useContext } from 'react';
 
 
 
-function AppLogo() {
+function AppLogo({ href }) {
   const mystyle = {
     height: "60px"
   };
 
   return (
-    <Link href="/" underline="none">
+    <Link href={href} underline="none">
       <img src={require("./BuildingSMART_CMYK_validation_service.png")} style={mystyle} />
     </Link>
   )
@@ -71,7 +71,7 @@ function ResponsiveAppBar({ user }) {
     <AppBar position="static" sx={styleAppBar}>
       <Container maxWidth="lg">
         <Toolbar disableGutters>
-          <AppLogo />
+          <AppLogo href={user ? "/dashboard" : "/"} />
           <Box sx={{ flexGrow: 1 }} />
 
           {user &&
@@ -86,7 +86,7 @@ function ResponsiveAppBar({ user }) {
                       },
                     }}
                   >
-                    {user ? (Array.from(user["given_name"])[0] + Array.from(user["family_name"])[0]) : ""}
+                    {Array.from(user["given_name"])[0] + Array.from(user["family_name"])[0]}
                   </Avatar>
                 </IconButton>
               </Tooltip>
