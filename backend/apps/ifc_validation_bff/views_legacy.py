@@ -90,21 +90,9 @@ def get_current_user(request):
     
 
 def create_redirect_response(login=True, dashboard=False):
-
-    if dashboard:
-
-        return JsonResponse({
-                "redirect": '/dashboard',
-                "reason": "403 - Forbidden"
-            })
-
-    else:
-        
-        return JsonResponse({
-                "redirect": LOGIN_URL,
-                "reason": "401 - Unauthorized"
-            })
-
+    return JsonResponse({
+        "redirect": LOGIN_URL if login else '/dashboard',
+    })
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_filename(feature_code):
@@ -250,6 +238,15 @@ def me(request):
 
 
 @ensure_csrf_cookie
+@csrf_protect
+def logout_view(request):
+    if get_current_user(request):
+        request.session.pop('user', None)
+    
+    return create_redirect_response(login=True)
+
+
+@ensure_csrf_cookie
 def models_paginated(request, start: int, end: int):
 
     if request.method != "GET":
@@ -287,7 +284,7 @@ def upload(request):
         if not user:
             return create_redirect_response(login=True)
         if not user.is_active:
-            return create_redirect_response(waiting_zone=True)
+            return create_redirect_response(dashboard=True)
         
         set_user_context(user)
 

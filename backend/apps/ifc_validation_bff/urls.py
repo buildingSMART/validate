@@ -1,12 +1,13 @@
 from django.urls import path
 
-from .views_legacy import me, models_paginated, upload, delete
+from .views_legacy import me, logout_view, models_paginated, upload, delete
 from .views_legacy import report, report_error
 
 urlpatterns = [
 
     # 'Flask'-way of doing things; backend for legacy API (< 0.6)
     path('api/me',                                              me),
+    path('api/logout',                                          logout_view),
     path('api/models_paginated/<int:start>/<int:end>',          models_paginated),
     path('api/',                                                upload),
     path('api/delete/<str:ids>',                                delete),
