@@ -37,7 +37,7 @@ function Dz() {
             acceptedFiles: ".ifc",
             parallelUploads: 100,
             maxFiles: 100,
-            maxFileSize: MAX_FILE_SIZE_IN_MB,
+            maxFilesize: MAX_FILE_SIZE_IN_MB,
             autoProcessQueue: false,
             addRemoveLinks: true,
             withCredentials: true,
