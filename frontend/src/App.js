@@ -404,7 +404,7 @@ function App() {
                             underline="none"
                             color="inherit"
                             target={r.href.startsWith("http") ? "_blank" : undefined}
-                            rel={r.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                            rel={r.href.startsWith("http") ? "noreferrer" : undefined}
                             sx={{
                               display: "block",
                               height: "100%",
