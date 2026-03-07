@@ -169,13 +169,13 @@ export default function GherkinResult({ summary, count, content, status, instanc
 
     try {
       await navigator.clipboard.writeText(text);
-      setCopyStatus({...copyStatus, [feature]: 'success'});
+      setCopyStatus(prev => ({...prev, [feature]: 'success'}));
       setTimeout(() => {
         setCopyStatus(prev => ({...prev, [feature]: null}));
       }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
-      setCopyStatus({...copyStatus, [feature]: 'error'});
+      setCopyStatus(prev => ({...prev, [feature]: 'error'}));
       setTimeout(() => {
         setCopyStatus(prev => ({...prev, [feature]: null}));
       }, 2000);
@@ -312,8 +312,8 @@ export default function GherkinResult({ summary, count, content, status, instanc
                     <TreeItem
                       nodeId={feature}
                       label={<div>
-                        <div class='caption'>
-                          {feature} <span class='caption-suffix'>{getTitleSuffix(rows)}</span>
+                        <div className='caption'>
+                          {feature} <span className='caption-suffix'>{getTitleSuffix(rows)}</span>
                           <IconButton
                             size="small"
                             onClick={(e) => {
@@ -324,7 +324,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
                             title={copyStatus[feature] === 'success' ? 'Copied!' : 'Copy to clipboard'}
                             color={copyStatus[feature] === 'success' ? 'success' : 'default'}
                             >
-                              <ContentCopyIcon fontsize="small" />
+                              <ContentCopyIcon fontSize="small" />
                             </IconButton>
                           </div>
                         </div>}
