@@ -46,6 +46,7 @@ rebuild-frontend:
 rebuild-backend:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop scheduler || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
 	docker compose build \
 	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
@@ -54,6 +55,7 @@ rebuild-backend:
 clean:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
@@ -63,6 +65,7 @@ clean:
 clean-all:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend' | uniq) || true

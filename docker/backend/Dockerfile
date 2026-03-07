@@ -52,6 +52,10 @@ RUN --mount=type=cache,target=/root/.cache \
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
+ADD --chmod=777 ./docker/backend/worker-beat-entrypoint.sh /app/backend
+
+# copy clamav config
+ADD --chmod=777 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
 
 # RUN image
 # NOTE: don't use Alpine images...
@@ -73,10 +77,8 @@ RUN set -ex && \
         netcat-openbsd \
         procps \
         htop \
-        clamav && \
+        clamav clamav-daemon clamav-freshclam clamdscan && \
     update-ca-certificates -f && \
-    # clamav initial setup
-    freshclam && \
     # cleanup
     apt-get -y clean && \
     apt-get autoremove -y && \

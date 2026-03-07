@@ -1,7 +1,10 @@
 import functools
+import psutil
 
 from celery import shared_task, chain, chord, group
+from celery.exceptions import SoftTimeLimitExceeded
 
+from core.redis_lock import acquire_user_lock
 from core.utils import log_execution
 
 from apps.ifc_validation_models.decorators import requires_django_user_context
@@ -11,8 +14,7 @@ from .context import TaskContext
 from .utils import get_absolute_file_path
 from .logger import logger
 from .email_tasks import *
-import psutil
-from celery.exceptions import SoftTimeLimitExceeded
+from .file_retention_tasks import *
 
 
 def terminate_subprocesses():
@@ -50,7 +52,34 @@ def kill_subprocesses_on_timeout(task_func):
     return wrapper
 
 
+def with_user_task_lock(task_name: str):
+    
+    def decorator(task_func):
+        @functools.wraps(task_func)
+        def wrapper(self, *args, **kwargs):
+
+            id = kwargs.get('id')
+            request = ValidationRequest.objects.get(pk=id)
+            user_id = request.created_by.id
+            
+            try:
+                with acquire_user_lock(user_id, task_name):
+                    return task_func(self, *args, **kwargs)
+                
+            except RuntimeError as exc:
+                # countdown: exponential backoff - prevents thundering herd
+                # max_retries=0: infinite retries - only for locking purposes
+                raise self.retry(exc=exc, countdown=15 + self.request.retries * 7, max_retries=0)
+            
+            except Exception as exc:
+                # other errors — fail permanently
+                raise
+        return wrapper
+    return decorator
+
+
 assert task_registry.total_increment() == 100
+
 
 @shared_task(bind=True)
 @log_execution
@@ -64,6 +93,7 @@ def error_handler(self, *args, **kwargs):
 def chord_error_handler(self, request, exc, traceback, *args, **kwargs):
 
     on_workflow_failed.apply_async([request, exc, traceback])
+
 
 @shared_task(bind=True)
 @log_execution
@@ -137,6 +167,7 @@ def task_factory(task_type):
     @log_execution
     @requires_django_user_context
     @kill_subprocesses_on_timeout
+    @with_user_task_lock(task_name=config.celery_task_name)
     def validation_subtask_runner(self, *args, **kwargs):
     
         id = kwargs.get('id')

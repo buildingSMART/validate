@@ -49,6 +49,22 @@ jobs:
     environment:
       name: development
 
+    services:
+      redis:
+        image: redis:8.4-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+        volumes:
+          - redis_data:/data
+
+    env:
+      CELERY_BROKER_URL: redis://localhost:6379/0
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
