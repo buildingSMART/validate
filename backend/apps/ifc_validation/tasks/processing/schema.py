@@ -26,6 +26,9 @@ def process_schema(context:TaskContext):
 
             for line in output:
                 message = json.loads(line)
+                if message["level"] == "info":
+                    # This currently only happens due to caught RecursionErrors in rule executor
+                    continue
                 outcome = ValidationOutcome(
                     severity=ValidationOutcome.OutcomeSeverity.ERROR,
                     outcome_code=ValidationOutcome.ValidationOutcomeCode.SCHEMA_ERROR,
