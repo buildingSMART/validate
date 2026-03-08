@@ -1,5 +1,6 @@
 import functools
 import psutil
+import random
 
 from celery import shared_task, chain, chord, group
 from celery.exceptions import SoftTimeLimitExceeded
@@ -67,9 +68,13 @@ def with_user_task_lock(task_name: str):
                     return task_func(self, *args, **kwargs)
                 
             except LockError as exc:
-                # countdown: exponential backoff - prevents thundering herd
-                # max_retries=None: infinite retries - only for locking purposes
-                raise self.retry(exc=exc, countdown=15 + self.request.retries * 7, max_retries=None)
+                base_backoff = 10 + self.request.retries * 7
+                jitter_backoff = random.randint(0,10)
+                raise self.retry(
+                    exc=exc, 
+                    countdown=base_backoff+jitter_backoff, 
+                    max_retries=None # infinite
+                )
             
             except Exception as exc:
                 # other errors — fail permanently
