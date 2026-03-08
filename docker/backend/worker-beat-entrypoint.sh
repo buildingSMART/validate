@@ -23,9 +23,6 @@ freshclam
 service clamav-freshclam start
 service clamav-daemon start
 
-python manage.py makemigrations
-python manage.py migrate
-
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
 

@@ -26,6 +26,31 @@ start-infra-only:
 stop:
 	docker compose down
 
+# --- Docker Swarm ---
+
+REGISTRY ?= localhost:5000
+WORKERS  ?= 2
+
+start-swarm:
+	docker stack deploy -c docker-compose.swarm.yml --with-registry-auth validate
+
+stop-swarm:
+	docker stack rm validate
+
+scale-workers:
+	docker service scale validate_worker=$(WORKERS)
+
+swarm-push: build
+	docker tag buildingsmart/validationsvc-backend $(REGISTRY)/validationsvc-backend
+	docker tag buildingsmart/validationsvc-frontend $(REGISTRY)/validationsvc-frontend
+	docker push $(REGISTRY)/validationsvc-backend
+	docker push $(REGISTRY)/validationsvc-frontend
+
+swarm-status:
+	@docker service ls
+	@echo "---"
+	@docker service ps validate_worker
+
 build:
 	docker compose build \
 	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
