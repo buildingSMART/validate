@@ -338,6 +338,7 @@ CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
 CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_STORE_ERRORS_EVEN_IF_IGNORED = True

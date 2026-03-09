@@ -9,6 +9,10 @@ logger = logging.getLogger(__name__)
 redis_client: Redis = Redis.from_url(CELERY_BROKER_URL, decode_responses=True)
 
 
+class LockError(Exception):
+    pass
+
+
 @contextmanager
 def acquire_user_lock(
     user_id: int | str,
@@ -32,7 +36,7 @@ def acquire_user_lock(
 
     acquired = lock.acquire(blocking=True)
     if not acquired:
-        raise RuntimeError(f"User {user_id} already has an active task_name {task_name} (lock held).")
+        raise LockError(f"User {user_id} already has an active task_name {task_name} (lock held).")
 
     try:
         logger.info(f"Lock acquired for user {user_id} and task {task_name} (key={lock_key})")
