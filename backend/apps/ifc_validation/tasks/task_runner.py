@@ -1,10 +1,11 @@
 import functools
 import psutil
+import random
 
 from celery import shared_task, chain, chord, group
 from celery.exceptions import SoftTimeLimitExceeded
 
-from core.redis_lock import acquire_user_lock
+from core.redis_lock import acquire_user_lock, LockError
 from core.utils import log_execution
 
 from apps.ifc_validation_models.decorators import requires_django_user_context
@@ -66,10 +67,14 @@ def with_user_task_lock(task_name: str):
                 with acquire_user_lock(user_id, task_name):
                     return task_func(self, *args, **kwargs)
                 
-            except RuntimeError as exc:
-                # countdown: exponential backoff - prevents thundering herd
-                # max_retries=0: infinite retries - only for locking purposes
-                raise self.retry(exc=exc, countdown=15 + self.request.retries * 7, max_retries=0)
+            except LockError as exc:
+                base_backoff = 10 + self.request.retries * 7
+                jitter_backoff = random.randint(0,10)
+                raise self.retry(
+                    exc=exc, 
+                    countdown=base_backoff+jitter_backoff, 
+                    max_retries=None # infinite
+                )
             
             except Exception as exc:
                 # other errors — fail permanently
@@ -163,11 +168,11 @@ def on_workflow_failed(self, *args, **kwargs):
 def task_factory(task_type):
     config = task_registry[task_type]
     
-    @shared_task(bind=True, name=config.celery_task_name)
+    @shared_task(bind=True, name=config.celery_task_name, max_retries=None)
+    @with_user_task_lock(task_name=config.celery_task_name)
     @log_execution
     @requires_django_user_context
     @kill_subprocesses_on_timeout
-    @with_user_task_lock(task_name=config.celery_task_name)
     def validation_subtask_runner(self, *args, **kwargs):
     
         id = kwargs.get('id')
