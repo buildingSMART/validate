@@ -62,7 +62,7 @@ services:
                 delay: 30s
                 failure_action: rollback
         healthcheck:
-            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/alive')\""]
+            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')\""]
             interval: 30s
             timeout: 10s
             retries: 3
@@ -89,11 +89,11 @@ services:
                 failure_action: rollback
             resources:
                 limits:
-                    cpus: "2.0"
-                    memory: 4G
+                    cpus: "${WORKER_CPU_LIMIT:-2.0}"
+                    memory: ${WORKER_MEMORY_LIMIT:-2G}
                 reservations:
-                    cpus: "1.0"
-                    memory: 2G
+                    cpus: "${WORKER_CPU_RESERVATION:-1.0}"
+                    memory: ${WORKER_MEMORY_RESERVATION:-1G}
 
     scheduler:
         image: ${REGISTRY:-localhost:5000}/validationsvc-backend

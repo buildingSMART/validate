@@ -34,6 +34,9 @@ WORKERS  ?= 2
 start-swarm:
 	docker stack deploy -c docker-compose.swarm.yml --with-registry-auth validate
 
+start-swarm-local:
+	docker stack deploy -c docker-compose.swarm.yml -c docker-compose.swarm.local.yml --with-registry-auth validate
+
 stop-swarm:
 	docker stack rm validate
 
