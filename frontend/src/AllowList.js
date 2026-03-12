@@ -146,7 +146,7 @@ export default function AllowList() {
             style={{
                 minHeight: '100vh', alignItems: 'stretch',
             }} >
-            <ResponsiveAppBar user={user} />
+            <ResponsiveAppBar user={isLoggedIn ? user : null} />
             <Grid
                 container
                 flex={1}
@@ -154,9 +154,10 @@ export default function AllowList() {
                 style={{
                 }}
             >
-                <SideMenu />
+                {isLoggedIn && <SideMenu />}
                 <Grid
                     container
+                    flex={1}
                     direction="column"
                     alignItems="center"
                     sx={{
