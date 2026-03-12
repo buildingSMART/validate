@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache \
     find /app/backend -name 'requirements.txt' -exec pip install --no-cache-dir -r {} \; && \
     # use version of ifcopenshell with desired schema parsing
     # TODO: revert to pyPI when schema parsing is published in the future
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-linux64.zip" && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-1c5b825-linux64.zip" && \
     mkdir -p /opt/venv/lib/python3.11/site-packages  && \
     unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
     # some cleanup
@@ -52,6 +52,10 @@ RUN --mount=type=cache,target=/root/.cache \
 # copy entrypoints
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
+ADD --chmod=777 ./docker/backend/worker-beat-entrypoint.sh /app/backend
+
+# copy clamav config
+ADD --chmod=777 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
 
 # RUN image
 # NOTE: don't use Alpine images...
@@ -73,10 +77,8 @@ RUN set -ex && \
         netcat-openbsd \
         procps \
         htop \
-        clamav && \
+        clamav clamav-daemon clamav-freshclam clamdscan && \
     update-ca-certificates -f && \
-    # clamav initial setup
-    freshclam && \
     # cleanup
     apt-get -y clean && \
     apt-get autoremove -y && \

@@ -4,13 +4,15 @@ import { TreeView, TreeItem } from '@mui/x-tree-view';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Checkbox from "@mui/material/Checkbox";
-import Tooltip from '@mui/material/Tooltip';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Table from '@mui/material/Table';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
+import Tooltip from '@mui/material/Tooltip';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
 import { Link } from "react-router-dom";
 
@@ -104,7 +106,7 @@ function unsafe_format(obj) {
         return <div>{ctx} {display_value}</div>;
       }
     }
-  
+
   } else {
     return JSON.stringify(obj);
   }
@@ -118,20 +120,66 @@ function format(obj) {
   }
 }
 
+// helper function to extract plain text from formatted data
+function extractPlainText(obj) {
+  if (typeof obj === 'string') return obj;
+  if (typeof obj === 'number' || typeof obj === 'boolean') return String(obj);
+  if (typeof obj === 'object' && obj !== null) {
+    if ('value' in obj) return extractPlainText(obj.value);
+    if ('instance' in obj) return obj.instance;
+    if ('entity' in obj) return obj.entity.split('(#')[0];
+    if ('oneOf' in obj) return obj.oneOf.join(', ');
+    if ('schema_identifier' in obj) return obj.schema_identifier;
+  }
+  return JSON.stringify(obj);
+}
+
 export default function GherkinResult({ summary, count, content, status, instances }) {
   const [data, setRows] = useState([])
   const [grouped, setGrouped] = useState([])
-  const [page, setPage] = useState(0);  
+  const [page, setPage] = useState(0);
   const [checked, setChecked] = useState(false);
+  const [copyStatus, setCopyStatus] = useState({});
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage);
-  };  
+  };
 
   const handleChangeChecked = (event) => {
     setChecked(event.target.checked);
     if (checked) {
       setPage(0);
+    }
+  };
+
+  const copyTableToClipboard = async (feature, rows) => {
+    const hasMessage = rows.some(row => row.message && row.message.length > 0);
+    let text = `${feature}\n\n`;
+    text += `Severity\tId\tEntity\tExpected\tObserved${hasMessage ? `\tMessage` : ''}\n`;
+
+    rows.forEach(row => {
+      const severity = severityToLabel[row.severity] || '';
+      const id = row.instance_id ? (instances[row.instance_id]?.guid || '?') : '-';
+      const entity = row.instance_id ? (instances[row.instance_id]?.type || '?') : '-';
+      const expected = row.expected ? extractPlainText(row.expected) : '-';
+      const observed = row.observed ? extractPlainText(row.observed) : '-';
+      const message = hasMessage ? (row.message || '-') : '';
+
+      text += `${severity}\t${id}\t${entity}\t${expected}\t${observed}${hasMessage ? `\t${message}` : ''}\n`
+    });
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus(prev => ({...prev, [feature]: 'success'}));
+      setTimeout(() => {
+        setCopyStatus(prev => ({...prev, [feature]: null}));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      setCopyStatus(prev => ({...prev, [feature]: 'error'}));
+      setTimeout(() => {
+        setCopyStatus(prev => ({...prev, [feature]: null}));
+      }, 2000);
     }
   };
 
@@ -157,10 +205,10 @@ export default function GherkinResult({ summary, count, content, status, instanc
       container.severity_pre_allowlist = el.severity_pre_allowlist;
       container.msg = el.msg;
       container.title = el.title;
-      
+
       return container
     })
-    
+
     // // deduplicate
     // const uniqueArray = (array, key) => {
 
@@ -172,7 +220,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
     // }
 
     // filteredContent = uniqueArray(filteredContent, c => c.instance_id + c.feature + c.severity);
-    
+
     // sort
     filteredContent.sort((f1, f2) => f1.feature > f2.feature ? 1 : -1);
 
@@ -232,7 +280,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
           </TableHead>
         </Table>
       </TableContainer>
-       
+
     <Paper sx={{overflow: 'hidden',
           "width": "850px",
           ".MuiTreeItem-root .MuiTreeItem-root": { backgroundColor: "#ffffff80", overflow: "hidden" },
@@ -260,13 +308,29 @@ export default function GherkinResult({ summary, count, content, status, instanc
           { data.length
             ? data.map(([feature, rows, severity]) => {
                 const hasMessage = rows.some(row => row.message && row.message.length > 0)
-                return <TreeView 
+                return <TreeView
                   defaultCollapseIcon={<ExpandMoreIcon />}
-                  defaultExpandIcon={<ChevronRightIcon />}                 
+                  defaultExpandIcon={<ChevronRightIcon />}
                   >
-                    <TreeItem 
-                      nodeId={feature} 
-                      label={<div><div class='caption'>{feature} <span class='caption-suffix'>{getTitleSuffix(rows)}</span></div></div>} 
+                    <TreeItem
+                      nodeId={feature}
+                      label={<div>
+                        <div className='caption'>
+                          {feature} <span className='caption-suffix'>{getTitleSuffix(rows)}</span>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyTableToClipboard(feature, rows).then();
+                            }}
+                            sx={{ ml: 1}}
+                            title={copyStatus[feature] === 'success' ? 'Copied!' : 'Copy to clipboard'}
+                            color={copyStatus[feature] === 'success' ? 'success' : 'default'}
+                            >
+                              <ContentCopyIcon fontSize="small" />
+                            </IconButton>
+                          </div>
+                        </div>}
                       sx={{ "backgroundColor": severityToColor[severity] }}
                     >
                       <div>
@@ -282,7 +346,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
                             <br />
                             <br />
                           </div>
-                        }                       
+                        }
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>

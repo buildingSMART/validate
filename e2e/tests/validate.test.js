@@ -12,9 +12,9 @@ test.describe('Validate WebUI Tests', () => {
     
     // check if certain elements are visible
     // a left-hand side menu, a text element and an upload button
-    await expect(page.getByRole('link', { name: 'Validation' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Validation', exact: true })).toBeVisible();
     await expect(page.getByText('Select the IFC file(s) you')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Upload & Validate' })).toBeVisible();    
+    await expect(page.getByRole('button', { name: 'Upload & Validate' })).toBeVisible();
   });
 
   test('should be able to see the dashboard', async ({ page }) => {
@@ -23,11 +23,11 @@ test.describe('Validate WebUI Tests', () => {
     await page.goto(BASE_URL);
 
     // click the dashboard link
-    await page.getByRole('link', { name: 'Validation' }).click();
-    
+    await page.getByRole('link', { name: 'Validation', exact: true }).click();
+
     // check if certain elements are visible
     // a left-hand side menu, a text element and a column header
-    await expect(page.getByRole('link', { name: 'Validation' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Validation', exact: true })).toBeVisible();
     await expect(page.getByText('Select the IFC file(s) you')).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'File Name' })).toBeVisible();    
   });

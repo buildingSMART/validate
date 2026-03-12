@@ -28,7 +28,12 @@ class BaseTaskRequest(Request):
             send_failed_event=send_failed_event,
             return_ok=return_ok
         )
-        logger.error(f'Failure detected for task {self.task.name} - {exc_info=}')
+        logger.error(f'Failure detected for task {self.task.name} - {exc_info}')
+
+    def on_retry(self, exc_info):
+        
+        super().on_retry(exc_info)
+        logger.warning(f"Retry detected for task {self.task.name} - {exc_info}")
 
 
 class BaseTask(Task):
@@ -49,7 +54,7 @@ class BaseTask(Task):
         logger.debug("*** SUCCESS ***")
 
     def on_retry(self, exc, task_id, args, kwargs, einfo):
-        logger.warn("*** RETRY ***")
+        logger.warning("*** RETRY ***")
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         logger.error("*** FAILURE ***")

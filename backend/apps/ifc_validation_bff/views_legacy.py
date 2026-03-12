@@ -91,21 +91,9 @@ def get_current_user(request):
     
 
 def create_redirect_response(login=True, dashboard=False):
-
-    if dashboard:
-
-        return JsonResponse({
-                "redirect": '/dashboard',
-                "reason": "403 - Forbidden"
-            })
-
-    else:
-        
-        return JsonResponse({
-                "redirect": LOGIN_URL,
-                "reason": "401 - Unauthorized"
-            })
-
+    return JsonResponse({
+        "redirect": LOGIN_URL if login else '/dashboard',
+    })
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_filename(feature_code):
@@ -251,6 +239,15 @@ def me(request):
 
 
 @ensure_csrf_cookie
+@csrf_protect
+def logout_view(request):
+    if get_current_user(request):
+        request.session.pop('user', None)
+    
+    return create_redirect_response(login=True)
+
+
+@ensure_csrf_cookie
 def models_paginated(request, start: int, end: int):
 
     if request.method != "GET":
@@ -274,39 +271,6 @@ def models_paginated(request, start: int, end: int):
 
 
 @ensure_csrf_cookie
-def download(request, id: int):
-
-    if request.method != "GET":
-        return HttpResponseNotAllowed()
-
-    # fetch current user
-    user = get_current_user(request)
-    if not user:
-        return create_redirect_response(login=True)
-
-    logger.debug(f"Locating file for pub='{id}' pk='{ValidationRequest.to_private_id(id)}'")
-    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
-    if request:
-        file_path = os.path.join(os.path.abspath(MEDIA_ROOT), request.file.name)
-        logger.debug(f"File to be downloaded is located at '{file_path}'")
-
-        if request.file.name.endswith('.gz'):
-            file_handle = open(file_path, 'rb')
-            response = FileResponse(file_handle, content_type="application/gzip")
-            response['Content-Length'] = os.path.getsize(file_path)
-            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
-        else:
-            response = HttpResponse(open(file_path), content_type="application/x-step")        
-            response['Content-Disposition'] = f'attachment; filename="{request.file_name}"'
-            logger.debug(f"Sending file with id='{id}' back as '{request.file_name}'")
-
-        return response
-    else:
-        logger.debug(f"Could not download file with id='{id}' for user.id='{user.id}' as it does not exist")
-        return HttpResponseNotFound()
-
-
-@ensure_csrf_cookie
 @csrf_protect
 def upload(request):
 
@@ -321,7 +285,7 @@ def upload(request):
         if not user:
             return create_redirect_response(login=True)
         if not user.is_active:
-            return create_redirect_response(waiting_zone=True)
+            return create_redirect_response(dashboard=True)
         
         set_user_context(user)
 

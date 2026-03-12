@@ -29,4 +29,4 @@ python manage.py migrate
 CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
 echo "Celery concurrency: $CELERY_CONCURRENCY"
 
-celery --app=core worker --loglevel=info --concurrency $CELERY_CONCURRENCY --task-events --hostname=worker@%n
+celery --app=core worker --loglevel=info --concurrency $CELERY_CONCURRENCY --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler

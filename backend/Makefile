@@ -14,7 +14,7 @@ venv:
 install: venv
 	$(PIP) install --upgrade pip
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-linux64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-1c5b825-linux64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
@@ -22,7 +22,7 @@ install: venv
 install-macos: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-macos64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-1c5b825-macos64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	rm /tmp/ifcopenshell_python.zip
@@ -30,7 +30,7 @@ install-macos: venv
 install-macos-m1: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.4-e8eb5e4-macosm164.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-1c5b825-macosm164.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
 	rm /tmp/ifcopenshell_python.zip
@@ -49,6 +49,9 @@ start-backend:
 start-worker:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
 
+start-worker-with-scheduler:
+	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
+
 start-worker2:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
 
@@ -58,15 +61,12 @@ start-worker3:
 start-worker4:
 	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
 
-start-worker-scheduler:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 5 --task-events --beat
-
 .PHONY: stop-worker
 stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -86,11 +86,20 @@ test-schema-task:
 test-magic-and-av-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_magic_clamav_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
-archive-dry-run:
-	$(PYTHON) manage.py archive_requests --days 180 --all --dry-run
+test-utils:
+	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
 
-archive:
-	$(PYTHON) manage.py archive_requests --days 180 --all --confirm
+archive-files:
+	$(PYTHON) manage.py archive_files --days 90 --all --dry-run
+
+archive-files-confirm:
+	$(PYTHON) manage.py archive_files --days 90 --all --confirm
+
+remove-files:
+	$(PYTHON) manage.py remove_files --days 180 --all --dry-run
+
+remove-files-confirm:
+	$(PYTHON) manage.py remove_files --days 180 --all --confirm
 
 clean:
 	rm -rf .dev
