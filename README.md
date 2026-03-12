@@ -5,7 +5,7 @@
 
 # Application Structure
 
-The application consists of two main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment.
+The application consists of two main submodules, each hosted in separate GitHub repositories. Docker Compose is configured to automatically bind the correct submodule versions for local deployment. 
 
 ### Submodules
 
