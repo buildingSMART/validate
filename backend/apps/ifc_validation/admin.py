@@ -439,8 +439,8 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
     readonly_fields = ["id", "public_id", "created", "updated"]
     date_hierarchy = "created"
 
-    list_filter = ['validation_task__type', 'severity', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
-    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity', 'expected', 'observed')
+    list_filter = ['validation_task__type', 'severity_in_db', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
+    search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
 
     paginator = utils.LargeTablePaginator
     show_full_result_count = False # do not use COUNT(*) twice
