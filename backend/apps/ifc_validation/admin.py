@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.urls import path
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth import get_permission_codename
@@ -13,6 +14,8 @@ from django.utils.translation import ngettext
 from django.utils.html import format_html
 from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
+from django import forms
+from django.template.response import TemplateResponse
 
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
@@ -23,6 +26,8 @@ from apps.ifc_validation_models.models import Company
 from apps.ifc_validation_models.models import AuthoringTool
 from apps.ifc_validation_models.models import UserAdditionalInfo
 from apps.ifc_validation_models.models import Version
+from apps.ifc_validation_models.models import WhiteListQueryFragment
+from apps.ifc_validation_models.models import WhiteListEntry
 from apps.ifc_validation_models.models import set_user_context
 
 from .tasks import ifc_file_validation_task
@@ -435,7 +440,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
-    list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "expected", "observed", "created", "updated"]
+    list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
     date_hierarchy = "created"
 
@@ -474,6 +479,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
             "status_syntax",
             "status_prereq",
             "status_schema",
+            "status_schema_calculated",
             "status_ia",
             "status_ip",
             "status_industry_practices",
@@ -486,7 +492,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
     ]
 
     list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "created", "updated"]
-    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated"]
+    readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated", "status_schema_calculated"]
     date_hierarchy = "created"
 
     search_fields = ('file_name', 'schema', 'mvd', 'produced_by__name', 'produced_by__version')
@@ -825,6 +831,101 @@ class VersionAdmin(BaseAdmin):
     readonly_fields = ["id", "created", "updated"]
     list_filter = [('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
     search_fields = ("name", "released", "release_notes")
+
+
+class WhiteListQueryFragmentInline(admin.TabularInline):
+    model = WhiteListQueryFragment
+    extra = 1
+
+@admin.register(WhiteListEntry)
+class WhiteListEntryAdmin(BaseAdmin):
+    inlines = [WhiteListQueryFragmentInline]
+
+    readonly_fields = ["id", "created", "updated"]
+    fieldsets = [
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "description"]}),
+        ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
+    ]
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "test-rule/",
+                self.admin_site.admin_view(self.test_rule_view),
+                name="whitelistentry_test_rule",
+            ),
+        ]
+        return custom + urls
+
+    def test_rule_view(self, request):
+        def get_fields(instance):
+            def get_row(field):
+                value = field.value_from_object(instance)
+                if field.choices:
+                    value = getattr(instance, f"get_{field.name}_display")()
+                if field.is_relation and value is not None:
+                    value = str(value)
+                return (field.verbose_name, value)
+            return list(map(get_row, instance._meta.concrete_fields))
+
+        context = dict(self.admin_site.each_context(request))
+        result = None
+
+        if request.method == "POST":
+            form = WhiteListTestForm(request.POST)
+            if form.is_valid():
+                entry = form.cleaned_data["whitelist_entry"]
+                outcome_id = form.cleaned_data["outcome_id"]
+
+                matched: bool = entry.build().apply(ValidationOutcome.objects.filter(pk=outcome_id)).exists()
+                result = {
+                    "matched": matched,
+                    "entry_id": entry.id,
+                    "outcome_id": outcome_id,
+                    "outcome": get_fields(ValidationOutcome.objects.get(pk=outcome_id))
+                }
+
+                try:
+                    qs = entry.build().apply(ValidationOutcome.objects.filter(pk=outcome_id))
+                    sql = str(qs.query)
+                    try:
+                        # This is most likely a transitive dependency from django, but
+                        # if somehow unavailable it doesn't matter
+                        import sqlparse
+                        sql = sqlparse.format(
+                            sql,
+                            reindent=True,
+                            keyword_case="upper",
+                            identifier_case=None,
+                        )
+                    except:
+                        pass
+                    result["sql"] = sql
+                except Exception as e:
+                    result["error"] = str(e)
+        else:
+            form = WhiteListTestForm()
+
+        context.update(
+            {
+                "title": "Test whitelist rule",
+                "form": form,
+                "result": result,
+            }
+        )
+        return TemplateResponse(request, "admin/whitelistentry_test_outcome.html", context)
+
+class WhiteListTestForm(forms.Form):
+    whitelist_entry = forms.ModelChoiceField(
+        queryset=WhiteListEntry.objects.all(),
+        required=True,
+        label="Whitelist entry",
+    )
+    outcome_id = forms.IntegerField(
+        required=True,
+        label="Validation outcome id",
+    )
 
 
 # register all admin classes

@@ -10,7 +10,7 @@ from ..tasks import header_validation_subtask
 class HeaderValidationTaskTestCase(TransactionTestCase):
 
     def set_user_context():
-        user = User.objects.create(id=1, username='SYSTEM', is_active=True)
+        user, _ = User.objects.get_or_create(id=1, defaults={'username': 'SYSTEM', 'is_active': True})
         set_user_context(user)
 
     def test_header_validation_task_valid_file_does_not_create_validation_outcome(self):

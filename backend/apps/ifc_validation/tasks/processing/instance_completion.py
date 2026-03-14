@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 import textwrap
+from typing import Any
 import ifcopenshell
 from .. import TaskContext, logger
 
@@ -14,22 +15,38 @@ _completion_script_str = textwrap.dedent(
     import sys
     import json
     import ifcopenshell
+    import itertools
+    import functools
 
-    file_path, step_ids = json.load(sys.stdin)
+    file_path, step_ids = file_path, step_ids = json.load(sys.stdin)
     ifc_file = ifcopenshell.open(file_path)
-    json.dump([ifc_file[step_id].is_a() for step_id in step_ids], sys.stdout)
+    def filter_serializable(v):
+        def inner(k, v):
+            if k == "type":
+                return None
+            elif isinstance(v, (list, tuple)):
+                v = list(filter(lambda w: w is not None, map(functools.partial(inner, k), v)))
+            elif isinstance(v, ifcopenshell.entity_instance):
+                return None
+            if v:
+                return k, v
+        return dict(filter(None, itertools.starmap(inner, v.items())))
+    json.dump([(ifc_file[step_id].is_a(), filter_serializable(ifc_file[step_id].get_info(include_identifier=False))) for step_id in step_ids], sys.stdout)
     """
 )
 
 
-def _obtain_ifc_types(file_path: str, step_ids: list[int]) -> list[str]:
-    return json.loads(subprocess.run(
+def _obtain_ifc_types_and_args(file_path: str, step_ids: list[int]) -> list[tuple[str, dict[str, Any]]]:
+    proc = subprocess.run(
         [sys.executable, "-u", "-c", _completion_script_str],
         input=json.dumps([file_path, step_ids]),
         capture_output=True,
         text=True,
-        check=True,
-    ).stdout)
+    )
+    if proc.returncode != 0:
+        logger.error(proc.stderr)
+        raise RuntimeError(f"Subprocess exited with code {proc.returncode}")
+    return json.loads(proc.stdout)
 
 
 def process_instance_completion(context:TaskContext):
@@ -42,11 +59,11 @@ def process_instance_completion(context:TaskContext):
     step_ids = list(
         model_instances.values_list("stepfile_id", flat=True)
     )
-    step_id_to_type = dict(zip(step_ids, _obtain_ifc_types(context.file_path, step_ids)))
+    step_id_to_type_and_attrs = dict(zip(step_ids, _obtain_ifc_types_and_args(context.file_path, step_ids)))
 
     with transaction.atomic():
         for inst in model_instances.iterator():
-            inst.ifc_type = step_id_to_type[inst.stepfile_id]
+            inst.ifc_type, inst.fields = step_id_to_type_and_attrs[inst.stepfile_id]
             inst.save()
 
     return f'Updated {instance_count:,} ModelInstance record(s)'

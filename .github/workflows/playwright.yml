@@ -157,7 +157,7 @@ jobs:
           .dev/venv/bin/python manage.py migrate
           .dev/venv/bin/python manage.py collectstatic --noinput
           DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
-          DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
+          DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost .dev/venv/bin/python manage.py createsuperuser --noinput || echo "SYSTEM user already exists, skipping"
           .dev/venv/bin/python manage.py seed_dummy_requests
         env:
           DJANGO_DB: postgresql
