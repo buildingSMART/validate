@@ -1,0 +1,172 @@
+# Docker Swarm deployment configuration
+#
+# Usage:
+#   1. Build and push images:  make swarm-push
+#   2. Deploy:                 make start-swarm
+#   3. Scale workers:          make scale-workers WORKERS=5
+#   4. Status:                 make swarm-status
+#   5. Tear down:              make stop-swarm
+#
+# Prerequisites:
+#   - docker swarm init
+#   - Local registry: docker service create --name registry --publish 5000:5000 registry:2
+#   - NFS server configured (see PR description)
+#
+# NFS: Set NFS_SERVER_IP in .env (default: 10.0.0.1).
+# For local testing without NFS, override volumes with plain named volumes.
+
+services:
+
+    frontend:
+        image: ${REGISTRY:-localhost:5000}/validationsvc-frontend
+        ports:
+            - 80:80
+            - 443:443
+        environment:
+            CERTBOT_DOMAIN: ${CERTBOT_DOMAIN}
+            CERTBOT_EMAIL: ${CERTBOT_EMAIL}
+        volumes:
+            - letsencrypt_data:/etc/letsencrypt
+            - static_data:/app/backend/django_static
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    backend:
+        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        entrypoint: /app/backend/server-entrypoint.sh
+        env_file: .env
+        volumes:
+            - static_data:/app/backend/django_static
+            - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
+        expose:
+            - 8000
+        networks:
+            - validate
+        deploy:
+            replicas: 2
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+            update_config:
+                parallelism: 1
+                delay: 30s
+                failure_action: rollback
+        healthcheck:
+            test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/')\""]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
+
+    worker:
+        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        entrypoint: /app/backend/worker-entrypoint.sh
+        env_file: .env
+        volumes:
+            - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
+        networks:
+            - validate
+        deploy:
+            replicas: 2
+            # No placement constraint - workers run on any node
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+            update_config:
+                parallelism: 1
+                delay: 30s
+                failure_action: rollback
+            resources:
+                limits:
+                    cpus: "${WORKER_CPU_LIMIT:-2.0}"
+                    memory: ${WORKER_MEMORY_LIMIT:-2G}
+                reservations:
+                    cpus: "${WORKER_CPU_RESERVATION:-1.0}"
+                    memory: ${WORKER_MEMORY_RESERVATION:-1G}
+
+    scheduler:
+        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        entrypoint: /app/backend/worker-beat-entrypoint.sh
+        env_file: .env
+        volumes:
+            - files_data:/files_storage
+            - gherkin_rules_log_data:/gherkin_logs
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    redis:
+        image: redis:8.4-alpine
+        command: redis-server --protected-mode no --bind 0.0.0.0
+        expose:
+            - 6379
+        volumes:
+            - redis_data:/data
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    db:
+        image: postgres:16.10-alpine
+        environment:
+            POSTGRES_DB: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        expose:
+            - 5432
+        volumes:
+            - postgres_data:/var/lib/postgresql/data/
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+networks:
+    validate:
+        driver: overlay
+
+volumes:
+    static_data:
+    letsencrypt_data:
+    postgres_data:
+    redis_data:
+    files_data:
+        driver: local
+        driver_opts:
+            type: nfs
+            o: "addr=${NFS_SERVER_IP:-10.0.0.1},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
+            device: ":/srv/nfs/files_data"
+    gherkin_rules_log_data:
+        driver: local
+        driver_opts:
+            type: nfs
+            o: "addr=${NFS_SERVER_IP:-10.0.0.1},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
+            device: ":/srv/nfs/gherkin_logs"
