@@ -14,6 +14,7 @@ import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import Tooltip from '@mui/material/Tooltip';
 import { statusToColor, severityToLabel, statusToLabel, severityToColor } from './mappings';
+import { Link } from "react-router-dom";
 
 function unsafe_format(obj) {
   // PJS003 -> Invalid characters in GUID
@@ -200,6 +201,8 @@ export default function GherkinResult({ summary, count, content, status, instanc
       container.observed = el.observed ? el.observed : '-';
       container.expected = el.expected ? el.expected : '-';
       container.severity = el.severity;
+      container.allowlisted = el.allowlisted;
+      container.severity_pre_allowlist = el.severity_pre_allowlist;
       container.msg = el.msg;
       container.title = el.title;
 
@@ -352,8 +355,11 @@ export default function GherkinResult({ summary, count, content, status, instanc
                         <tbody>
                           {
                             rows.map((row) => {
-                              return <tr>
-                                <td>{severityToLabel[row.severity]}</td>
+                              return <tr> 
+                                {row.allowlisted
+                                  ? <td><Link to="/allowlist">ⓘ Allowlisted</Link></td>
+                                  : <td>{severityToLabel[row.severity]}</td>
+                                }
                                 <td>{row.instance_id ? (instances[row.instance_id] ? instances[row.instance_id].guid : '?') : '-'}</td>
                                 <td>{row.instance_id ? (instances[row.instance_id] ? instances[row.instance_id].type : '?') : '-'}</td>
                                 <td>{row.expected ? format(row.expected) : '-'}</td>
