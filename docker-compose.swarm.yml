@@ -18,7 +18,7 @@
 services:
 
     frontend:
-        image: ${REGISTRY:-localhost:5000}/validationsvc-frontend
+        image: ${REGISTRY}/validationsvc-frontend
         ports:
             - 80:80
             - 443:443
@@ -39,9 +39,9 @@ services:
                 delay: 5s
 
     backend:
-        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        image: ${REGISTRY}/validationsvc-backend
         entrypoint: /app/backend/server-entrypoint.sh
-        env_file: .env
+        env_file: ${ENV_FILE}
         volumes:
             - static_data:/app/backend/django_static
             - files_data:/files_storage
@@ -51,7 +51,7 @@ services:
         networks:
             - validate
         deploy:
-            replicas: 2
+            replicas: 1
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -69,9 +69,9 @@ services:
             start_period: 60s
 
     worker:
-        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        image: ${REGISTRY}/validationsvc-backend
         entrypoint: /app/backend/worker-entrypoint.sh
-        env_file: .env
+        env_file: ${ENV_FILE}
         volumes:
             - files_data:/files_storage
             - gherkin_rules_log_data:/gherkin_logs
@@ -87,18 +87,13 @@ services:
                 parallelism: 1
                 delay: 30s
                 failure_action: rollback
-            resources:
-                limits:
-                    cpus: "${WORKER_CPU_LIMIT:-2.0}"
-                    memory: ${WORKER_MEMORY_LIMIT:-2G}
-                reservations:
-                    cpus: "${WORKER_CPU_RESERVATION:-1.0}"
-                    memory: ${WORKER_MEMORY_RESERVATION:-1G}
+            # Resource limits applied post-deploy via:
+            #   docker service update --limit-cpu 2 --limit-memory 2G validate_worker
 
     scheduler:
-        image: ${REGISTRY:-localhost:5000}/validationsvc-backend
+        image: ${REGISTRY}/validationsvc-backend
         entrypoint: /app/backend/worker-beat-entrypoint.sh
-        env_file: .env
+        env_file: ${ENV_FILE}
         volumes:
             - files_data:/files_storage
             - gherkin_rules_log_data:/gherkin_logs
@@ -152,6 +147,8 @@ services:
 networks:
     validate:
         driver: overlay
+        driver_opts:
+            com.docker.network.driver.mtu: "1400"
 
 volumes:
     static_data:
@@ -162,11 +159,11 @@ volumes:
         driver: local
         driver_opts:
             type: nfs
-            o: "addr=${NFS_SERVER_IP:-10.0.0.3},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
+            o: "addr=${NFS_SERVER_IP},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
             device: ":/srv/nfs/files_data"
     gherkin_rules_log_data:
         driver: local
         driver_opts:
             type: nfs
-            o: "addr=${NFS_SERVER_IP:-10.0.0.3},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
+            o: "addr=${NFS_SERVER_IP},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
             device: ":/srv/nfs/gherkin_logs"
