@@ -41,7 +41,9 @@ start-swarm:
 	$(SWARM_ENV) envsubst < docker-compose.swarm.yml | docker stack deploy -c - --with-registry-auth validate
 
 start-swarm-local:
-	$(SWARM_ENV) envsubst < docker-compose.swarm.local.yml | docker stack deploy -c - --with-registry-auth validate
+	$(SWARM_ENV) envsubst < docker-compose.swarm.yml > /tmp/_swarm.yml
+	$(SWARM_ENV) envsubst < docker-compose.swarm.local.yml > /tmp/_swarm_local.yml
+	docker stack deploy -c /tmp/_swarm.yml -c /tmp/_swarm_local.yml --with-registry-auth validate
 
 stop-swarm:
 	docker stack rm validate

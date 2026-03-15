@@ -18,7 +18,7 @@ _completion_script_str = textwrap.dedent(
     import itertools
     import functools
 
-    file_path, step_ids = file_path, step_ids = json.load(sys.stdin)
+    file_path, step_ids = json.load(sys.stdin)
     ifc_file = ifcopenshell.open(file_path)
     def filter_serializable(v):
         def inner(k, v):
