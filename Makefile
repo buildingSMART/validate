@@ -30,12 +30,13 @@ stop:
 
 REGISTRY ?= localhost:5000
 WORKERS  ?= 2
+ENV_FILE ?= .env
 
 start-swarm:
-	docker stack deploy -c docker-compose.swarm.yml --with-registry-auth validate
+	docker compose -f docker-compose.swarm.yml --env-file $(ENV_FILE) config | docker stack deploy -c - --with-registry-auth validate
 
 start-swarm-local:
-	docker stack deploy -c docker-compose.swarm.yml -c docker-compose.swarm.local.yml --with-registry-auth validate
+	docker compose -f docker-compose.swarm.yml -f docker-compose.swarm.local.yml --env-file $(ENV_FILE) config | docker stack deploy -c - --with-registry-auth validate
 
 stop-swarm:
 	docker stack rm validate
