@@ -7,6 +7,7 @@ Compiled during IVS-719 development. Grouped by category.
 - **Single-node Swarm**: tested and working (Hetzner, 2026-03-10)
 - **Multi-node Swarm**: tested and working with 2 nodes + NFS (Hetzner, 2026-03-15)
 - **Single-node Swarm on Azure DEV**: tested and working with external DB + NFS (2026-03-15)
+- **Multi-node Swarm on Azure DEV**: tested and working — manager + worker node, tasks distributed across both (2026-03-16)
 - **CI/CD**: not yet adapted for Swarm — see section 5
 - **SSL/Certbot**: not tested with a real domain yet (using `CERTBOT_DOMAIN=_` to skip)
 - **Documentation**: user-facing docs (README, deployment guide) not yet updated for Swarm workflow
@@ -241,16 +242,20 @@ Impact:
 
 ---
 
-## 10. Insecure registry required on ALL nodes
+## 10. Registry must use private IP, not localhost
 
-When using `REGISTRY=10.0.0.3:5000` (private IP) instead of `localhost:5000`, **every node** — including the manager — needs the insecure registry configured:
+**Always set `REGISTRY=<manager-private-ip>:5000`** (e.g. `10.0.0.5:5000`) in the env file, never `localhost:5000`.
+
+Why: `localhost` resolves to the local machine. On the manager, that works. On worker nodes, `localhost:5000` points to nothing — workers can't pull images and stay at 0/N replicas with `No such image` errors.
+
+**Every node** (manager AND workers) needs the insecure registry configured in `/etc/docker/daemon.json`:
 
 ```bash
-echo '{ "insecure-registries": ["10.0.0.3:5000"] }' | sudo tee /etc/docker/daemon.json
+echo '{ "insecure-registries": ["10.0.0.5:5000"] }' | sudo tee /etc/docker/daemon.json
 sudo systemctl restart docker
 ```
 
-Without this, services get `No such image` errors and stay at 0/N replicas.
+The `make add-worker` target handles this automatically for workers. For the **manager**, add it manually once during initial setup (merge with any existing `daemon.json` settings like log-driver).
 
 ---
 

@@ -71,6 +71,43 @@ swarm-status:
 	@echo "---"
 	@docker service ps validate_worker
 
+# Add a worker node to the Swarm cluster
+# Usage: make add-worker NAME=dev-vm-worker-1 ENV_FILE=.env.DEV_SWARM
+# Reads SWARM_WORKER_N entries and SWARM_SSH_USER from ENV_FILE
+add-worker:
+	@test -n "$(NAME)" || (echo "Usage: make add-worker NAME=<worker-name> ENV_FILE=.env.DEV_SWARM" && exit 1)
+	$(eval SSH_USER := $(shell grep '^SWARM_SSH_USER=' $(ENV_FILE) | head -1 | cut -d= -f2-))
+	$(eval MANAGER_IP := $(shell grep '^NFS_SERVER_IP=' $(ENV_FILE) | head -1 | cut -d= -f2-))
+	$(eval WORKER_IP := $(shell grep '^SWARM_WORKER_' $(ENV_FILE) | grep '$(NAME)' | head -1 | cut -d: -f2))
+	@test -n "$(WORKER_IP)" || (echo "ERROR: Worker '$(NAME)' not found in $(ENV_FILE). Add it as: SWARM_WORKER_N=$(NAME):<ip>" && exit 1)
+	@test -n "$(MANAGER_IP)" || (echo "ERROR: NFS_SERVER_IP not set in $(ENV_FILE)" && exit 1)
+	@test -n "$(SSH_USER)" || (echo "ERROR: SWARM_SSH_USER not set in $(ENV_FILE)" && exit 1)
+	@echo "==> Installing Docker on $(NAME) ($(WORKER_IP))..."
+	sudo -u $(SSH_USER) ssh -o StrictHostKeyChecking=no $(SSH_USER)@$(WORKER_IP) "curl -fsSL https://get.docker.com | sh"
+	@echo "==> Configuring insecure registry ($(MANAGER_IP):5000)..."
+	sudo -u $(SSH_USER) ssh -o StrictHostKeyChecking=no $(SSH_USER)@$(WORKER_IP) 'echo '"'"'{ "insecure-registries": ["$(MANAGER_IP):5000"] }'"'"' | sudo tee /etc/docker/daemon.json && sudo systemctl restart docker'
+	@echo "==> Joining Swarm..."
+	sudo -u $(SSH_USER) ssh -o StrictHostKeyChecking=no $(SSH_USER)@$(WORKER_IP) "sudo docker swarm join --token $$(sudo docker swarm join-token worker -q) $(MANAGER_IP):2377"
+	@echo "==> Done! Node list:"
+	sudo docker node ls
+
+# Remove a worker node from the Swarm cluster
+# Usage: make remove-worker NAME=dev-vm-worker-1 ENV_FILE=.env.DEV_SWARM
+remove-worker:
+	@test -n "$(NAME)" || (echo "Usage: make remove-worker NAME=dev-vm-worker-1 ENV_FILE=.env.DEV_SWARM" && exit 1)
+	$(eval SSH_USER := $(shell grep '^SWARM_SSH_USER=' $(ENV_FILE) | head -1 | cut -d= -f2-))
+	$(eval WORKER_IP := $(shell grep '^SWARM_WORKER_' $(ENV_FILE) | grep '$(NAME)' | head -1 | cut -d: -f2))
+	@echo "==> Draining $(NAME)..."
+	sudo docker node update --availability drain $(NAME)
+	@echo "==> Leaving swarm..."
+	-sudo -u $(SSH_USER) ssh -o StrictHostKeyChecking=no $(SSH_USER)@$(WORKER_IP) "sudo docker swarm leave"
+	@echo "==> Waiting for node to go down..."
+	@for i in 1 2 3 4 5 6; do sleep 5; sudo docker node ls --format '{{.Hostname}} {{.Status}}' | grep -q '$(NAME) Down' && break; echo "    waiting..."; done
+	@echo "==> Removing node..."
+	sudo docker node rm $(NAME)
+	@echo "==> Done! Don't forget to remove the SWARM_WORKER entry from $(ENV_FILE)"
+	sudo docker node ls
+
 build:
 	docker compose build \
 	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
@@ -128,7 +165,7 @@ e2e-test: start-infra
 	cd e2e && npm install && npm run install-playwright && npm run test
 
 e2e-test-report: start-infra
-	cd e2e && npm install && npm run install-playwright && npm run test:html && npm run test:report
+	cd e2e && npm install && npm run inst1all-playwright && npm run test:html && npm run test:report
 
 BRANCH   ?= main                 
 SUBTREES := \
