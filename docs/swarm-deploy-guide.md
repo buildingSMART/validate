@@ -204,8 +204,9 @@ ls -la /srv/nfs/gherkin_logs/
 ### 3c. Set NFS_SERVER_IP in the env file
 
 ```bash
-# In .env.hetzner (or .env.DEV_SWARM / .env.PROD):
-NFS_SERVER_IP=10.0.0.3   # private IP of the NFS server
+# In your env file (.env.hetzner, .env.DEV_SWARM, .env.PROD, etc.):
+NFS_SERVER_IP=<private IP of the NFS server>
+# e.g. on Hetzner test server this was 10.0.0.3 — check your actual network with: hostname -I
 ```
 
 The `docker-compose.swarm.yml` uses this in the NFS volume driver options.
@@ -269,12 +270,12 @@ docker node ls
 ### 4e. Also configure insecure registry on manager (if using private IP for registry)
 
 ```bash
-# Only needed if REGISTRY=10.0.0.3:5000 instead of localhost:5000
-echo '{ "insecure-registries": ["10.0.0.3:5000"] }' | sudo tee /etc/docker/daemon.json
+# Only needed if REGISTRY=<MANAGER_PRIVATE_IP>:5000 instead of localhost:5000
+echo '{ "insecure-registries": ["<MANAGER_PRIVATE_IP>:5000"] }' | sudo tee /etc/docker/daemon.json
 sudo systemctl restart docker
 ```
 
-**Important:** When using a private IP registry (`REGISTRY=10.0.0.3:5000`), EVERY node (manager AND workers) needs the insecure registry configured in `/etc/docker/daemon.json`. Otherwise workers get `No such image` errors.
+**Important:** When using a private IP registry (e.g. `REGISTRY=10.0.0.3:5000`), EVERY node (manager AND workers) needs the insecure registry configured in `/etc/docker/daemon.json`. Otherwise workers get `No such image` errors.
 
 ---
 

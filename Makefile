@@ -28,22 +28,23 @@ stop:
 
 # --- Docker Swarm ---
 
+REGISTRY ?= localhost:5000
 WORKERS  ?= 2
 ENV_FILE ?= .env
-
-# Reads compose-level vars from ENV_FILE, substitutes into YAML via envsubst.
-# Container env vars are loaded by docker stack deploy via the env_file: directive.
-SWARM_VARS = REGISTRY CERTBOT_DOMAIN CERTBOT_EMAIL NFS_SERVER_IP POSTGRES_NAME POSTGRES_USER POSTGRES_PASSWORD
-SWARM_ENV = ENV_FILE=$(ENV_FILE) \
-	$(foreach v,$(SWARM_VARS),$(v)=$$(grep '^$(v)=' $(ENV_FILE) | cut -d= -f2-))
+SWARM_VARS = REGISTRY CERTBOT_DOMAIN CERTBOT_EMAIL NFS_SERVER_IP WORKER_CPU_LIMIT WORKER_MEMORY_LIMIT WORKER_CPU_RESERVATION WORKER_MEMORY_RESERVATION
+SWARM_ENV = ENV_FILE="$(ENV_FILE)" $(foreach v,$(SWARM_VARS),$(v)="$(shell grep '^$(v)=' $(ENV_FILE) | head -1 | cut -d= -f2-)")
 
 start-swarm:
-	$(SWARM_ENV) envsubst < docker-compose.swarm.yml | docker stack deploy -c - --with-registry-auth validate
+	env $(SWARM_ENV) envsubst < docker-compose.swarm.yml | docker stack deploy -c - --with-registry-auth validate
+
+start-swarm-nodb:
+	env $(SWARM_ENV) envsubst < docker-compose.swarm.nodb.yml | docker stack deploy -c - --with-registry-auth validate
 
 start-swarm-local:
-	$(SWARM_ENV) envsubst < docker-compose.swarm.yml > /tmp/_swarm.yml
-	$(SWARM_ENV) envsubst < docker-compose.swarm.local.yml > /tmp/_swarm_local.yml
-	docker stack deploy -c /tmp/_swarm.yml -c /tmp/_swarm_local.yml --with-registry-auth validate
+	env $(SWARM_ENV) envsubst < docker-compose.swarm.yml > /tmp/_swarm.yml && \
+	env $(SWARM_ENV) envsubst < docker-compose.swarm.local.yml > /tmp/_swarm.local.yml && \
+	docker stack deploy -c /tmp/_swarm.yml -c /tmp/_swarm.local.yml --with-registry-auth validate && \
+	rm -f /tmp/_swarm.yml /tmp/_swarm.local.yml
 
 stop-swarm:
 	docker stack rm validate
@@ -51,12 +52,13 @@ stop-swarm:
 scale-workers:
 	docker service scale validate_worker=$(WORKERS)
 
-CPU ?= 2
-MEM ?= 2G
 set-worker-limits:
-	docker service update --limit-cpu $(CPU) --limit-memory $(MEM) validate_worker
-
-REGISTRY ?= $$(grep '^REGISTRY=' $(ENV_FILE) | cut -d= -f2- || echo localhost:5000)
+	docker service update \
+		$(if $(CPU),--limit-cpu $(CPU)) \
+		$(if $(MEM),--limit-memory $(MEM)) \
+		$(if $(CPU_RES),--reserve-cpu $(CPU_RES)) \
+		$(if $(MEM_RES),--reserve-memory $(MEM_RES)) \
+		validate_worker
 
 swarm-push: build
 	docker tag buildingsmart/validationsvc-backend $(REGISTRY)/validationsvc-backend

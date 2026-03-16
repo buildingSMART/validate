@@ -246,8 +246,10 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", 600)),
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
-            "pool": True,
+            "pool": False,
         },
     },
 }
