@@ -480,6 +480,6 @@ AUTHLIB_OAUTH_CLIENTS = {
 # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # secure cookies
-if (PUBLIC_URL is None or 'localhost' in PUBLIC_URL) and not DEBUG:
+if not (PUBLIC_URL is None or 'localhost' in PUBLIC_URL) and not DEBUG:
     CSRF_COOKIE_SECURE = True
     SESSION_COOKIE_SECURE = True
