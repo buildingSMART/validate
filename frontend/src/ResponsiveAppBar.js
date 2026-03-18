@@ -1,55 +1,50 @@
 import * as React from 'react';
+
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Menu from '@mui/material/Menu';
-import MenuIcon from '@mui/icons-material/Menu';
 import Container from '@mui/material/Container';
 import Avatar from '@mui/material/Avatar';
-import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import Link from '@mui/material/Link';
 
-import { PageContext } from './Page';
-import { useContext } from 'react';
-
-
-
-
 function AppLogo({ href }) {
   const mystyle = {
-    height: "60px"
+    height: "130px"
   };
 
   return (
     <Link href={href} underline="none">
-      <img src={require("./BuildingSMART_CMYK_validation_service.png")} style={mystyle} />
+      <img src={require("./logo.png")} style={mystyle} alt="Validation Service - Logo" />
     </Link>
   )
 }
 
-const pages = [{ "label": 'Home', "href": "/" },
-{
-  "label": "Validation",
-  "href": "/dashboard"
-},{ "label": 'Logout', "href": "/logout" }]
+const pages = [
+  { 
+    "label": "Home", 
+    "href": "/"
+  },
+  {
+    "label": "Validation",
+    "href": "/dashboard"
+  },
+  { 
+    "label": "Logout", 
+    "href": "/logout"
+  }
+]
 
 function ResponsiveAppBar({ user }) {
-  const [anchorElNav, setAnchorElNav] = React.useState(null);
+  
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
-  const handleOpenNavMenu = (event) => {
-    setAnchorElNav(event.currentTarget);
-  };
   const handleOpenUserMenu = (event) => {
     setAnchorElUser(event.currentTarget);
-  };
-
-  const handleCloseNavMenu = () => {
-    setAnchorElNav(null);
   };
 
   const handleCloseUserMenu = () => {
