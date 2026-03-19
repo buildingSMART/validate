@@ -27,8 +27,8 @@ jobs:
       MEDIA_ROOT: /tmp/files_storage
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: django-db
-      CELERY_TASK_ALWAYS_EAGER: "false"
-      CELERY_TASK_EAGER_PROPAGATES: "false"
+      CELERY_TASK_ALWAYS_EAGER: "true"
+      CELERY_TASK_EAGER_PROPAGATES: "true"
       DJANGO_ALLOWED_HOSTS: "localhost 127.0.0.1"
       DJANGO_TRUSTED_ORIGINS: "http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000 http://127.0.0.1:8000"
       POSTGRES_USER: postgres
@@ -169,7 +169,7 @@ jobs:
           VIRTUAL_ENV: backend/.dev/venv
 
       - name: Run Playwright tests
-        run: npx playwright test --workers="$(node -p "Math.max(1, Math.min(Math.floor((require('os').cpus()?.length||2)*0.75), 8))")"
+        run: npx playwright test
         working-directory: ./e2e
         env:
           DJANGO_DB: postgresql
