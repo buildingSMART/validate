@@ -36,6 +36,7 @@ on:
           - release/0.8.2
           - release/0.8.3
           - release/0.8.4
+          - release/1.0.0
 
       environment:
         description: 'Environment to (re)deploy to'
