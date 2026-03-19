@@ -1,22 +1,19 @@
-async function globalSetup(config) {
-  console.log('🚀 Starting global setup for Playwright tests...');
+import { chromium } from '@playwright/test';
 
-  // Warm up the frontend dev server — it may still be compiling after the health check passes
-  const baseURL = 'http://localhost:3000';
-  const maxRetries = 30;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const res = await fetch(baseURL);
-      const body = await res.text();
-      if (body.includes('<div id="root">') || body.includes('bundle.js') || res.ok) {
-        console.log(`✅ Frontend ready after ${i + 1} attempt(s)`);
-        break;
-      }
-    } catch {
-      // server not ready yet
-    }
-    await new Promise(r => setTimeout(r, 2000));
+async function globalSetup(config) {
+  console.log('🚀 Starting global setup...');
+
+  // Warm up the frontend by loading it in a real browser
+  // This triggers JS bundle compilation on the dev server
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  try {
+    await page.goto('http://localhost:3000', { waitUntil: 'networkidle', timeout: 60_000 });
+    console.log('✅ Frontend warmed up');
+  } catch (e) {
+    console.warn('⚠️ Frontend warmup timed out:', e.message);
   }
+  await browser.close();
 
   console.log('✅ Global setup completed');
 }

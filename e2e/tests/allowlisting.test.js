@@ -60,7 +60,7 @@ function createUploadPayload(fixturePath) {
 
 async function gotoDashboard(page) {
   await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle' });
-  await expect(page.getByRole('columnheader', { name: 'File Name' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'File Name' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Upload & Validate' })).toBeVisible();
   await expect(page.locator('input[type="file"]').first()).toBeAttached();
 }
