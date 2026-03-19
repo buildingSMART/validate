@@ -169,7 +169,7 @@ jobs:
           VIRTUAL_ENV: backend/.dev/venv
 
       - name: Run Playwright tests
-        run: npx playwright test --workers="$(node -p "Math.max(1, Math.min(Math.floor((require('os').cpus()?.length||2)*0.75), 8))")"
+        run: npx playwright test
         working-directory: ./e2e
         env:
           DJANGO_DB: postgresql
