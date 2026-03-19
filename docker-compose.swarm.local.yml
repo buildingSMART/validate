@@ -1,0 +1,67 @@
+# Override: single-node local testing (no NFS, no ClamAV, reduced replicas)
+#
+# Usage:
+#   docker stack deploy -c docker-compose.swarm.yml -c docker-compose.swarm.local.yml validate
+#
+# For production/NFS testing, use docker-compose.swarm.yml directly.
+
+services:
+
+  frontend:
+    environment:
+      CERTBOT_DOMAIN: _
+      CERTBOT_EMAIL: x
+
+  backend:
+    deploy:
+      replicas: 1
+
+  worker:
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        until cd /files_storage; do echo "Waiting for files_storage..."; done
+        until cd /app/backend; do echo "Waiting for server volume..."; done
+        while ! pg_isready -h "$$POSTGRES_HOST" -p "$$POSTGRES_PORT" -d "$$POSTGRES_NAME" -U "$$POSTGRES_USER" 2>/dev/null; do
+          echo "Waiting for DB..."
+          sleep 5
+        done
+        echo "DB is ready. Starting worker (no ClamAV)."
+        rm -f /usr/bin/clamdscan /usr/bin/clamscan 2>/dev/null || true
+        CELERY_CONCURRENCY=$${CELERY_CONCURRENCY:-4}
+        echo "Celery concurrency: $$CELERY_CONCURRENCY"
+        celery --app=core worker --loglevel=info --concurrency $$CELERY_CONCURRENCY --task-events --hostname=worker@%n
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  scheduler:
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        until cd /files_storage; do echo "Waiting for files_storage..."; done
+        until cd /app/backend; do echo "Waiting for server volume..."; done
+        while ! pg_isready -h "$$POSTGRES_HOST" -p "$$POSTGRES_PORT" -d "$$POSTGRES_NAME" -U "$$POSTGRES_USER" 2>/dev/null; do
+          echo "Waiting for DB..."
+          sleep 5
+        done
+        echo "DB is ready. Starting scheduler (no ClamAV)."
+        rm -f /usr/bin/clamdscan /usr/bin/clamscan 2>/dev/null || true
+        CELERY_CONCURRENCY=$${CELERY_CONCURRENCY:-4}
+        celery --app=core worker --beat --loglevel=info --concurrency $$CELERY_CONCURRENCY --task-events --hostname=worker-beat@%n
+
+volumes:
+  files_data:
+    driver: local
+  gherkin_rules_log_data:
+    driver: local
