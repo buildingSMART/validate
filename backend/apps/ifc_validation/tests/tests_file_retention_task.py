@@ -6,7 +6,6 @@ from django.contrib.auth.models import User
 from apps.ifc_validation_models.models import *
 
 from ..tasks.file_retention_tasks import apply_file_retention
-from ..tasks.utils import get_absolute_file_path
 
 
 class ApplyFileRetentionTaskTestCase(TransactionTestCase):
@@ -73,6 +72,29 @@ class ApplyFileRetentionTaskTestCase(TransactionTestCase):
         # assert
         request = ValidationRequest.objects.get(id=request.id)
         self.assertIsNotNone(request.file_removed)
+
+    def test_apply_file_retention_remove_retains_removed_field(self):
+
+        # arrange
+        ApplyFileRetentionTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='valid_file.ifc',
+            file='valid_file.ifc', 
+            size=1
+        )
+        orig_file_removed = timezone.now() - timezone.timedelta(days=50)
+        request.created = timezone.now() - timezone.timedelta(days=250)
+        request.file_removed = orig_file_removed
+        request.file = None
+        request.save()
+        
+        # act
+        task = apply_file_retention(dry_run=False, action="remove")
+
+        # assert
+        request = ValidationRequest.objects.get(id=request.id)
+        self.assertIsNotNone(request.file_removed)
+        self.assertEquals(orig_file_removed, request.file_removed)
 
     def test_apply_file_retention_remove_empties_file_field(self):
 
