@@ -92,13 +92,15 @@ class Command(BaseCommand):
                 file_path = get_absolute_file_path(request.file.name)
                 original_size = os.path.getsize(file_path)
             except FileNotFoundError:
-                logger.warning(f"File not found for ValidationRequest id={request.id} ({request.file.name}) - skipping")
-                skipped += 1
-                continue
+                file_path = None
+                original_size = 0
+                logger.warning(f"File not found for ValidationRequest id={request.id} ({request.file.name})")
+                # skipped += 1
+                # continue
 
             # original and target names
             original_name = request.file.name
-            gz_filename = file_path + '.gz'
+            gz_filename = file_path + '.gz' if file_path else original_name + '.gz'
             gz_name_only = original_name + '.gz'
 
             # only report what would happen
@@ -156,7 +158,8 @@ class Command(BaseCommand):
                         request.file = None
                         request.file_removed = timezone.now()
                         request.save(update_fields=['file', 'file_removed'])
-                        os.remove(file_path)
+                        if file_path:
+                            os.remove(file_path)
 
                     logger.info(f"Removed file and updated Validation Request with id={request.id}: {original_name}")
                     total_savings += original_size
