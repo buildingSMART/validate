@@ -120,6 +120,11 @@ class Command(BaseCommand):
             # execute action
             if action == 'archive':
 
+                if not file_path:
+                    logger.warning(f"File not found for ValidationRequest id={request.id} ({request.file.name}) - skipping")
+                    skipped += 1
+                    continue
+
                 try:
                     # create gzip archive
                     with open(file_path, 'rb') as f_in, gzip.open(gz_filename, 'wb') as f_out:
