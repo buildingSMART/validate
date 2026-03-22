@@ -154,7 +154,8 @@ class Command(BaseCommand):
                     with transaction.atomic():
                         original_name = request.file.name
                         request.file = None
-                        request.save(update_fields=['file'])
+                        request.file_removed = timezone.now()
+                        request.save(update_fields=['file', 'file_removed'])
                         os.remove(file_path)
 
                     logger.info(f"Removed file and updated Validation Request with id={request.id}: {original_name}")
