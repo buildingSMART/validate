@@ -4,6 +4,9 @@ import logging
 import re
 
 from django.db import transaction
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_headers
 from core.utils import get_client_ip_address
 from core.settings import MAX_FILES_PER_UPLOAD
 
@@ -35,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=['Validation Request'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationRequestDetailAPIView(APIView):
 
     queryset = ValidationRequest.objects.all()
@@ -95,6 +100,8 @@ class ValidationRequestDetailAPIView(APIView):
 
 
 @extend_schema(tags=['Validation Request'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationRequestListAPIView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
@@ -220,6 +227,8 @@ class ValidationRequestListAPIView(ListCreateAPIView):
 
 
 @extend_schema(tags=['Validation Task'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationTaskDetailAPIView(APIView):
 
     queryset = ValidationTask.objects.all()
@@ -252,6 +261,8 @@ class ValidationTaskDetailAPIView(APIView):
 
 
 @extend_schema(tags=['Validation Task'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationTaskListAPIView(ListAPIView):
 
     permission_classes = [IsAuthenticated]
@@ -293,6 +304,8 @@ class ValidationTaskListAPIView(ListAPIView):
 
 
 @extend_schema(tags=['Validation Outcome'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationOutcomeDetailAPIView(APIView):
 
     queryset = ValidationOutcome.objects.all()
@@ -325,6 +338,8 @@ class ValidationOutcomeDetailAPIView(APIView):
 
 
 @extend_schema(tags=['Validation Outcome'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ValidationOutcomeListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ValidationOutcomeSerializer
@@ -373,6 +388,8 @@ class ValidationOutcomeListAPIView(ListAPIView):
 
 
 @extend_schema(tags=['Model'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ModelDetailAPIView(APIView):
 
     queryset = Model.objects.all()
@@ -405,6 +422,8 @@ class ModelDetailAPIView(APIView):
 
 
 @extend_schema(tags=['Model'])
+@method_decorator(cache_page(15), name='get')
+@method_decorator(vary_on_headers('Authorization', 'Cookie'), name='get')
 class ModelListAPIView(ListAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = ModelSerializer

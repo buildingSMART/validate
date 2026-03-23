@@ -326,6 +326,20 @@ STORAGES = {
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 #CELERY_RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", 'django-db')
+
+# Cache configuration — uses same Redis instance as Celery broker, but db 1
+import urllib.parse as _urlparse
+_broker_parsed = _urlparse.urlparse(CELERY_BROKER_URL)
+_redis_cache_url = os.environ.get(
+    "DJANGO_CACHE_URL",
+    f"redis://{_broker_parsed.hostname or 'localhost'}:{_broker_parsed.port or 6379}/1"
+)
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": _redis_cache_url,
+    }
+}
 CELERY_RESULT_BACKEND_DB = os.environ.get("CELERY_RESULT_BACKEND_DB", 'db+postgresql+psycopg2://postgres:postgres@db/postgres')
 CELERY_CACHE_BACKEND = os.environ.get("CELERY_CACHE_BACKEND", 'django-cache')
 

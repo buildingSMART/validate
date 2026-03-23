@@ -15,6 +15,8 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound, HttpResponseNotAllowed
 from django.contrib.auth.models import User
+from django.views.decorators.cache import cache_page
+from django.views.decorators.vary import vary_on_cookie
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
 from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, WhiteListEntry, set_user_context
@@ -248,6 +250,8 @@ def logout_view(request):
 
 
 @ensure_csrf_cookie
+@cache_page(15)
+@vary_on_cookie
 def models_paginated(request, start: int, end: int):
 
     if request.method != "GET":
@@ -404,6 +408,8 @@ def revalidate(request, ids: str):
 
 
 @ensure_csrf_cookie
+@cache_page(60)
+@vary_on_cookie
 def report(request, id: str):
 
     if request.method != "GET":
@@ -670,6 +676,7 @@ def report_error(request):
 
     return HttpResponse(content='OK')
 
+@cache_page(300)
 def get_allowlist(request):
     snaps = WhiteListEntry.get_all()
     payload = [asdict(d) for d in snaps]

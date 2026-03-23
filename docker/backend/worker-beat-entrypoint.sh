@@ -11,11 +11,13 @@ do
     echo "Waiting for server volume..."
 done
 
-while ! pg_isready -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -d "$POSTGRES_NAME" -U "$POSTGRES_USER" 2>/dev/null
+echo "Waiting for DB on $POSTGRES_HOST:$POSTGRES_PORT..."
+while ! python -c "import socket; s=socket.create_connection(('$POSTGRES_HOST', $POSTGRES_PORT), timeout=3); s.close()" 2>/dev/null
 do
-    echo "Waiting for DB to be ready..."
+    echo "$POSTGRES_HOST:$POSTGRES_PORT - not yet available"
     sleep 5
 done
+echo "$POSTGRES_HOST:$POSTGRES_PORT - accepting connections"
 echo "DB is ready."
 
 # start clamav update & daemon
