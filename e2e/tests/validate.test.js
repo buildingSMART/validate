@@ -8,7 +8,7 @@ test.describe('Validate WebUI Tests', () => {
   test('should be able to see the homepage', async ({ page }) => {
 
     // navigate to the Validate Web UI
-    await page.goto(BASE_URL);
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     
     // check if certain elements are visible
     // a left-hand side menu, a text element and an upload button
@@ -20,7 +20,7 @@ test.describe('Validate WebUI Tests', () => {
   test('should be able to see the dashboard', async ({ page }) => {
 
     // navigate to the Validate Web UI
-    await page.goto(BASE_URL);
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
 
     // click the dashboard link
     await page.getByRole('link', { name: 'Validation', exact: true }).click();
@@ -38,7 +38,7 @@ test.describe('Validate WebUI Tests', () => {
     await page.context().clearCookies();
 
     // navigate to the Validate Web UI
-    await page.goto(BASE_URL);
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
     
     // check for a specific cookie by name; retry with delay if not found
     let retries = 5;
@@ -61,7 +61,7 @@ test.describe('Validate WebUI Tests', () => {
     await page.context().clearCookies();
     
     // navigate to the Validate Web UI
-    await page.goto(BASE_URL);
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
         
     // wait for a specific cookie by name; retry with delay if not found
     let retries = 5;
