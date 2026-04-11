@@ -1,5 +1,4 @@
 import logging
-from datetime import timedelta
 
 from django.urls import path
 from django.contrib import admin
@@ -91,7 +90,12 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     actions_on_top = True
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request)
+        queryset = super().get_queryset(request).select_related(
+            'model__produced_by', 
+            'model__produced_by__company',
+            'created_by__useradditionalinfo', 
+            'updated_by__useradditionalinfo'
+        )
         queryset = queryset.annotate(
             _duration=Case(
                 When(completed__isnull=True, then=Now() - F('started')),
@@ -840,13 +844,13 @@ class VersionAdmin(BaseAdmin):
     search_fields = ("name", "released", "release_notes")
 
 
-class WhiteListQueryFragmentInline(admin.TabularInline):
+class WhiteListQueryFragmentInlineAdmin(admin.TabularInline):
     model = WhiteListQueryFragment
     extra = 1
 
-@admin.register(WhiteListEntry)
+
 class WhiteListEntryAdmin(BaseAdmin):
-    inlines = [WhiteListQueryFragmentInline]
+    inlines = [WhiteListQueryFragmentInlineAdmin]
 
     readonly_fields = ["id", "created", "updated"]
     fieldsets = [
@@ -923,6 +927,7 @@ class WhiteListEntryAdmin(BaseAdmin):
         )
         return TemplateResponse(request, "admin/whitelistentry_test_outcome.html", context)
 
+
 class WhiteListTestForm(forms.Form):
     whitelist_entry = forms.ModelChoiceField(
         queryset=WhiteListEntry.objects.all(),
@@ -944,6 +949,7 @@ admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
 admin.site.register(Version, VersionAdmin)
+admin.site.register(WhiteListEntry, WhiteListEntryAdmin)
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
