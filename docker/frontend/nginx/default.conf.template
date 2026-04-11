@@ -22,7 +22,7 @@ server {
     # entirely, causing a 500 on file upload. 'same-origin' still prevents leaking the
     # referer to third parties (satisfying pentest requirements).
     add_header Referrer-Policy 'same-origin';
-    add_header Content-Security-Policy "script-src 'self' https://cdn.jsdelivr.net; frame-ancestors 'none'";
+    add_header Content-Security-Policy "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; frame-ancestors 'none'";
     
     # React UI
     location / {
