@@ -446,8 +446,7 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
-    date_hierarchy = "created"
-
+    
     list_filter = ['validation_task__type', 'severity_in_db', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
     search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
 
