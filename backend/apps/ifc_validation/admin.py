@@ -457,10 +457,10 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
     # optimize for list display and filters
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(
-            'validation_task__request__model', 
+            'validation_task__request__model',
             'validation_task'
         )
-
+    
     @admin.display(description="Model")
     def model_text(self, obj):
         return obj.validation_task.request.model
