@@ -380,10 +380,12 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "request", "type", "status", "progress", "started", "ended", "duration_text", "created", "updated"]
     readonly_fields = ["id", "public_id", "request", "type", "process_id", "process_cmd", "started", "ended", "created", "updated"]
-    date_hierarchy = "created"
 
     list_filter = ["status", "type", "status", "started", "ended", ('created', AdvancedDateFilter)]
     search_fields = ('request__file_name', 'status', 'type')
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     def get_queryset(self, request):
         queryset = super().get_queryset(request)
@@ -447,7 +449,7 @@ class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
     list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
     readonly_fields = ["id", "public_id", "created", "updated"]
     
-    list_filter = ['validation_task__type', 'severity_in_db', 'validation_task__request__model', 'outcome_code', 'feature', ('created', AdvancedDateFilter)]
+    list_filter = ['validation_task__type', 'severity_in_db', 'outcome_code', ('created', AdvancedDateFilter)]
     search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
 
     paginator = utils.LargeTablePaginator
