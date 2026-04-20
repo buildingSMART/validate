@@ -158,17 +158,31 @@ class LargeTablePaginator(Paginator):
         # print('db pk = ', self.object_list.first()._meta.pk.name)
 
         with transaction.atomic(), connection.cursor() as cursor:
-            cursor.execute('SET LOCAL statement_timeout TO 25000;') # 25 seconds timeout
             try:
-                # workaround for Postgres well-documented slow count(*) performance
                 table = self.object_list.first()._meta.db_table
                 id = self.object_list.first()._meta.pk.name
-                cursor.execute(f'SELECT COUNT(distinct {id}) FROM {table}')
-                row = cursor.fetchone()
-                return row[0]
+                count = 0
+
+                # workarounds for Postgres well-documented slow count(*) performance
+                if connection.vendor == 'postgresql':
+                    cursor.execute(f'SELECT reltuples::bigint AS estimate FROM pg_class WHERE relname = \'{table}\'') # estimation
+                    row = cursor.fetchone()
+                    count = row[0]
+                    if count < 1*1000*1000:
+                        cursor.execute(f'SELECT COUNT(distinct {id}) FROM {table}') # exact per pk
+                        row = cursor.fetchone()
+                        count = row[0]
+                    
+                else:
+                    cursor.execute(f'SELECT COUNT(*) FROM {table}')
+                    row = cursor.fetchone()
+                    count = row[0]
+                
+                return count
             
             except OperationalError:
-                return 9999999999 # naive guess
+                
+                return 9999999999 # naive guess in case of timeout/error
             
             except AttributeError:
                 return 0
