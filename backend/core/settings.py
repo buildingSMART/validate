@@ -246,10 +246,14 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
-        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", 600)),
+        "CONN_MAX_AGE": 0,  # must be 0 when using pool; pool handles lifecycle via max_lifetime
         "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
-            "pool": False,
+            "pool": {
+                "min_size": 2,
+                "max_size": 10,
+                "max_lifetime": 600,  # recycle connections before overlay network kills them (~13 min)
+            },
         },
     },
 }
