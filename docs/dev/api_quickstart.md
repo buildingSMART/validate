@@ -6,14 +6,14 @@ The preview of the Validation Service API is available at `https://dev.validate.
 ## Documentation
 
 Auto-generated documentation is available in both
-[Swagger](https://dev.validate.buildingsmart.org/api/swagger-ui) 
+[Swagger](https://dev.validate.buildingsmart.org/api/swagger-ui)
 and
 [Redocly](https://dev.validate.buildingsmart.org/api/redoc)
 formats.
 
 ## Auth token
 
-You will need an Authentication token before making calls to the API, 
+You will need an Authentication token before making calls to the API,
 which can be obtained by emailing [validate@buildingsmart.org](mailto:validate@buildingsmart.org).
 
 You can use this token either as a Bearer token or use it as the password in combination with your username/email for basic authentication.
@@ -26,13 +26,13 @@ You can use this token either as a Bearer token or use it as the password in com
      curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest/' --header 'Authorization: Token <TOKEN>'
     ```
 
-    -or-
+   -or-
 
     ```shell
     curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest/' --header 'Authorization: Basic <HASH>'
     ```
 
-    where `<HASH>` is the Base64-encoded email and token as password, separated by a colon, eg. base64(johndoe@gmail.com:abcdefgh12345)
+   where `<HASH>` is the Base64-encoded email and token as password, separated by a colon, eg. base64(johndoe@gmail.com:abcdefgh12345)
 
 2. Submit a POST request to the `/validationrequest` endpoint to initiate a new Validation Request (requires a file name and the file contents):
 
@@ -65,7 +65,7 @@ You can use this token either as a Bearer token or use it as the password in com
    ```shell
    curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationtask/?request_public_id=r75257132,r383446691' --header 'Authorization: Token <TOKEN>'
    ```
-   
+
 6. Fetch all the outcomes of a single ValidationRequest via a GET request to the `/validationoutcome` endpoint
 
    ```shell
