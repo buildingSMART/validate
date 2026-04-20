@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block content %}
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      {{ form.as_p }}
+    </fieldset>
+
+    <div class="submit-row">
+      <input type="submit" value="TEST" class="default">
+    </div>
+  </form>
+
+  {% if result %}
+    <hr>
+    <table class="admin-table module">
+      <caption>Outcome</caption>
+      <tbody>
+        {% for label, value in result.outcome %}
+          <tr>
+            <th style="text-align:left; padding-right: 1em;">
+              {{ label|capfirst }}
+            </th>
+            <td>
+              <pre style="margin:0; white-space: pre-wrap;">{{ value }}</pre>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <h2>Result</h2>
+    {% if result.error %}
+      <p style="color: #b00;"><strong>Error:</strong> {{ result.error }}</p>
+    {% else %}
+      <p>
+        WhitelistEntry #{{ result.entry_id }} vs Outcome #{{ result.outcome_id }}:
+        {% if result.matched %}
+          <strong style="color: #070;">MATCH</strong>
+        {% else %}
+          <strong style="color: #b50;">NO MATCH</strong>
+        {% endif %}
+      </p>
+      {% if result.sql %}
+        <h3>Generated SQL</h3>
+        <pre style="white-space: pre-wrap;">{{ result.sql }}</pre>
+      {% endif %}
+    {% endif %}
+  {% endif %}
+{% endblock %}

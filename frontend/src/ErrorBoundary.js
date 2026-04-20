@@ -13,7 +13,7 @@ const ErrorMessage = () => {
       alignItems="center"
       style={{ minHeight: '100vh', paddingTop: '6vh', gap: '4vh', backgroundImage: 'url(' + require('./background.jpg') + ')', boxSizing: 'border-box'}}
     >
-      <img style={{ width: '20vw', height: 'auto' }} src={require("./BuildingSMART_CMYK_validation_service.png")}/>
+      <img style={{ width: '40vw', height: 'auto' }} src={require("./logo.png")} alt="Validation Service - Logo" />
       <h1>Oops!</h1>
       <div>
         An error occured. Please try refreshing the page and contact <Link href="mailto:validate@buildingsmart.org" underline="none">{'validate@buildingsmart.org'}</Link>

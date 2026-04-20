@@ -1,3 +1,4 @@
+from dataclasses import asdict
 import operator
 import os
 import re
@@ -16,7 +17,7 @@ from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNo
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
-from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, set_user_context
+from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, WhiteListEntry, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
@@ -90,21 +91,9 @@ def get_current_user(request):
     
 
 def create_redirect_response(login=True, dashboard=False):
-
-    if dashboard:
-
-        return JsonResponse({
-                "redirect": '/dashboard',
-                "reason": "403 - Forbidden"
-            })
-
-    else:
-        
-        return JsonResponse({
-                "redirect": LOGIN_URL,
-                "reason": "401 - Unauthorized"
-            })
-
+    return JsonResponse({
+        "redirect": LOGIN_URL if login else '/dashboard',
+    })
 
 @functools.lru_cache(maxsize=1024)
 def get_feature_filename(feature_code):
@@ -185,7 +174,7 @@ def format_request(request : ValidationRequest):
             allow_not_executed=True
         ),
         "status_schema": status_combine(
-            "p" if (request.model is None or request.model.status_schema is None) else request.model.status_schema,
+            "p" if (request.model is None or request.model.status_schema_calculated is None) else request.model.status_schema_calculated,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
         ),
         "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
@@ -193,8 +182,8 @@ def format_request(request : ValidationRequest):
         "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
         "status_header": "p" if (request.model is None or request.model.status_header is None) else request.model.status_header,
         "status_rules": status_combine(
-            "p" if (request.model is None or request.model.status_ia is None) else request.model.status_ia,
-            "p" if (request.model is None or request.model.status_ip is None)  else request.model.status_ip
+            "p" if (request.model is None or request.model.status_ia_calculated is None) else request.model.status_ia_calculated,
+            "p" if (request.model is None or request.model.status_ip_calculated is None)  else request.model.status_ip_calculated
         ),
         "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
         "status_signatures": "p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures,
@@ -250,6 +239,15 @@ def me(request):
 
 
 @ensure_csrf_cookie
+@csrf_protect
+def logout_view(request):
+    if get_current_user(request):
+        request.session.pop('user', None)
+    
+    return create_redirect_response(login=True)
+
+
+@ensure_csrf_cookie
 def models_paginated(request, start: int, end: int):
 
     if request.method != "GET":
@@ -287,16 +285,18 @@ def upload(request):
         if not user:
             return create_redirect_response(login=True)
         if not user.is_active:
-            return create_redirect_response(waiting_zone=True)
+            return create_redirect_response(dashboard=True)
         
         set_user_context(user)
 
-        referrer = request.headers["Referer"]
+        referrer = request.headers.get("Referer")
         if referrer is not None:
             if ("http://localhost" in referrer) or ("buildingsmart.org" in referrer):
                 captured_channel = "WEBUI"
             else:
                 captured_channel = "API"
+        else:
+            captured_channel = "WEBUI"
 
         # parse files
         # can be POST-ed back as file or file[0] or files ...
@@ -454,6 +454,8 @@ def report(request, id: str):
                         "lineno": m.group(1) if m else None,
                         "column": m.group(2) if m else None,
                         "severity": outcome.severity,
+                        "severity_pre_allowlist": outcome.severity_in_db,
+                        "allowlisted": outcome.is_whitelisted, 
                         "msg": f"expected: {outcome.expected}, observed: {outcome.observed}" if getattr(outcome, 'expected', None) is not None else outcome.observed,
                         "task_id": outcome.validation_task_public_id,
                     })
@@ -468,7 +470,8 @@ def report(request, id: str):
         
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.SCHEMA).last()
         if task.outcomes:
-            for outcome in task.outcomes.order_by('-severity').iterator():
+            # we can only sort on severity_in_db, not on severity because that is a computed field
+            for outcome in task.outcomes.order_by('-severity_in_db').iterator():
 
                 mapped = {
                     "id": outcome.public_id,
@@ -476,6 +479,8 @@ def report(request, id: str):
                     "constraint_type": json.loads(outcome.feature)['type'] if outcome.feature else None,  # 'uncategorized', 'schema', 'global_rule', 'simpletype_rule', 'entity_rule'
                     "instance_id": outcome.instance_public_id,
                     "severity": outcome.severity,
+                    "severity_pre_allowlist": outcome.severity_in_db,
+                    "allowlisted": outcome.is_whitelisted, 
                     "msg": outcome.observed,
                     "task_id": outcome.validation_task_public_id
                 }
@@ -532,10 +537,10 @@ def report(request, id: str):
             grouped_gherkin_outcomes_counts[label][key] = count
 
             all_feature_outcomes : typing.Sequence[ValidationOutcome] = itertools.chain.from_iterable(
-                t.outcomes.filter(feature=feature)
+                list(t.outcomes.filter(feature=feature)
                  .prefetch_related("instance")                 
-                 [:MAX_OUTCOMES_PER_RULE]
-                 .iterator(chunk_size=100) for t in tasks)
+                 [:MAX_OUTCOMES_PER_RULE])
+                 for t in tasks)
                  
             for outcome in all_feature_outcomes:
 
@@ -546,8 +551,9 @@ def report(request, id: str):
                     "feature_version": outcome.feature_version,
                     "feature_url": get_feature_url(outcome.feature[0:6]),
                     "feature_text": get_feature_description(outcome.feature[0:6]),
-                    "step": outcome.get_severity_display(), # TODO
                     "severity": outcome.severity,
+                    "severity_pre_allowlist": outcome.severity_in_db,
+                    "allowlisted": outcome.is_whitelisted, 
                     "instance_id": outcome.instance_public_id,
                     "expected": outcome.expected,
                     "observed": outcome.observed,
@@ -663,3 +669,8 @@ def report_error(request):
         logger.info(f"Received error report: {error}")
 
     return HttpResponse(content='OK')
+
+def get_allowlist(request):
+    snaps = WhiteListEntry.get_all()
+    payload = [asdict(d) for d in snaps]
+    return JsonResponse({'entries': payload})

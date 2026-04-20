@@ -6,6 +6,7 @@ load_dotenv()
 INSTALLED_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    "apps.ifc_validation",
     "apps.ifc_validation_models"
 ]
 

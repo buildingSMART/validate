@@ -73,7 +73,7 @@ services:
             context: .
             dockerfile: ./docker/backend/Dockerfile
             target: run
-        entrypoint: /app/backend/worker-entrypoint.sh
+        entrypoint: /app/backend/worker-beat-entrypoint.sh
         restart: unless-stopped
         container_name: worker
         volumes:
