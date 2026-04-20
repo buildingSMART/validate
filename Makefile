@@ -49,6 +49,18 @@ start-swarm-local:
 stop-swarm:
 	docker stack rm validate
 
+redeploy-swarm:
+	$(MAKE) stop-swarm
+	@echo "Waiting 15s for overlay network cleanup..."
+	sleep 15
+	$(MAKE) swarm-push ENV_FILE=$(ENV_FILE)
+	$(MAKE) start-swarm-nodb ENV_FILE=$(ENV_FILE)
+
+redeploy-frontend: rebuild-frontend
+	docker tag buildingsmart/validationsvc-frontend $(REGISTRY)/validationsvc-frontend
+	docker push $(REGISTRY)/validationsvc-frontend
+	docker service update --force --image $(REGISTRY)/validationsvc-frontend validate_frontend
+
 scale-workers:
 	docker service scale validate_worker=$(WORKERS)
 
@@ -121,7 +133,7 @@ rebuild: clean
 rebuild-frontend:
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
-	docker compose build \
+	docker compose build frontend \
 	--build-arg GIT_COMMIT_HASH="$$(git rev-parse --short HEAD)" \
 	--build-arg VERSION="$$(cat .VERSION)"
 
