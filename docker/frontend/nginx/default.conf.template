@@ -36,6 +36,24 @@ server {
         try_files $uri @proxy_api;
     }
     
+    # Swagger/ReDoc — relaxed CSP for inline scripts, proxied directly
+    location ~ ^/api/v1/(swagger-ui|redoc) {
+        resolver 127.0.0.11 valid=30s;
+        set $upstream http://backend:8000;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options DENY always;
+        add_header Referrer-Policy 'same-origin' always;
+        add_header Content-Security-Policy "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; frame-ancestors 'none'" always;
+        proxy_read_timeout 500s;
+        proxy_connect_timeout 75s;
+        proxy_pass $upstream;
+        proxy_redirect off;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # API (Django APP)
     location /api {
         try_files $uri @proxy_api;
@@ -72,10 +90,13 @@ server {
 
     # Django backend (API + BFF + Admin)
     location @proxy_api {
+        resolver 127.0.0.11 valid=30s;
+        set $upstream http://backend:8000;
+
         proxy_read_timeout 500s;
         proxy_connect_timeout 75s;
 
-        proxy_pass   http://backend:8000;
+        proxy_pass   $upstream;
         proxy_redirect off;
         
         proxy_set_header   Host                 $http_host;
