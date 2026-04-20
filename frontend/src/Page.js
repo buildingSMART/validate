@@ -14,7 +14,7 @@ function getSandboxId(pageTitle){
 function getEnvironment(pageTitle){
     const splittedUrl = window.location.href.split("/");
     return splittedUrl[2].split('.')[0];
- 
+
 }
 
 export const PageContext = createContext(1);
@@ -29,10 +29,10 @@ export default function Page(props){
 
         <ErrorBoundary>
             <PageContext.Provider
-                value={{sandboxId:sandboxId, pageTitle:pageTitle,environment:environment }}     
+                value={{sandboxId:sandboxId, pageTitle:pageTitle,environment:environment }}
             >
                     {props.children}
             </PageContext.Provider>
         </ErrorBoundary>
-    ) 
+    )
 }
