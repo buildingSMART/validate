@@ -35,3 +35,8 @@ The responses to these inquiries are provided here for the benefit of the entire
 :heading-offset: 1
 :relative-images:
 ```
+
+```{include} ./normative-rules/BRP003.md
+:heading-offset: 1
+:relative-images:
+```
