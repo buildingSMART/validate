@@ -11,6 +11,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import CheckIcon from '@mui/icons-material/Check';
 import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 
 import { VERSION, COMMIT_HASH } from './environment';
 
@@ -43,10 +44,10 @@ export default function SideMenu() {
                 width: drawerWidth,
                 flexShrink: 0,
                 [`& .MuiDrawer-paper`]: { position: 'relative', width: drawerWidth, boxSizing: 'border-box' },
-                display: { xs:'none', md: 'flex'},
+                display: { xs: 'none', sm: 'flex' },
             }}
         >
-            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - 130px)', overflow: 'auto' }}>
                 <List>
                     {menuItems.map((item) => (
                         <ListItem key={item.text} disablePadding>
@@ -88,11 +89,11 @@ export default function SideMenu() {
                         </Tooltip>
                     </ListItem>
                 <Divider />
-                    <ListItem key="version" disablePadding>
-                        <ListItemButton>
-                            <ListItemText style={{ textAlign: 'center' }} primary={`${context["environment"]} ${VERSION || ''} ${COMMIT_HASH ? ' - #' + COMMIT_HASH : ''}`} />
-                        </ListItemButton>
-                    </ListItem>
+                    <Box sx={{ px: 1, py: 0.5, textAlign: 'center' }}>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                            {`${context["environment"]} ${VERSION || ''} ${COMMIT_HASH ? ' - #' + COMMIT_HASH : ''}`}
+                        </Typography>
+                    </Box>
                 </List>
             </Box>
         </Drawer>

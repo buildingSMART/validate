@@ -246,8 +246,14 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "CONN_MAX_AGE": 0,  # must be 0 when using pool; pool handles lifecycle via max_lifetime
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
-            "pool": True,
+            "pool": {
+                "min_size": 2,
+                "max_size": 10,
+                "max_lifetime": 600,  # recycle connections before overlay network kills them (~13 min)
+            },
         },
     },
 }
@@ -286,7 +292,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
-
+USE_THOUSAND_SEPARATOR = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/

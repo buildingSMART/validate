@@ -289,12 +289,14 @@ def upload(request):
         
         set_user_context(user)
 
-        referrer = request.headers["Referer"]
+        referrer = request.headers.get("Referer")
         if referrer is not None:
             if ("http://localhost" in referrer) or ("buildingsmart.org" in referrer):
                 captured_channel = "WEBUI"
             else:
                 captured_channel = "API"
+        else:
+            captured_channel = "WEBUI"
 
         # parse files
         # can be POST-ed back as file or file[0] or files ...
