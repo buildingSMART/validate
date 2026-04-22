@@ -43,8 +43,6 @@ const ALLOWLISTING_CASES = [
   },
 ];
 
-let createdModelIds = [];
-
 function createUploadPayload(fixturePath) {
   const absolutePath = resolve(process.cwd(), fixturePath);
   const originalName = basename(fixturePath);
@@ -116,31 +114,33 @@ async function expectStatusIcon(row, columnKey, status) {
   await expect(cell.locator(`[data-testid="${iconTestId}"]`)).toBeVisible();
 }
 
-async function deleteCreatedModels(page) {
-  if (createdModelIds.length === 0) {
-    return;
-  }
-
-  const cookies = await page.context().cookies();
-  const csrfToken = cookies.find((cookie) => cookie.name === 'csrftoken')?.value;
-
-  if (!csrfToken) {
-    createdModelIds = [];
-    return;
-  }
-
-  const response = await page.request.delete(`${BFF_URL}/api/delete/${createdModelIds.join(',')}`, {
-    headers: {
-      'x-csrf-token': csrfToken,
-    },
-  });
-
-  expect(response.ok()).toBeTruthy();
-  createdModelIds = [];
-}
-
 test.describe('UI - Allowlisting dashboard statuses', () => {
   test.describe.configure({ mode: 'serial' });
+
+  let createdModelIds = [];
+
+  async function deleteCreatedModels(page) {
+    if (createdModelIds.length === 0) {
+      return;
+    }
+
+    const cookies = await page.context().cookies();
+    const csrfToken = cookies.find((cookie) => cookie.name === 'csrftoken')?.value;
+
+    if (!csrfToken) {
+      createdModelIds = [];
+      return;
+    }
+
+    const response = await page.request.delete(`${BFF_URL}/api/delete/${createdModelIds.join(',')}`, {
+      headers: {
+        'x-csrf-token': csrfToken,
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    createdModelIds = [];
+  }
 
   test.afterEach(async ({ page }) => {
     await deleteCreatedModels(page);
