@@ -27,8 +27,8 @@ jobs:
       MEDIA_ROOT: /tmp/files_storage
       CELERY_BROKER_URL: redis://redis:6379/0
       CELERY_RESULT_BACKEND: django-db
-      CELERY_TASK_ALWAYS_EAGER: "true"
-      CELERY_TASK_EAGER_PROPAGATES: "true"
+      CELERY_TASK_ALWAYS_EAGER: "false"
+      CELERY_TASK_EAGER_PROPAGATES: "false"
       DJANGO_ALLOWED_HOSTS: "localhost 127.0.0.1"
       DJANGO_TRUSTED_ORIGINS: "http://localhost:3000 http://127.0.0.1:3000 http://localhost:8000 http://127.0.0.1:8000"
       POSTGRES_USER: postgres
@@ -104,7 +104,7 @@ jobs:
           
       - name: Download and install ifcopenshell
         run: |
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-89c66f6-linux64.zip"
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-a51b2c5-linux64.zip"
           mkdir -p .dev/venv/lib/python3.11/site-packages
           unzip -o -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
           rm /tmp/ifcopenshell_python.zip
@@ -159,6 +159,22 @@ jobs:
           DJANGO_SUPERUSER_USERNAME=root DJANGO_SUPERUSER_PASSWORD=root DJANGO_SUPERUSER_EMAIL=root@localhost .dev/venv/bin/python manage.py createsuperuser --noinput
           DJANGO_SUPERUSER_USERNAME=SYSTEM DJANGO_SUPERUSER_PASSWORD=system DJANGO_SUPERUSER_EMAIL=system@localhost .dev/venv/bin/python manage.py createsuperuser --noinput || echo "SYSTEM user already exists, skipping"
           .dev/venv/bin/python manage.py seed_dummy_requests
+        env:
+          DJANGO_DB: postgresql
+          POSTGRES_HOST: postgres
+          POSTGRES_NAME: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_PORT: 5432
+          VIRTUAL_ENV: backend/.dev/venv
+
+      - name: Start Celery worker
+        run: |
+          cd backend
+          nohup .dev/venv/bin/python -m celery --app=core worker \
+            --loglevel=INFO --concurrency 2 --hostname=worker@%n \
+            > /tmp/celery.log 2>&1 &
+          sleep 3
         env:
           DJANGO_DB: postgresql
           POSTGRES_HOST: postgres
