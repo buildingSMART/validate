@@ -337,6 +337,10 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
 CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
+# Lets CI (and local tests) run tasks inline without a worker when set.
+CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "false").lower() == "true"
+CELERY_TASK_EAGER_PROPAGATES = os.environ.get("CELERY_TASK_EAGER_PROPAGATES", "false").lower() == "true"
+
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
