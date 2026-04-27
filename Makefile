@@ -83,7 +83,7 @@ swarm-status:
 	@echo "---"
 	@docker service ps validate_worker
 
-# Add a worker node to the Swarm cluster
+# Add a worker node to the Swarm cluster 
 # Usage: make add-worker NAME=dev-vm-worker-1 ENV_FILE=.env.DEV_SWARM
 # Reads SWARM_WORKER_N entries and SWARM_SSH_USER from ENV_FILE
 add-worker:
