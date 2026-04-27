@@ -138,16 +138,7 @@ def get_feature_description(feature_code):
     return None
 
 
-def status_combine(*args, allow_not_executed=False):
-    # status_header_syntax was introduced later and default initialized to `n`,
-    # which has higher severity order in this logic than valid (`v`), we don't
-    # want it to override the status for pre-existing data that never executed
-    # this check.
-    if allow_not_executed and not set(args) == {'n'}:
-        args = [a for a in args if a != 'n']
-
-    statuses = "-pvnwi"
-    return statuses[max(map(statuses.index, args))]
+from apps.ifc_validation_bff.status import status_combine
 
 
 def format_request(request : ValidationRequest):
