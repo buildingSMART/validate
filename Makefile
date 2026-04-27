@@ -13,7 +13,7 @@ start-nodb:
 start-load-balanced:
 	docker compose -f docker-compose.load_balanced.yml up -d
 
-# full setup (load balanced, OTel, Prometheus/Grafana, etc...)
+# full setup (load balanced, OTel, Prometheus/Grafana, etc...) 
 start-full:
 	docker compose -f docker-compose.full.yml up -d
 
