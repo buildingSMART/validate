@@ -19,9 +19,7 @@ jobs:
 
     name: build frontend
     runs-on: ubuntu-latest
-    environment:
-      name: development
-      
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -46,8 +44,6 @@ jobs:
 
     name: build backend
     runs-on: ubuntu-latest
-    environment:
-      name: development
 
     services:
       redis:
@@ -71,7 +67,7 @@ jobs:
 
       - name: Fetch submodules
         run: |
-          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
+          git clean -fdx -e 'redeploy.*.sh' -e 'docker/'
           git submodule foreach --recursive 'git clean -fdx'
           cd backend
           cd apps
