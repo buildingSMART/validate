@@ -16,7 +16,7 @@ install: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos: venv
@@ -24,7 +24,7 @@ install-macos: venv
 	$(PIP) install -r requirements.txt
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macos64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos-m1: venv
@@ -32,7 +32,7 @@ install-macos-m1: venv
 	$(PIP) install -r requirements.txt
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macosm164.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
