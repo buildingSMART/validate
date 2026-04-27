@@ -1,7 +1,7 @@
 name: Testing (CI - DEV)
 
-concurrency: 
-  group: development
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 on:
