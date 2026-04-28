@@ -1,8 +1,8 @@
 name: Build & Deploy (CI/CD - DEV)
 
-concurrency: 
-  group: development
-  cancel-in-progress: true
+concurrency:
+  group: deploy-development
+  cancel-in-progress: false
 
 on:
   push:
@@ -19,9 +19,7 @@ jobs:
 
     name: build frontend
     runs-on: ubuntu-latest
-    environment:
-      name: development
-      
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -46,8 +44,6 @@ jobs:
 
     name: build backend
     runs-on: ubuntu-latest
-    environment:
-      name: development
 
     services:
       redis:
@@ -71,7 +67,7 @@ jobs:
 
       - name: Fetch submodules
         run: |
-          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
+          git clean -fdx -e 'redeploy.*.sh' -e 'docker/'
           git submodule foreach --recursive 'git clean -fdx'
           cd backend
           cd apps
@@ -141,49 +137,11 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install sshpass
         
-      - name: Stop Docker containers
+      - name: Set VERSION and deploy (Swarm)
         run: |
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
+          set -euo pipefail
           cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make stop
-          ENDSSH
-
-      - name: Fetch sources & submodules
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
-          git submodule foreach --recursive 'git clean -fdx'
-          sudo make fetch-modules
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation/checks/ifc_gherkin_rules && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ./ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}/backend/apps/ifc_validation_models && git checkout -q ${{ vars.BRANCH_NAME }} && git pull
-          cd ${{ vars.REPO_CLONE_PATH }}
-          ./check-submodules.sh
-          ENDSSH
-      
-      - name: Set VERSION
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          COMMIT_HASH=$(git rev-parse --short HEAD)
-          VERSION="${{ vars.VERSION }}"
-          echo "Set VERSION to ${VERSION}"
-          echo "Commit hash ${COMMIT_HASH}"
-          echo "${VERSION}" > .VERSION          
-          ENDSSH
-
-      - name: Build Docker images
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo make rebuild
-          ENDSSH
-
-      - name: Start Docker containers
-        run: |
-          sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
-          cd ${{ vars.REPO_CLONE_PATH }}
-          sudo docker compose -f ${{ vars.DOCKER_COMPOSE_FILE }} --env-file ${{ vars.ENV_FILE }} up -d
+          echo "${{ vars.VERSION }}" > .VERSION
+          ./redeploy.DEV.sh
           ENDSSH
