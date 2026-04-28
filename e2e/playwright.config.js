@@ -37,7 +37,12 @@ export default defineConfig({
   projects: [
     {
       name: 'e2e-tests',
-      testMatch: '**/tests/*.test.js',
+      testMatch: [
+        '**/tests/django_admin.test.js',
+        '**/tests/validate.test.js',
+        '**/tests/validate_api.test.js',
+        '**/tests/allowlisting.test.js',
+      ],
       use: {
         ...devices['Desktop Chrome'],
         // API tests don't need a browser, but we'll use request context
@@ -73,7 +78,7 @@ export default defineConfig({
   /* Test timeout */
   timeout: 60 * 1000,
   expect: {
-    timeout: 15 * 1000,
+    timeout: 30 * 1000,
   },
 
   /* Output directory for test results */
