@@ -8,7 +8,7 @@ from ..tasks import header_syntax_validation_subtask
 class SyntaxValidationTaskTestCase(TransactionTestCase):
 
     def set_user_context():
-        user = User.objects.create(id=1, username='SYSTEM', is_active=True)
+        user, _ = User.objects.get_or_create(id=1, defaults={'username': 'SYSTEM', 'is_active': True})
         set_user_context(user)
 
     def test_header_syntax_validation_task_creates_passed_validation_outcome(self):

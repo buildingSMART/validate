@@ -13,10 +13,11 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 import logging
 import ast
-
 from dotenv import load_dotenv
 from pathlib import Path
+
 from django.core.exceptions import ImproperlyConfigured
+from celery.schedules import crontab
 
 load_dotenv()
 
@@ -245,8 +246,10 @@ DATABASES_ALL = {
         "USER": os.environ.get("POSTGRES_USER", "postgres"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
         "PORT": int(os.environ.get("POSTGRES_PORT", "5432")),
+        "CONN_MAX_AGE": int(os.environ.get("POSTGRES_CONN_MAX_AGE", 600)),
+        "CONN_HEALTH_CHECKS": True,
         "OPTIONS": {
-            "pool": True,
+            "pool": False,
         },
     },
 }
@@ -309,6 +312,16 @@ except Exception as err:
     msg = "Configuration for MEDIA_ROOT is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(MEDIA_ROOT, err))
 
+# always generate an alternative name for each uploaded file
+STORAGES = {
+    "default": {
+        "BACKEND": "core.utils.DeterministicAltNameStorage"
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    }
+}
+
 # Celery broker, timers and result
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
 #CELERY_RESULT_BACKEND = os.environ.get("RESULT_BACKEND", "redis://localhost:6379/0")
@@ -327,6 +340,7 @@ CELERY_RESULT_EXPIRES = 90*24*3600 # Results in backend expire after 3 months
 CELERY_TASK_ALLOW_ERROR_CB_ON_CHORD_HEADER = True
 
 # reliability settings - see https://www.francoisvoron.com/blog/configure-celery-for-reliable-delivery
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_TASK_ACKS_LATE = True
 CELERY_TASK_STORE_ERRORS_EVEN_IF_IGNORED = True
@@ -345,6 +359,21 @@ try:
 except Exception as err:
     msg = "Configuration for CELERY_BEAT_SCHEDULE_FILENAME is invalid: '{}' does not exist and could not be created ({})."
     raise ImproperlyConfigured(msg.format(os.path.dirname(CELERY_BEAT_SCHEDULE_FILENAME), err))
+
+ARCHIVE_FILES_LOOKBACK_PERIOD = os.environ.get("ARCHIVE_FILES_LOOKBACK_PERIOD", 90)
+REMOVE_FILES_LOOKBACK_PERIOD = os.environ.get("REMOVE_FILES_LOOKBACK_PERIOD", 180)
+CELERY_BEAT_SCHEDULE = {
+        'archive-files-90days-every-15min': {
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',
+            'schedule': crontab(minute='15,30,45'),  # runs every 15 min, except at the hour
+            'kwargs': { 'days': ARCHIVE_FILES_LOOKBACK_PERIOD, 'dry_run': False, 'action': 'archive' },
+        },
+        'remove-files-180days-every-1hours': {
+            'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',
+            'schedule': crontab(minute=0, hour='*/1'),  # runs every hour, at the hour
+            'kwargs': { 'days': REMOVE_FILES_LOOKBACK_PERIOD, 'dry_run': False, 'action': 'remove' }
+        },
+    }
 
 # LOGGING
 
@@ -451,3 +480,8 @@ AUTHLIB_OAUTH_CLIENTS = {
 }
 # SECURE_SSL_REDIRECT = True
 # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# secure cookies
+if not (PUBLIC_URL is None or 'localhost' in PUBLIC_URL) and not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True

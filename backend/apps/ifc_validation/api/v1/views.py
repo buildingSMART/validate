@@ -195,6 +195,7 @@ class ValidationRequestListAPIView(ListCreateAPIView):
                     #file = os.path.join(MEDIA_ROOT, uploaded_file['file_name'])                   
                     #uploaded_file['size'] = os.path.getsize(file)
                     uploaded_file['size'] = file_length
+                    f.seek(0)
                     instance = serializer.save()
 
                     # submit task for background execution

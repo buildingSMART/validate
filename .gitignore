@@ -2,7 +2,9 @@
 **/__pycache__/
 **/.pytest_cache/
 **/node_modules
+**/build
 **/.dev
+**/.debug
 **/letsencrypt
 .DS_Store
 .env.*
@@ -11,6 +13,16 @@ redeploy.*
 tmp*
 django_static
 local
+
+### Local/personal files ###
+CLAUDE.md
+.analyses/
+plans/
+.python-version
+backend/Makefile.local
+backend/Makefile_v2
+backend/core/settings_backup_*.py
+docker/backend/*_backup.sh
 
 ### VisualStudioCode ###
 .vscode/*

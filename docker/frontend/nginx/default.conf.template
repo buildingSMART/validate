@@ -14,6 +14,16 @@ server {
     gzip_proxied no-cache no-store private expired auth;
     gzip_min_length 1024;
 
+    # security headers
+    add_header X-Content-Type-Options nosniff;
+    add_header X-Frame-Options DENY always;
+    # NB: 'same-origin' instead of 'no-referrer' — the backend relies on the Referer header
+    # to distinguish WEBUI vs API uploads (see views_legacy.py). 'no-referrer' strips it
+    # entirely, causing a 500 on file upload. 'same-origin' still prevents leaking the
+    # referer to third parties (satisfying pentest requirements).
+    add_header Referrer-Policy 'same-origin';
+    add_header Content-Security-Policy "script-src 'self' https://cdn.jsdelivr.net; frame-ancestors 'none'";
+    
     # React UI
     location / {
         root   /app/frontend;

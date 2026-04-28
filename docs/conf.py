@@ -7,7 +7,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'buildingSMART Validation Service'
-copyright = '2025, buildingSMART International'
+copyright = '2026, buildingSMART International'
 author = 'buildingSMART International'
 release = '0.8.4'
 

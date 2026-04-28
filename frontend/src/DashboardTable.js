@@ -17,7 +17,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import MailLockIcon from '@mui/icons-material/MailLock';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
-//import ReplayIcon from '@mui/icons-material/Replay';
 import CircularStatic from "./CircularStatic";
 import ErrorIcon from '@mui/icons-material/Error';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -26,6 +25,8 @@ import WarningIcon from '@mui/icons-material/Warning';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
 import BlockIcon from '@mui/icons-material/Block';
 import Link from '@mui/material/Link';
+import Button from '@mui/material/Button';
+
 import { FETCH_PATH } from './environment'
 import { useEffect, useState, useContext } from 'react';
 import { PageContext } from './Page';
@@ -210,13 +211,6 @@ function EnhancedTableToolbar({ numSelected, onDelete, onRevalidate }) {
           </IconButton>
         </Tooltip>)}
 
-      {/* {numSelected > 0 && (
-        <Tooltip title="Revalidate">
-          <IconButton onClick={onRevalidate}>
-            <ReplayIcon />
-          </IconButton>
-        </Tooltip>)} */}
-
       {numSelected > 0 ? (
         <Typography
           //sx={{ flex: '1 1 100%' }}
@@ -253,7 +247,6 @@ export default function DashboardTable({ models }) {
   const [rowsPerPage, setRowsPerPage] = React.useState(5);
   const [count, setCount] = React.useState(0);
   const [deleted, setDeleted] = useState('');
-  const [revalidated, setRevalidated] = useState('');
   const [progress, setProgress] = useState(0);
 
   const context = useContext(PageContext);
@@ -323,7 +316,9 @@ export default function DashboardTable({ models }) {
     page > 0 ? Math.max(0, (1 + page) * rowsPerPage - rows.length) : 0;
 
   useEffect(() => {
-    if (deleted) {
+
+    if (deleted && deleted.length > 0) {
+
       fetch(`${FETCH_PATH}/api/delete/${deleted}`, {
         method: 'DELETE',
         headers: { 'x-csrf-token': getCookieValue('csrftoken') },
@@ -334,33 +329,19 @@ export default function DashboardTable({ models }) {
           setSelected([])
           setDeleted([])
         });
-    } else if (revalidated) {
-      fetch(`${FETCH_PATH}/api/revalidate/${revalidated}`, {
-        method: 'POST',
-        headers: { 'x-csrf-token': getCookieValue('csrftoken') },
-        credential: 'include'
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          setSelected([])
-          setRevalidated([])
-        });   
     }
 
-  }, [deleted, revalidated]);
+  }, [deleted]);
 
   function onDelete() {
-    setDeleted(selected.join(','))
+    if (window.confirm(`Delete ${selected.length} selected IFC file(s)? This action cannot be undone.`)) {
+      setDeleted(selected.join(','))
+    }
   }
-
-  // function onRevalidate() {
-  //   setRevalidated(selected.join(','))
-  // }
 
   return (
     <Box sx={{ width: '100%', alignSelf: 'start' }}>
 
-      {/* <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} onRevalidate={onRevalidate} /> */}
       <EnhancedTableToolbar numSelected={selected.length} onDelete={onDelete} />
       <TableContainer>
         <Table
@@ -459,10 +440,29 @@ export default function DashboardTable({ models }) {
 
                   <TableCell align="left">
                   { 
-                    (row.status_magic_clamav != 'i') ?
-                      <Link href={`${FETCH_PATH}/api/download/${row.id}`} underline="hover" onClick={evt => evt.stopPropagation()}>
-                        {'Download file'}
-                      </Link> : 'File unavailable'
+                    (row.deleted ? '-' : <div>
+                      <Button 
+                        variant="text" 
+                        disabled={!isRowAllowedToBeDeleted(row)} 
+                        sx={{ 
+                          textTransform: 'none', 
+                          color: 'primary.main', 
+                          '&:hover': { textDecoration: 'underline', backgroundColor: 'transparent', }, 
+                           }}
+                        onClick={ (evt) => { 
+                          evt.stopPropagation(); 
+                          if (window.confirm('Are you sure you want to delete this IFC file? This action cannot be undone.'))
+                              setDeleted(row.id);
+                          }}>{'Delete IFC file'
+                      }</Button>
+
+                        <Tooltip title={!isRowAllowedToBeDeleted(row) ? "Unable to delete your IFC file as it is still being processed." : "Delete your IFC file immediately from the Validation Service. In any case, your file will be deleted after 2 weeks - as per our file retention policy."}>
+                          <span style={{display: 'inline-block'}}>
+                            <span style={{fontSize: '.83em', verticalAlign: 'super'}}>ⓘ</span>
+                          </span>
+                        </Tooltip>
+                      </div>
+                      )
                   }
                   </TableCell>
                 </TableRow>

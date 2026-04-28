@@ -9,6 +9,7 @@ import Logout from './Logout';
 import Report from './Report';
 import Page from './Page';
 import Scorecards from './Scorecards';
+import AllowList from './AllowList';
 
 import { FETCH_PATH, VERSION, COMMIT_HASH, PUBLIC_URL, NODE_ENV } from './environment';
 
@@ -47,6 +48,8 @@ root.render(
       <Route path="/sandbox/report_file/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="file"/></Page>} />
       <Route path="/sandbox/report_industry/:commitId/:modelCode"element={<Page pageTitle="report"><Report kind="industry"/></Page>} />
       
+      <Route path="/allowlist" element={<Page pageTitle="allowlist"><AllowList /></Page>} />
+
       <Route path="/callback" element={<Callback />} />
       <Route path="/logout" element={<Logout />} />
       <Route path="/waiting_zone" element={<Page pageTitle="waiting_zone"><App/></Page>} />

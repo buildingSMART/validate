@@ -8,7 +8,7 @@
 python3 -m ifcopenshell.simple_spf --json filename 
 ```
 
-2. Parse Info
+2. Parse Info 
 
 ```python
 

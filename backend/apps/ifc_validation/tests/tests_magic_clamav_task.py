@@ -11,7 +11,7 @@ from ..tasks import magic_clamav_subtask
 class MagicClamAVTaskTestCase(TransactionTestCase):
 
     def set_user_context():
-        user = User.objects.create(id=1, username='SYSTEM', is_active=True)
+        user, _ = User.objects.get_or_create(id=1, defaults={'username': 'SYSTEM', 'is_active': True})
         set_user_context(user)
 
     def test_magic_clamav_task_detects_valid_ifc_file(self):
