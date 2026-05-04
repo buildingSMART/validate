@@ -56,6 +56,13 @@ redeploy-swarm:
 	$(MAKE) swarm-push ENV_FILE=$(ENV_FILE)
 	$(MAKE) start-swarm-nodb ENV_FILE=$(ENV_FILE)
 
+redeploy-swarm-local:
+	$(MAKE) stop-swarm
+	@echo "Waiting 15s for overlay network cleanup..."
+	sleep 15
+	$(MAKE) swarm-push ENV_FILE=$(ENV_FILE)
+	$(MAKE) start-swarm-local ENV_FILE=$(ENV_FILE)
+
 redeploy-frontend: rebuild-frontend
 	docker tag buildingsmart/validationsvc-frontend $(REGISTRY)/validationsvc-frontend
 	docker push $(REGISTRY)/validationsvc-frontend
@@ -140,6 +147,7 @@ rebuild-frontend:
 rebuild-backend:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
 	docker compose build \
@@ -149,6 +157,7 @@ rebuild-backend:
 clean:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
@@ -159,6 +168,7 @@ clean:
 clean-all:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true

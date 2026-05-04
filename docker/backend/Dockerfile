@@ -53,9 +53,7 @@ RUN --mount=type=cache,target=/root/.cache \
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-beat-entrypoint.sh /app/backend
-
-# copy clamav config
-ADD --chmod=777 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
+ADD --chmod=777 ./docker/backend/worker-clamav-entrypoint.sh /app/backend
 
 # RUN image
 # NOTE: don't use Alpine images...

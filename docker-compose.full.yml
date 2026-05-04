@@ -20,6 +20,9 @@ services:
             - static_data:/app/backend/django_static
         depends_on:
             - backend
+            - worker
+            - av_worker
+            - scheduler
 
     # Backend - Django (x2)
     backend:
@@ -108,6 +111,42 @@ services:
             mode: replicated
             replicas: 1 
             endpoint_mode: vip
+        depends_on:
+            - db
+            - redis
+
+    # Worker - antivirus
+    av_worker:
+        image: buildingsmart/validationsvc-backend
+        build:
+            context: .
+            dockerfile: ./docker/backend/Dockerfile
+            target: run
+        entrypoint: /app/backend/worker-clamav-entrypoint.sh
+        restart: unless-stopped
+        container_name: av_worker
+        volumes:
+            - files_data:/files_storage
+            - ./docker/backend/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+            - ./docker/backend/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
+            - clamav_data:/var/lib/clamav # persist database
+        environment:
+            ENV: ${ENV}
+            DEBUG: ${DEBUG}
+            CELERY_BROKER_URL: ${CELERY_BROKER_URL}
+            CELERY_RESULT_BACKEND: "django-db"
+            CELERY_RESULT_BACKEND_DB: "db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db/${POSTGRES_NAME}"
+            CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT}
+            CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT}
+            TASK_TIMEOUT_LIMIT: ${TASK_TIMEOUT_LIMIT}
+            CELERY_AV_CONCURRENCY: ${CELERY_AV_CONCURRENCY}
+            DJANGO_DB: ${DJANGO_DB}
+            DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
+            POSTGRES_HOST: ${POSTGRES_HOST}
+            POSTGRES_PORT: ${POSTGRES_PORT}
+            POSTGRES_NAME: ${POSTGRES_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         depends_on:
             - db
             - redis
@@ -228,4 +267,5 @@ volumes:
     otel_data:
     prometheus_data:
     grafana_data:
-    gherkin_rules_log_data: 
+    gherkin_rules_log_data:
+    clamav_data:
