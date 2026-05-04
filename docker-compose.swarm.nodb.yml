@@ -79,6 +79,28 @@ services:
                 delay: 30s
                 failure_action: rollback
 
+    av_worker:
+        image: ${REGISTRY}/validationsvc-backend
+        entrypoint: /app/backend/worker-clamav-entrypoint.sh
+        env_file: ${ENV_FILE}
+        volumes:
+            - files_data:/files_storage
+            - ./docker/backend/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
+            - ./docker/backend/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
+            - clamav_data:/var/lib/clamav # persist databa
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            # No placement constraint - workers run on any node
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+            update_config:
+                parallelism: 1
+                delay: 30s
+                failure_action: rollback
+
     scheduler:
         image: ${REGISTRY}/validationsvc-backend
         entrypoint: /app/backend/worker-beat-entrypoint.sh
@@ -135,3 +157,4 @@ volumes:
             type: nfs
             o: "addr=${NFS_SERVER_IP},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
             device: ":/srv/nfs/gherkin_logs"
+    clamav_data:

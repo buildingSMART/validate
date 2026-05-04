@@ -47,19 +47,19 @@ start-backend:
 	$(PYTHON) manage.py runserver
 
 start-worker:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
 
 start-worker-with-scheduler:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus--loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
 start-worker2:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus--loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
 
 start-worker3:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus--loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
 
 start-worker4:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus--loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
 
 .PHONY: stop-worker
 stop-worker:

@@ -165,10 +165,10 @@ def on_workflow_failed(self, *args, **kwargs):
     send_failure_admin_email_task.delay(id=id, file_name=request.file_name)
     
 
-def task_factory(task_type):
+def task_factory(task_type, queue='celery'):
     config = task_registry[task_type]
     
-    @shared_task(bind=True, name=config.celery_task_name, max_retries=None)
+    @shared_task(bind=True, name=config.celery_task_name, max_retries=None, queue=queue)
     @with_user_task_lock(task_name=config.celery_task_name)
     @log_execution
     @requires_django_user_context
@@ -301,4 +301,4 @@ bsdd_validation_subtask = task_factory(ValidationTask.Type.BSDD)
 
 industry_practices_subtask = task_factory(ValidationTask.Type.INDUSTRY_PRACTICES)
 
-magic_clamav_subtask = task_factory(ValidationTask.Type.MAGIC_AND_CLAMAV)
+magic_clamav_subtask = task_factory(ValidationTask.Type.MAGIC_AND_CLAMAV, queue='antivirus')

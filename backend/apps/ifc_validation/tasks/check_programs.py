@@ -176,7 +176,7 @@ def check_magic_and_clamav(context:TaskContext):
         # logger.warning(f'File {context.file_path} has been removed.')
         
     context.result = {
-        "success": 'warn' not in result,
+        "success": 'warn' not in result and 'error' not in result,
         "valid": 'invalid' not in result,
         'output': next(iter(result.values())),
     }

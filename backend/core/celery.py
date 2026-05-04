@@ -4,6 +4,7 @@ from celery import Celery, Task
 from celery.worker.request import Request
 from celery.exceptions import Ignore
 from celery.utils.log import get_task_logger
+from kombu import Queue
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
@@ -74,3 +75,8 @@ class BaseTask(Task):
 app = Celery("core", task_cls=BaseTask)
 app.config_from_object("django.conf:settings", namespace="CELERY")  # prefix 'CELERY_'
 app.autodiscover_tasks()
+
+app.conf.task_queues = (
+    Queue('celery'),    # default queue for general tasks
+    Queue('antivirus'), # queue for antivirus task
+)
