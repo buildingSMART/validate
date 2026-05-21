@@ -142,7 +142,7 @@ class HeaderStructure(ConfiguredBaseModel):
     @field_validator('comments', mode='after')
     def validate_description(cls, v, values):
         """
-        https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
+        https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header#description
         For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         """
         if v:            
@@ -158,7 +158,7 @@ class HeaderStructure(ConfiguredBaseModel):
     @field_validator('mvd', mode='after')
     def validate_and_set_mvd(cls, v, values):
         """
-        https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#description
+        https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header#description
         For grammar refer to https://standards.buildingsmart.org/documents/Implementation/ImplementationGuide_IFCHeaderData_Version_1.0.2.pdf
         This function runs after the other fields. It validates the mvd based on the grammar done in  
         the 'description' field. The function checks the constraints on the mvds and returns 

@@ -613,8 +613,8 @@ test.describe('API - ValidationTask', () => {
         expect(Array.isArray(data.results)).toBe(true);
         expect(data).toHaveProperty('metadata.result_set.total');
         for (const item of data.results) {
-            expect(item).toHaveProperty('request');
-            expect(item.request).toBe(REQ_ID);
+            expect(item).toHaveProperty('request_public_id');
+            expect(item.request_public_id).toBe(REQ_ID);
         };        
     });
 
@@ -756,8 +756,8 @@ test.describe('API - ValidationOutcome', () => {
         expect(Array.isArray(data.results)).toBe(true);
         expect(data).toHaveProperty('metadata.result_set.total');
         for (const item of data.results) {
-            expect(item).toHaveProperty('request');
-            expect(item.request).toBe(REQ_ID);
+            expect(item).toHaveProperty('request_public_id');
+            expect(item.request_public_id).toBe(REQ_ID);
         };        
     });
 
@@ -902,8 +902,8 @@ test.describe('API - Model', () => {
         expect(Array.isArray(data.results)).toBe(true);
         expect(data).toHaveProperty('metadata.result_set.total');
         for (const item of data.results) {
-            expect(item).toHaveProperty('request');
-            expect(item.request).toBe(REQ_ID);
+            expect(item).toHaveProperty('request_public_id');
+            expect(item.request_public_id).toBe(REQ_ID);
         };        
     });
 

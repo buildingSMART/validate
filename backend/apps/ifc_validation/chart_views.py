@@ -54,27 +54,15 @@ PERIODS = {
 }
 
 
-DEV_TEAM_EMAILS = {
-    "hesselinkgeert@gmail.com",
-    "geert.hess@gmail.com",
-    "geertparallels@gmail.com",
-    "t.krijnen@gmail.com",
-    "rw-bsi@xeneo.biz",
-    "raphael@xeneo.biz",
-    "raphael.wouters@gmail.com",
-    "evandro.alfieri@buildingsmart.org",
-    "evandroalfieri@gmail.com",
-}
-
 def _dev_team_ids() -> set[int]:
     """
     Return a set of user IDs that should be classified as 'dev-team'.
 
-    Defined by DEV_TEAM_EMAILS. Keeps classification separate from is_vendor.
+    Defined by User.is_staff. Manage membership via Django admin.
     """
     return set(
         User.objects
-            .filter(email__in=DEV_TEAM_EMAILS)
+            .filter(is_staff=True)
             .values_list("id", flat=True)
     )
 

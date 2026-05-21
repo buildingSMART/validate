@@ -25,22 +25,22 @@ function AppLogo({ href }) {
 }
 
 const pages = [
-  { 
-    "label": "Home", 
+  {
+    "label": "Home",
     "href": "/"
   },
   {
     "label": "Validation",
     "href": "/dashboard"
   },
-  { 
-    "label": "Logout", 
+  {
+    "label": "Logout",
     "href": "/logout"
   }
 ]
 
 function ResponsiveAppBar({ user }) {
-  
+
   const [anchorElUser, setAnchorElUser] = React.useState(null);
 
   const handleOpenUserMenu = (event) => {
