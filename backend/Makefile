@@ -66,7 +66,7 @@ stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine test-management-commands
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -91,6 +91,9 @@ test-file-retention-task:
 
 test-status-combine:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-management-commands:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-utils:
 	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
