@@ -136,17 +136,19 @@ jobs:
         run: npm install
         working-directory: ./e2e
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
+      # image already have browsers
+      # - name: Cache Playwright browsers
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.cache/ms-playwright
+      #     key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-playwright-
         
-      - name: Install Playwright browsers
-        run: npm run install-playwright
-        working-directory: ./e2e
+      # image already have browsers
+      # - name: Install Playwright browsers
+      #   run: npm run install-playwright
+      #   working-directory: ./e2e
 
       - name: Setup Django database, migrations, and superusers
         run: |
