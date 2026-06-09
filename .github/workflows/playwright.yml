@@ -16,7 +16,7 @@ jobs:
     name: 'Playwright Tests'
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.55.0-noble
+      image: mcr.microsoft.com/playwright:v1.60.0-noble
     env:
       DJANGO_DB: postgresql
       POSTGRES_DB: postgres
