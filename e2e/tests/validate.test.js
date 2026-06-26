@@ -39,7 +39,7 @@ test.describe('Validate WebUI Tests', () => {
 
     // navigate to the Validate Web UI
     await page.goto(BASE_URL);
-    
+
     // check for a specific cookie by name; retry with delay if not found
     let retries = 5;
     let cookies = [];
@@ -59,10 +59,10 @@ test.describe('Validate WebUI Tests', () => {
 
     // clear cookies before the test
     await page.context().clearCookies();
-    
+
     // navigate to the Validate Web UI
     await page.goto(BASE_URL);
-        
+
     // wait for a specific cookie by name; retry with delay if not found
     let retries = 5;
     let cookies = [];

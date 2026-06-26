@@ -56,6 +56,30 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
         self.assertEqual(outcomes.first().severity, ValidationOutcome.OutcomeSeverity.ERROR)
         self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR)
         self.assertTrue('On line 1 column 1' in outcomes.first().observed)
+    
+    
+    def test_syntax_validation_task_creates_error_for_utf8_bom(self):
+        SyntaxValidationTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='invalid_utf8_with_bom.ifc',
+            file='invalid_utf8_with_bom.ifc',
+            size=os.path.getsize('apps/ifc_validation/fixtures/invalid_utf8_with_bom.ifc'),
+        )
+        request.mark_as_initiated()
+
+        syntax_validation_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'},
+            id=request.id,
+            file_name=request.file_name,
+        )
+
+        outcomes = ValidationOutcome.objects.filter(validation_task__request_id=request.id)
+        self.assertEqual(len(outcomes), 1)
+        self.assertEqual(outcomes.first().severity, ValidationOutcome.OutcomeSeverity.ERROR)
+        self.assertEqual(outcomes.first().outcome_code, ValidationOutcome.ValidationOutcomeCode.SYNTAX_ERROR)
+        self.assertIn("On line 1 column 1", outcomes.first().observed)
+        self.assertIn("character", outcomes.first().observed.lower())
+
 
     def test_determine_aggregate_status_for_multiple_outcomes(self):
 

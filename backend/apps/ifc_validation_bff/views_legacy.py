@@ -26,7 +26,8 @@ from apps.ifc_validation_models.models import UserAdditionalInfo
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
-from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
+from core.settings import DEVELOPMENT, PREVIEW
+from core.settings import LOGIN_URL, USE_WHITELIST 
 from core.settings import FEATURE_URL, MAX_OUTCOMES_PER_RULE
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def get_current_user(request):
         return user
 
     # only used for local development
-    elif DEVELOPMENT and not USE_WHITELIST:
+    elif (DEVELOPMENT or PREVIEW) and not USE_WHITELIST:
 
         username = 'development'
         user = UserAdditionalInfo.find_user_by_username(username)
@@ -109,7 +110,10 @@ def get_feature_filename(feature_code):
 def get_feature_url(feature_code):
     """
     Get the URL for the corresponding feature filename
-    In DEV, we return the filename in the 'development' branch of the repository and 'main' for PROD. 
+    We return the filename in the relevant branch of the repositoy, eg.
+    - 'development' for DEV
+    - 'preview' for PREVIEW
+    - 'main' for MAIN
     """
     feature_files = get_feature_filename(feature_code)
 
@@ -138,16 +142,7 @@ def get_feature_description(feature_code):
     return None
 
 
-def status_combine(*args, allow_not_executed=False):
-    # status_header_syntax was introduced later and default initialized to `n`,
-    # which has higher severity order in this logic than valid (`v`), we don't
-    # want it to override the status for pre-existing data that never executed
-    # this check.
-    if allow_not_executed and not set(args) == {'n'}:
-        args = [a for a in args if a != 'n']
-
-    statuses = "-pvnwi"
-    return statuses[max(map(statuses.index, args))]
+from apps.ifc_validation_bff.status import status_combine
 
 
 def format_request(request : ValidationRequest):

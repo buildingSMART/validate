@@ -1,7 +1,7 @@
 name: Testing (CI - DEV)
 
-concurrency: 
-  group: development
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 on:
@@ -18,9 +18,7 @@ jobs:
 
     name: build frontend
     runs-on: ubuntu-latest
-    environment:
-      name: development
-      
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -45,8 +43,6 @@ jobs:
 
     name: build backend
     runs-on: ubuntu-latest
-    environment:
-      name: development
 
     services:
       redis:
@@ -70,7 +66,7 @@ jobs:
 
       - name: Fetch submodules
         run: |
-          git clean -fdx -e ${{ vars.ENV_FILE }} -e 'redeploy.*.sh' -e 'docker/'
+          git clean -fdx -e 'redeploy.*.sh' -e 'docker/'
           git submodule foreach --recursive 'git clean -fdx'
           cd backend
           cd apps
@@ -100,7 +96,7 @@ jobs:
           source venv/bin/activate
           # use version of ifcopenshell with desired schema parsing
           # TODO: revert to pyPI when schema parsing is published in the future
-          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-a51b2c5-linux64.zip"
+          wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip"
           mkdir -p venv/lib/python3.11/site-packages
           unzip -d venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 
@@ -119,3 +115,5 @@ jobs:
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_header_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_syntax_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3

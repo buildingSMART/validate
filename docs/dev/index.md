@@ -4,6 +4,10 @@
 :heading-offset: 1
 ```
 
+```{include} api_quickstart.md
+:heading-offset: 1
+```
+
 ```{include} ifc_gherkin_rules_readme.md
 :heading-offset: 1
 ```

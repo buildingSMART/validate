@@ -11,7 +11,8 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 
 from .views_auth import login, logout, callback, whoami
 
-from core.settings import MEDIA_ROOT, MEDIA_URL, STATIC_URL, STATIC_ROOT, DEVELOPMENT
+from core.settings import MEDIA_ROOT, MEDIA_URL, STATIC_URL, STATIC_ROOT
+from core.settings import DEVELOPMENT, PREVIEW
 
     
 def redirect_root(request):
@@ -80,7 +81,7 @@ urlpatterns = [
     path('callback/',        callback, name='callback'),
 ]
 
-if DEVELOPMENT:
+if DEVELOPMENT or PREVIEW:
     urlpatterns += [
         # redirect root to admin
         path("", lambda request: HttpResponseRedirect("/admin/")),
