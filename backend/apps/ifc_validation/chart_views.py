@@ -245,12 +245,42 @@ def _rolling_labels(period: str, window: int, today: datetime.date | None = None
                 current_year -= 1
         return labels
     
-    month_cursor = today.replace(day=1) 
+    month_cursor = today.replace(day=1)
     labels = []
     for _ in range(window):
         labels.insert(0, MONTHS[month_cursor.month - 1])
         month_cursor = (month_cursor - datetime.timedelta(days=1)).replace(day=1)
     return labels
+
+
+def _window_start(period: str, window: int, today: datetime.date | None = None) -> datetime.date:
+    """
+    Earliest date included in the last <window> periods ending at <today>.
+
+    Mirrors _rolling_labels() so aggregate (non-time-series) charts honour the
+    same rolling window as the grouped charts. Returns a date suitable for a
+    ``created__date__gte=`` filter.
+    """
+    today = today or datetime.date.today()
+
+    if period == "day":
+        return today - datetime.timedelta(days=window - 1)
+
+    if period == "week":
+        # Monday of the current ISO week, then step back (window - 1) weeks.
+        week_start = today - datetime.timedelta(days=today.weekday())
+        return week_start - datetime.timedelta(weeks=window - 1)
+
+    if period == "quarter":
+        # 0-based absolute quarter index, stepped back (window - 1) quarters.
+        abs_quarter = today.year * 4 + (today.month - 1) // 3 - (window - 1)
+        start_year, start_q = divmod(abs_quarter, 4)
+        return datetime.date(start_year, start_q * 3 + 1, 1)
+
+    # month (default)
+    abs_month = today.year * 12 + (today.month - 1) - (window - 1)
+    start_year, start_month = divmod(abs_month, 12)
+    return datetime.date(start_year, start_month + 1, 1)
 
 
 def _top_tools_chart_response(qs, period, year, title_prefix):
@@ -785,12 +815,15 @@ def get_duration_per_task_chart(request, year):
 @staff_member_required
 def get_processing_status_chart(request, year):
     period = get_period(request)
+    window = get_window(request)
 
     if period == "total":
         qs = ValidationRequest.objects.all()
         title = "Processing success rate (Total)"
     else:
         qs = ValidationRequest.objects.filter(created__year=year)
+        if window:
+            qs = qs.filter(created__date__gte=_window_start(period, window))
         title = f"Processing success rate in {year}"
 
     completed = qs.filter(status="COMPLETED").count()
@@ -1287,10 +1320,13 @@ def get_models_by_vendor_chart(request, year):
 @staff_member_required
 def get_top_tools_chart(request, year):
     period = get_period(request)
+    window = get_window(request)
 
     qs = Model.objects.filter(produced_by__isnull=False)
     if period != "total":
         qs = qs.filter(created__year=year)
+        if window:
+            qs = qs.filter(created__date__gte=_window_start(period, window))
 
     agg = (
         qs.values("produced_by")
@@ -1375,6 +1411,7 @@ def get_tools_count_chart(request, year):
 @staff_member_required
 def get_top_tools_ifc2x3_chart(request, year):
     period = get_period(request)
+    window = get_window(request)
 
     qs = Model.objects.filter(
         produced_by__isnull=False,
@@ -1382,6 +1419,8 @@ def get_top_tools_ifc2x3_chart(request, year):
     )
     if period != "total":
         qs = qs.filter(created__year=year)
+        if window:
+            qs = qs.filter(created__date__gte=_window_start(period, window))
 
     return _top_tools_chart_response(
         qs,
@@ -1394,6 +1433,7 @@ def get_top_tools_ifc2x3_chart(request, year):
 @staff_member_required
 def get_top_tools_ifc4_chart(request, year):
     period = get_period(request)
+    window = get_window(request)
 
     qs = Model.objects.filter(
         produced_by__isnull=False,
@@ -1401,6 +1441,8 @@ def get_top_tools_ifc4_chart(request, year):
     )
     if period != "total":
         qs = qs.filter(created__year=year)
+        if window:
+            qs = qs.filter(created__date__gte=_window_start(period, window))
 
     return _top_tools_chart_response(
         qs,
@@ -1413,6 +1455,7 @@ def get_top_tools_ifc4_chart(request, year):
 @staff_member_required
 def get_top_tools_ifc4x3_chart(request, year):
     period = get_period(request)
+    window = get_window(request)
 
     qs = Model.objects.filter(
         produced_by__isnull=False,
@@ -1420,6 +1463,8 @@ def get_top_tools_ifc4x3_chart(request, year):
     )
     if period != "total":
         qs = qs.filter(created__year=year)
+        if window:
+            qs = qs.filter(created__date__gte=_window_start(period, window))
 
     return _top_tools_chart_response(
         qs,
