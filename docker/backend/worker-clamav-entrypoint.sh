@@ -18,7 +18,12 @@ do
 done
 echo "DB is ready."
 
-CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
-echo "Celery concurrency: $CELERY_CONCURRENCY"
+# start clamav update & daemon
+freshclam
+service clamav-freshclam start
+service clamav-daemon start
 
-celery --app=core worker -Q celery --loglevel=info --concurrency $CELERY_CONCURRENCY --task-events --hostname=worker@%n
+CELERY_AV_CONCURRENCY=${CELERY_AV_CONCURRENCY:-2} # default 2 worker processes
+echo "Celery concurrency: $CELERY_AV_CONCURRENCY"
+
+celery --app=core worker -Q antivirus --loglevel=info --concurrency $CELERY_AV_CONCURRENCY --task-events --hostname=worker-av@%n
