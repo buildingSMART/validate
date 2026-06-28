@@ -87,6 +87,11 @@ RUN set -ex && \
 COPY --from=build /app /app
 COPY --from=build /opt/venv /opt/venv
 
+# bake clamav config into the image so it's present on every Swarm node
+# (replaces the runtime bind-mounts, which don't exist on remote worker nodes)
+ADD --chmod=644 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
+ADD --chmod=644 ./docker/backend/clamav/freshclam.conf /etc/clamav/freshclam.conf
+
 # activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"

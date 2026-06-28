@@ -85,8 +85,6 @@ services:
         env_file: ${ENV_FILE}
         volumes:
             - files_data:/files_storage
-            - ./docker/backend/clamav/clamd.conf:/etc/clamav/clamd.conf:ro
-            - ./docker/backend/clamav/freshclam.conf:/etc/clamav/freshclam.conf:ro
             - clamav_data:/var/lib/clamav # persist databa
         networks:
             - validate
