@@ -29,3 +29,9 @@ class StatusCombineTests(SimpleTestCase):
 
     def test_allow_not_executed_keeps_n_when_all_n(self):
         self.assertEqual(status_combine('n', 'n', allow_not_executed=True), 'n')
+
+    def test_not_validated_outranks_valid_when_not_stripped(self):
+        # without allow_not_executed, a pending/not-validated 'n' must beat a sibling 'v'
+        # (n=3 > v=2 in "-pvnwi") so schema/rules never show green while a check is pending
+        self.assertEqual(status_combine('n', 'v'), 'n')
+        self.assertEqual(status_combine('v', 'n'), 'n')
