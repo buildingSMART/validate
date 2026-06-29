@@ -228,11 +228,9 @@ def task_factory(task_type, queue='celery'):
             logger.debug(reason)
             task.mark_as_skipped(reason)
 
-        # Update progress only after the task's work has actually finished, so the
-        # request never reports 100% while a long-running task (e.g. instance
-        # completion) is still executing (IVS-673). Failed tasks return early above
-        # and intentionally don't advance progress. Use an atomic DB-side update
-        # because parallel-stage tasks increment progress concurrently.
+        # Advance progress only after the work is done, so a request never shows
+        # 100% while a long-running task (e.g. instance completion) is still running.
+        # Failed tasks returned early above. Atomic: parallel tasks increment together.
         ValidationRequest.objects.filter(pk=id).update(
             progress=Least(F("progress") + config.increment, Value(100))
         )

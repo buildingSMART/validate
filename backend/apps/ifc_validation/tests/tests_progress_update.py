@@ -23,11 +23,8 @@ def _noop_lock(*args, **kwargs):
 
 @mock.patch.object(task_runner, "acquire_user_lock", _noop_lock)
 class ProgressUpdateTaskTestCase(TransactionTestCase):
-    """
-    Regression tests for IVS-673: the request must not report 100% (or advance
-    its progress at all) while a subtask is still executing. Progress should only
-    advance *after* a task's execution + processing layers have finished.
-    """
+    """Progress must advance only after a subtask's work finishes, so a request
+    never reports 100% while a task is still running."""
 
     TASK_TYPE = ValidationTask.Type.SCHEMA  # increment = 10
 
@@ -71,12 +68,12 @@ class ProgressUpdateTaskTestCase(TransactionTestCase):
              mock.patch.object(self.config, "process_results", side_effect=fake_process):
             self._run(request)
 
-        # While the task body executed, progress had NOT advanced yet (the IVS-673 bug
-        # was that it had already been bumped before the work ran).
+        # During the task body, progress must not have advanced (the bug: it was
+        # bumped before the work ran).
         self.assertEqual(seen["during_check"], 0)
         self.assertEqual(seen["during_process"], 0)
 
-        # Only once the task finished does progress advance by the configured increment.
+        # It advances by the increment only after the task finishes.
         request.refresh_from_db()
         self.assertEqual(request.progress, self.increment)
 
