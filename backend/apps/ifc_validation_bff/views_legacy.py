@@ -166,7 +166,10 @@ def format_request(request : ValidationRequest):
         "status_syntax": status_combine(
             "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
             "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax,
-            allow_not_executed=True
+            # Only strip a not-executed 'n' once the run is COMPLETED (legacy files
+            # where header_syntax never ran). Mid-run, header_syntax finishes before
+            # syntax, so stripping the pending syntax 'n' would flash green before red.
+            allow_not_executed=(request.status == ValidationRequest.Status.COMPLETED)
         ),
         "status_schema": status_combine(
             "p" if (request.model is None or request.model.status_schema_calculated is None) else request.model.status_schema_calculated,
