@@ -142,3 +142,102 @@ class NoPrematureGreenTestCase(TestCase):
         m.status_syntax = St.NOT_VALIDATED
         m.save()
         self.assertEqual(ui_syntax(m, completed=True), St.NOT_VALIDATED)
+
+
+# ---- gate-aware replicas of the FIXED BFF cells (views_legacy.py _pending_n_to_p) ----
+# A not-yet-run check resolves to 'n' once the Model exists; while the request is NOT in a
+# terminal state it must show the pending hourglass ('p'), not grey. Gate on request.status,
+# NOT progress (progress hits 100 one task before status==COMPLETED — the t3' window).
+VR = ValidationRequest.Status
+_TERMINAL = (VR.COMPLETED, VR.FAILED)
+
+
+def _gate(status, req_status):
+    return 'p' if (status == St.NOT_VALIDATED and req_status not in _TERMINAL) else status
+
+
+def ui_schema_cell(m, req_status):   # gate AFTER combine, so a real 'i'/'w' is never hidden
+    return _gate(ui_schema(m), req_status)
+
+
+def ui_rules_cell(m, req_status):
+    return _gate(ui_rules(m), req_status)
+
+
+def ui_header_cell(m, req_status):
+    return _gate("p" if m.status_header is None else m.status_header, req_status)
+
+
+class PendingNotValidatedGateTestCase(NoPrematureGreenTestCase):
+    """IVS-820 follow-up: a not-yet-run check must show the pending hourglass ('p'),
+    not grey 'n', until the *request* reaches a terminal state (COMPLETED/FAILED).
+    Gates on request.status, NOT progress, because progress hits 100 one task before
+    status flips to COMPLETED (the t3' window)."""
+
+    # ----- SCHEMA cell -----
+    def test_schema_inprogress_notrun_shows_hourglass(self):
+        m = self._model()
+        m.status_prereq = St.VALID; m.save()
+        self._task(T.SCHEMA, [])
+        self.assertEqual(ui_schema_cell(self._fresh(m), VR.INITIATED), 'p')
+
+    def test_schema_t3prime_progress100_status_initiated_shows_hourglass(self):
+        # t3': progress==100 but status still INITIATED -> must NOT flash grey
+        m = self._model()
+        m.status_prereq = St.VALID; m.save()
+        self._task(T.SCHEMA, [])
+        self.req.progress = 100; self.req.status = VR.INITIATED; self.req.save()
+        self.assertEqual(ui_schema_cell(self._fresh(m), VR.INITIATED), 'p')
+
+    def test_schema_completed_skipped_stays_not_validated(self):
+        m = self._model()
+        m.status_prereq = St.VALID; m.save()
+        self._task(T.SCHEMA, [])
+        self.assertEqual(ui_schema_cell(self._fresh(m), VR.COMPLETED), St.NOT_VALIDATED)
+
+    def test_schema_completed_passed_is_green(self):
+        m = self._model()
+        m.status_prereq = St.VALID; m.save()
+        self._task(T.SCHEMA, [S.PASSED])
+        self.assertEqual(ui_schema_cell(self._fresh(m), VR.COMPLETED), St.VALID)
+
+    def test_schema_invalid_is_red_even_inprogress(self):
+        m = self._model()
+        m.status_prereq = St.VALID; m.save()
+        self._task(T.SCHEMA, [S.PASSED, S.ERROR])
+        self.assertEqual(ui_schema_cell(self._fresh(m), VR.INITIATED), St.INVALID)
+
+    # ----- RULES cell: the warning-hiding regression guard -----
+    def test_rules_inprogress_one_pending_shows_hourglass(self):
+        m = self._model()
+        self._task(T.NORMATIVE_IA, [S.PASSED])
+        self._task(T.NORMATIVE_IP, [])
+        self.assertEqual(ui_rules_cell(self._fresh(m), VR.INITIATED), 'p')
+
+    def test_rules_warning_sibling_not_hidden_by_gate(self):
+        # IA WARNING done, IP not run, mid-run: warning must STILL show ('w'), not be
+        # swallowed into 'p'. This is why the gate is applied AFTER status_combine.
+        m = self._model()
+        self._task(T.NORMATIVE_IA, [S.PASSED, S.WARNING])
+        self._task(T.NORMATIVE_IP, [])
+        self.assertEqual(ui_rules_cell(self._fresh(m), VR.INITIATED), St.WARNING)
+
+    def test_rules_completed_both_skipped_stays_not_validated(self):
+        m = self._model()
+        self._task(T.NORMATIVE_IA, [])
+        self._task(T.NORMATIVE_IP, [])
+        self.assertEqual(ui_rules_cell(self._fresh(m), VR.COMPLETED), St.NOT_VALIDATED)
+
+    # ----- single-task raw cell (header) -----
+    def test_header_inprogress_default_shows_hourglass(self):
+        m = self._model()
+        self.assertEqual(ui_header_cell(self._fresh(m), VR.INITIATED), 'p')
+
+    def test_header_completed_default_stays_not_validated(self):
+        m = self._model()
+        self.assertEqual(ui_header_cell(self._fresh(m), VR.COMPLETED), St.NOT_VALIDATED)
+
+    def test_header_failed_run_not_eternal_hourglass(self):
+        # FAILED is terminal -> not-run cells settle to grey, never stuck on hourglass
+        m = self._model()
+        self.assertEqual(ui_header_cell(self._fresh(m), VR.FAILED), St.NOT_VALIDATED)
