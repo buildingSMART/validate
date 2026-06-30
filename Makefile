@@ -178,8 +178,8 @@ clean-all:
 
 fetch-modules:
 	git submodule update --init --recursive
-	git submodule foreach git clean -f .
-	git submodule foreach git reset --hard
+	git submodule foreach --recursive 'git reset --hard'
+	git submodule foreach --recursive 'git clean -ffd'
 	git submodule update --remote --recursive
 
 # runs end-to-end tests against a local instance of the Validation Service DB
