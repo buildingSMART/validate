@@ -159,8 +159,19 @@ def on_workflow_failed(self, *args, **kwargs):
 
     # update status
     id = args[1]
-    reason = f"Processing failed: args={args} kwargs={kwargs}"
     request = ValidationRequest.objects.get(pk=id)
+
+    # Both error callbacks can fire for one failure; skip if already finalized so the
+    # failure emails aren't sent twice.
+    if request.status == ValidationRequest.Status.FAILED:
+        logger.debug(f"Request {id} already marked FAILED; skipping duplicate failure handling.")
+        return
+
+    # Record a readable reason rather than the raw celery args/kwargs (full detail is logged above).
+    exc = next((a for a in args if isinstance(a, BaseException)), None)
+    reason = "Validation failed before any check could run (workflow-level error)."
+    if exc:
+        reason += f" Error: {exc}"
     request.mark_as_failed(reason)
 
     # queue sending email
