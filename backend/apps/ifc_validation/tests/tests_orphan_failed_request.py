@@ -1,16 +1,13 @@
 """
-IVS-750 "failing request without relating task" -- option B (the minimal/elegant fix).
+Workflow-level failure handling in on_workflow_failed.
 
-This variant does NOT fabricate a synthetic task. Instead it fixes the two real
-defects in on_workflow_failed:
-  1. it could fire twice (error_handler via link_error AND chord_error_handler via
-     chord on_error), double-sending the failure emails -> add an idempotency guard;
-  2. it dumped raw celery args/kwargs into status_reason -> replace with a clean,
-     human-readable reason (full detail stays in the logs).
+Fixes two defects without fabricating a synthetic task:
+  1. it could fire twice (link_error + chord on_error), double-sending failure
+     emails -> idempotency guard;
+  2. it dumped raw celery args/kwargs into status_reason -> readable reason instead.
 
-Note: under option B the orphaned request still has NO ValidationTask
-(request.tasks.count() == 0). That is intentional for B -- it explains the failure
-on the request itself rather than inventing a task that never ran.
+The failed request keeps zero tasks by design: the failure is explained on the
+request itself rather than by inventing a task that never ran.
 """
 
 from unittest.mock import patch
