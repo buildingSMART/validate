@@ -156,8 +156,21 @@ def on_workflow_failed(self, *args, **kwargs):
 
     # update status
     id = args[1]
-    reason = f"Processing failed: args={args} kwargs={kwargs}"
     request = ValidationRequest.objects.get(pk=id)
+
+    # Idempotency (IVS-750): both error_handler (link_error) and chord_error_handler
+    # (chord on_error) can fire for the same failure. If already finalized, do nothing
+    # so we don't re-send the failure emails.
+    if request.status == ValidationRequest.Status.FAILED:
+        logger.debug(f"Request {id} already marked FAILED; skipping duplicate failure handling.")
+        return
+
+    # IVS-750: record a clear, human-readable reason instead of dumping raw celery
+    # args/kwargs into status_reason. Full detail stays in the logs (logger.debug above).
+    exc = next((a for a in args if isinstance(a, BaseException)), None)
+    reason = "Validation failed before any check could run (workflow-level error)."
+    if exc:
+        reason += f" Error: {exc}"
     request.mark_as_failed(reason)
 
     # queue sending email
