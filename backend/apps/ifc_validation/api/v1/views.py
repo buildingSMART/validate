@@ -1,9 +1,12 @@
 import traceback
 import sys
 import logging
+import os
 import re
 
 from django.db import transaction
+from django.http import HttpResponse
+from django.utils.http import content_disposition_header
 from core.utils import get_client_ip_address
 from core.settings import MAX_FILES_PER_UPLOAD
 
@@ -18,6 +21,7 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.decorators import throttle_classes
 from drf_spectacular.utils import extend_schema
+from drf_spectacular.types import OpenApiTypes
 
 from apps.ifc_validation_models.models import set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
@@ -92,6 +96,56 @@ class ValidationRequestDetailAPIView(APIView):
         else:
             data = {'detail': f"Validation Request with public_id={id} does not exist."}
             return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+
+@extend_schema(tags=['Validation Request'])
+class ValidationRequestBcfAPIView(APIView):
+
+    queryset = ValidationRequest.objects.all()
+    permission_classes = [IsAuthenticated]
+    serializer_class = ValidationRequestSerializer
+    throttle_classes = [UserRateThrottle]
+
+    @extend_schema(
+        operation_id='validationrequest_bcf',
+        responses={
+            (200, 'application/zip'): OpenApiTypes.BINARY,
+            404: None,
+            501: None,
+        }
+    )
+    def get(self, request, id, *args, **kwargs):
+
+        """
+        Downloads the Validation Outcomes of a Validation Request as a BCF 2.1 file (experimental).
+        Only outcomes with severity Error or Warning are included, capped per rule like the report UI.
+        """
+
+        logger.info('API request v%s - User IP: %s Request Method: %s Request URL: %s Content-Length: %s' % (self.request.version, get_client_ip_address(request), request.method, request.path, request.META.get('CONTENT_LENGTH')))
+
+        instance = ValidationRequest.objects.filter(created_by__id=request.user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+        if not instance:
+            data = {'detail': f"Validation Request with public_id={id} does not exist for user with id={request.user.id}."}
+            return Response(data, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            import bcf  # noqa: F401 - fail early with a clear message when not installed
+            from apps.ifc_validation.bcf_export import generate_bcf_download
+        except ImportError:
+            data = {'detail': "BCF export is not available on this server."}
+            return Response(data, status=status.HTTP_501_NOT_IMPLEMENTED)
+
+        try:
+            content, _ = generate_bcf_download(instance)
+        except Exception:
+            logger.exception(f'BCF generation failed for request {id}')
+            data = {'detail': "BCF generation failed."}
+            return Response(data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        file_name = os.path.splitext(instance.file_name)[0]
+        response = HttpResponse(content, content_type='application/zip')
+        response['Content-Disposition'] = content_disposition_header(as_attachment=True, filename=f'{file_name}.bcf')
+        return response
 
 
 @extend_schema(tags=['Validation Request'])

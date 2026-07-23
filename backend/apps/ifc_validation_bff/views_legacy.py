@@ -14,6 +14,7 @@ import glob
 from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNotFound, HttpResponseNotAllowed
+from django.utils.http import content_disposition_header
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
@@ -660,6 +661,44 @@ def report(request, id: str):
     response = JsonResponse(response_data)
     logger.info('JSON done.')
 
+    return response
+
+
+@ensure_csrf_cookie
+def report_bcf(request, id: str):
+
+    if request.method != "GET":
+        logger.error(f'Received invalid request: {request}')
+        return HttpResponseNotAllowed(['GET'])
+
+    # fetch current user
+    user = get_current_user(request)
+    if not user:
+        return create_redirect_response(login=True)
+
+    # return 404-NotFound if report is not for current user or if it is deleted
+    validation_request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+    if not validation_request:
+        return HttpResponseNotFound()
+
+    try:
+        import bcf  # noqa: F401 - fail early with a clear message when not installed
+        from apps.ifc_validation.bcf_export import generate_bcf_download
+    except ImportError:
+        logger.error('BCF export requested but the bcf-client package is not installed.')
+        return HttpResponse(status=501, content='BCF export is not available on this server.')
+
+    logger.info(f'Generating BCF for request {id}...')
+    try:
+        content, _ = generate_bcf_download(validation_request)
+    except Exception:
+        logger.exception(f'BCF generation failed for request {id}')
+        return HttpResponse(status=500, content='BCF generation failed.')
+    logger.info('BCF done.')
+
+    file_name = os.path.splitext(validation_request.file_name)[0]
+    response = HttpResponse(content, content_type='application/zip')
+    response['Content-Disposition'] = content_disposition_header(as_attachment=True, filename=f'{file_name}.bcf')
     return response
 
 
