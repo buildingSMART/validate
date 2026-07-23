@@ -40,6 +40,9 @@ RUN --mount=type=cache,target=/root/.cache \
     wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip" && \
     mkdir -p /opt/venv/lib/python3.11/site-packages  && \
     unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+    # BCF export - install with --no-deps so pip doesn't install ifcopenshell over the build above
+    pip install --no-cache-dir --no-deps bcf-client==0.8.5 && \
+    pip install --no-cache-dir xsdata==26.2 && \
     # some cleanup
     find /         -type d -name setuptools   -prune -exec rm -rf {} \; && \
     find /         -type d -name pip          -prune -exec rm -rf {} \; && \

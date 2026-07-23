@@ -14,6 +14,8 @@ import FeedbackWidget from './FeedbackWidget';
 import SelfDeclarationDialog from './SelfDeclarationDialog';
 
 import SearchOffOutlinedIcon from '@mui/icons-material/SearchOffOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import Button from '@mui/material/Button';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
@@ -168,7 +170,19 @@ function Report({ kind }) {
 
                         <GeneralTable data={reportData} type={kind} />
 
-                        {(kind === "syntax") && <SyntaxResult 
+                        {(kind !== "file") && <Button
+                          variant="text"
+                          startIcon={<FileDownloadOutlinedIcon />}
+                          href={`${FETCH_PATH}/api/report/${modelCode}/bcf`}
+                          sx={{
+                            alignSelf: 'flex-start',
+                            textTransform: 'none',
+                            color: 'primary.main',
+                            '&:hover': { textDecoration: 'underline', backgroundColor: 'transparent' }
+                          }}
+                        >Download BCF (experimental)</Button>}
+
+                        {(kind === "syntax") && <SyntaxResult
                           status={reportData.model.status_syntax} 
                           summary={"STEP Syntax"} 
                           content={reportData.results.syntax_results} />}

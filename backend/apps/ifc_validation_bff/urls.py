@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views_legacy import get_allowlist, me, logout_view, models_paginated, upload, delete
-from .views_legacy import report, report_error
+from .views_legacy import report, report_bcf, report_error
 
 urlpatterns = [
 
@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/',                                                upload),
     path('api/delete/<str:ids>',                                delete),
     path('api/report/<str:id>',                                 report),
+    path('api/report/<str:id>/bcf',                             report_bcf),
     path('api/report_error',                                    report_error),
     path('api/allowlist',                                       get_allowlist),
 

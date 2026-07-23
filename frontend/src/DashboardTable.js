@@ -24,6 +24,7 @@ import BrowserNotSupportedIcon from '@mui/icons-material/BrowserNotSupported';
 import WarningIcon from '@mui/icons-material/Warning';
 import HourglassBottomIcon from '@mui/icons-material/HourglassBottom';
 import BlockIcon from '@mui/icons-material/Block';
+import bcfIcon from './bcf-icon.png';
 import Link from '@mui/material/Link';
 import Button from '@mui/material/Button';
 
@@ -413,6 +414,17 @@ export default function DashboardTable({ models }) {
                     {row.status_signatures === 'i' && <IconButton component={Link} href={`/report_file/${row.code}#signatures`}>
                       <MailLockIcon color="error" />
                     </IconButton>}
+                    {!context.sandboxId && row.progress >= 100 &&
+                    <Tooltip title="Download BCF (experimental)">
+                      <IconButton
+                        size="small"
+                        component="a"
+                        href={`${FETCH_PATH}/api/report/${row.code}/bcf`}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <img src={bcfIcon} alt="Download BCF" style={{ width: 20, height: 20 }} />
+                      </IconButton>
+                    </Tooltip>}
                 </TableCell>
                   <TableCell align="center">
                     {wrap_status(row.status_syntax, context.sandboxId ? `/sandbox/report_syntax/${context.sandboxId}/${row.code}` : `/report_syntax/${row.code}`)}

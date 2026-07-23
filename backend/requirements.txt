@@ -47,6 +47,8 @@ python-ranges==1.2.2
 pyproj==3.7.1
 python-dateutil==2.9.0.post0
 filetype==1.2.0
+# NB: bcf-client (BCF export) is installed with --no-deps in the Dockerfile and CI workflows,
+# because pip would otherwise pull PyPI ifcopenshell over the pinned S3 build
 
 # dev
 django-debug-toolbar==6.0.0

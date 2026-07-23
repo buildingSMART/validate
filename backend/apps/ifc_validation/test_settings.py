@@ -23,4 +23,5 @@ DATABASES_ALL = {
 DATABASES = {"default": DATABASES_ALL[os.environ.get("TEST_DJANGO_DB", DB_SQLITE)]}
 
 MEDIA_ROOT = "./apps/ifc_validation/fixtures"
+MAX_OUTCOMES_PER_RULE = 10
 USE_TZ = True
