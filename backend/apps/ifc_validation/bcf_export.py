@@ -1,16 +1,13 @@
 """
-Experimental export of Validation Outcomes to BCF 2.1 (BIM Collaboration Format).
+Export of utcomes to BCF 2.1
 
 One BCF topic is created per error/warning outcome, mirroring what the report UI
 shows: outcomes are grouped per rule/constraint and capped at MAX_OUTCOMES_PER_RULE
 per group (with the total count mentioned in the topic description when capped).
 
-Where the offending entity has an IFC GlobalId (stored in ModelInstance.fields by
-the instance completion task), the topic gets a viewpoint selecting that element.
+Where the offending entity has an guid, the topic gets a viewpoint selecting that element.
 For non-rooted entities (e.g. IfcPolyline) the nearest parent IfcProduct is looked
 up in the IFC file, when it is still available on disk.
-
-Requires the 'bcf-client' package (https://pypi.org/project/bcf-client/).
 """
 import json
 import logging
@@ -148,7 +145,7 @@ def _open_ifc_file(ifc_path):
 
 def generate_bcf(request: ValidationRequest, output_path: str, ifc_path: str = None) -> dict:
     """
-    Generates a BCF 2.1 file for all error/warning outcomes of a Validation Request.
+    Generates a BCF (2.1) file for all error/warning outcomes of a Request.
 
     Returns a stats dict: {'topics', 'with_viewpoint', 'via_parent', 'truncated_groups', 'skipped'}.
     """
