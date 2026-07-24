@@ -12,6 +12,7 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TablePagination from '@mui/material/TablePagination';
 import { statusToColor, severityToColor, severityToLabel, statusToLabel } from './mappings';
+import { Link } from "react-router-dom";
 
 function coerceToStr(v) {
   if (!v) {
@@ -158,7 +159,10 @@ export default function SchemaResult({ summary, count, content, status, instance
                                 <tr key={rowIndex}>
                                   <td>{instances[row.instance_id] ? instances[row.instance_id].guid : '-'}</td>
                                   <td>{instances[row.instance_id] ? instances[row.instance_id].type : '-'}</td>
-                                  <td>{severityToLabel[row.severity]}</td>
+                                  {row.allowlisted
+                                    ? <td><Link to="/allowlist">ⓘ Allowlisted</Link></td>
+                                    : <td>{severityToLabel[row.severity]}</td>
+                                  }
                                   <td>
                                     <span className='pre'>
                                       {featureDescription && row.expected && row.observed 

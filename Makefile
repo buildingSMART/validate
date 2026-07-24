@@ -56,6 +56,13 @@ redeploy-swarm:
 	$(MAKE) swarm-push ENV_FILE=$(ENV_FILE)
 	$(MAKE) start-swarm-nodb ENV_FILE=$(ENV_FILE)
 
+redeploy-swarm-local:
+	$(MAKE) stop-swarm
+	@echo "Waiting 15s for overlay network cleanup..."
+	sleep 15
+	$(MAKE) swarm-push ENV_FILE=$(ENV_FILE)
+	$(MAKE) start-swarm-local ENV_FILE=$(ENV_FILE)
+
 redeploy-frontend: rebuild-frontend
 	docker tag buildingsmart/validationsvc-frontend $(REGISTRY)/validationsvc-frontend
 	docker push $(REGISTRY)/validationsvc-frontend
@@ -83,7 +90,7 @@ swarm-status:
 	@echo "---"
 	@docker service ps validate_worker
 
-# Add a worker node to the Swarm cluster
+# Add a worker node to the Swarm cluster 
 # Usage: make add-worker NAME=dev-vm-worker-1 ENV_FILE=.env.DEV_SWARM
 # Reads SWARM_WORKER_N entries and SWARM_SSH_USER from ENV_FILE
 add-worker:
@@ -140,6 +147,7 @@ rebuild-frontend:
 rebuild-backend:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-backend:latest' | uniq) || true
 	docker compose build \
@@ -149,6 +157,7 @@ rebuild-backend:
 clean:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend:latest' | uniq) || true
@@ -159,6 +168,7 @@ clean:
 clean-all:
 	docker stop backend || true
 	docker stop worker || true
+	docker stop av_worker || true
 	docker stop scheduler || true
 	docker stop frontend || true
 	docker rmi --force $$(docker images -q 'buildingsmart/validationsvc-frontend' | uniq) || true
@@ -168,8 +178,8 @@ clean-all:
 
 fetch-modules:
 	git submodule update --init --recursive
-	git submodule foreach git clean -f .
-	git submodule foreach git reset --hard
+	git submodule foreach --recursive 'git reset --hard'
+	git submodule foreach --recursive 'git clean -ffd'
 	git submodule update --remote --recursive
 
 # runs end-to-end tests against a local instance of the Validation Service DB

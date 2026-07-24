@@ -55,7 +55,7 @@ function preprocessData(data, type) {
         </Tooltip>
         {validationErrors.includes(path) && (
           <a
-            href={`https://github.com/buildingSMART/IFC4.x-IF/tree/header-policy/docs/IFC-file-header#${path}`}
+            href={`https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header#${path}`}
             target="_blank"
             rel="noopener noreferrer"
           >

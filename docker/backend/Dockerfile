@@ -37,7 +37,7 @@ RUN --mount=type=cache,target=/root/.cache \
     find /app/backend -name 'requirements.txt' -exec pip install --no-cache-dir -r {} \; && \
     # use version of ifcopenshell with desired schema parsing
     # TODO: revert to pyPI when schema parsing is published in the future
-    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-a51b2c5-linux64.zip" && \
+    wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip" && \
     mkdir -p /opt/venv/lib/python3.11/site-packages  && \
     unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
     # some cleanup
@@ -53,9 +53,7 @@ RUN --mount=type=cache,target=/root/.cache \
 ADD --chmod=777 ./docker/backend/server-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-entrypoint.sh /app/backend
 ADD --chmod=777 ./docker/backend/worker-beat-entrypoint.sh /app/backend
-
-# copy clamav config
-ADD --chmod=777 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
+ADD --chmod=777 ./docker/backend/worker-clamav-entrypoint.sh /app/backend
 
 # RUN image
 # NOTE: don't use Alpine images...
@@ -88,6 +86,11 @@ RUN set -ex && \
 # copy output from build image
 COPY --from=build /app /app
 COPY --from=build /opt/venv /opt/venv
+
+# bake clamav config into the image so it's present on every Swarm node
+# (replaces the runtime bind-mounts, which don't exist on remote worker nodes)
+ADD --chmod=644 ./docker/backend/clamav/clamd.conf /etc/clamav/clamd.conf
+ADD --chmod=644 ./docker/backend/clamav/freshclam.conf /etc/clamav/freshclam.conf
 
 # activate virtual environment
 ENV VIRTUAL_ENV=/opt/venv \

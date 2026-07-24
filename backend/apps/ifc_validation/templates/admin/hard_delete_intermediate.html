@@ -23,7 +23,7 @@
     <p>
       {{ val_request }}
     </p>
-    <input type="hidden" name="_selected_action" value="{{ val_request.pk }}" />
+    <input type="hidden" name="_selected_action" value="{{ val_request.pk|cut:"," }}" />
   {% endfor %}
 
   <input type="hidden" name="action" value="hard_delete_action" />

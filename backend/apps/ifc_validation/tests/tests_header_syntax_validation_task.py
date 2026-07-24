@@ -96,8 +96,8 @@ class SyntaxValidationTaskTestCase(TransactionTestCase):
                 'output': Model.Status.INVALID
             },
             {
-                'input': [], 
-                'output': Model.Status.VALID
+                'input': [],
+                'output': Model.Status.NOT_VALIDATED
             }
         ]
 

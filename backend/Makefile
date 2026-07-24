@@ -14,25 +14,25 @@ venv:
 install: venv
 	$(PIP) install --upgrade pip
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-a51b2c5-linux64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -f -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-1c5b825-macos64.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macos64.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 install-macos-m1: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
-	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.5-7bdc1b6-macosm164.zip"
+	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macosm164.zip"
 	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip /tmp/ifcopenshell_python.zip -d $(VIRTUAL_ENV)/lib/python3.11/site-packages
+	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
 
 fetch-modules:
@@ -47,26 +47,26 @@ start-backend:
 	$(PYTHON) manage.py runserver
 
 start-worker:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
 
 start-worker-with-scheduler:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
 start-worker2:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
 
 start-worker3:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
 
 start-worker4:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
 
 .PHONY: stop-worker
 stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine test-management-commands
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -88,6 +88,12 @@ test-magic-and-av-task:
 
 test-file-retention-task:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_file_retention_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-status-combine:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-management-commands:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-utils:
 	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3

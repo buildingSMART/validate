@@ -33,13 +33,13 @@ SECRET_KEY = os.environ.get(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = ast.literal_eval(os.environ.get("DEBUG", 'False'))
 DEVELOPMENT = os.environ.get('ENV', 'PROD').upper() in ('DEV', 'DEVELOP', 'DEVELOPMENT')
-STAGING = os.environ.get('ENV', 'PROD').upper() in ('STAGE', 'STAGING', 'QA')
+PREVIEW = os.environ.get('ENV', 'PROD').upper() in ('PREV', 'PREVIEW', 'STAGE', 'STAGING', 'QA')
 PRODUCTION = os.environ.get('ENV', 'PROD').upper() in ('PROD', 'PRODUCTION', 'PRD')
-ENVIRONMENT = 'DEVELOPMENT' if DEVELOPMENT else 'STAGING' if STAGING else 'PRODUCTION'
+ENVIRONMENT = 'DEVELOPMENT' if DEVELOPMENT else 'PREVIEW' if PREVIEW else 'PRODUCTION'
 PUBLIC_URL = os.getenv('PUBLIC_URL').strip('/') if os.getenv('PUBLIC_URL') is not None else None
 
 # URL for rule hyperlinks; determine the branch based on the environment
-FEATURE_BRANCH = "development" if DEVELOPMENT else "main"
+FEATURE_BRANCH = 'development' if DEVELOPMENT else 'preview' if PREVIEW else 'main'
 FEATURE_URL = os.getenv(
     "FEATURE_URL", f"https://buildingsmart.github.io/ifc-gherkin-rules/branches/{FEATURE_BRANCH}/features/"
 )
@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     "django_cleanup.apps.CleanupConfig"  # to automatically remove unlinked files
 ]
 
-if DEVELOPMENT:
+if DEVELOPMENT or PREVIEW:
     INSTALLED_APPS += [
         "debug_toolbar",
     ]
@@ -99,7 +99,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-if DEVELOPMENT:
+if DEVELOPMENT or PREVIEW:
     MIDDLEWARE += [
         "debug_toolbar.middleware.DebugToolbarMiddleware",
     ]

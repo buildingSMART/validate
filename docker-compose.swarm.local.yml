@@ -3,6 +3,10 @@
 # Usage:
 #   docker stack deploy -c docker-compose.swarm.yml -c docker-compose.swarm.local.yml validate
 #
+# Prerequisites:
+#   - docker swarm init
+#   - Local registry: docker service create --name registry --publish 5000:5000 registry:2
+#
 # For production/NFS testing, use docker-compose.swarm.yml directly.
 
 services:
@@ -28,8 +32,7 @@ services:
           echo "Waiting for DB..."
           sleep 5
         done
-        echo "DB is ready. Starting worker (no ClamAV)."
-        rm -f /usr/bin/clamdscan /usr/bin/clamscan 2>/dev/null || true
+        echo "DB is ready. Starting worker."
         CELERY_CONCURRENCY=$${CELERY_CONCURRENCY:-4}
         echo "Celery concurrency: $$CELERY_CONCURRENCY"
         celery --app=core worker --loglevel=info --concurrency $$CELERY_CONCURRENCY --task-events --hostname=worker@%n
@@ -43,6 +46,27 @@ services:
           cpus: "0.5"
           memory: 512M
 
+  av_worker:
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        until cd /files_storage; do echo "Waiting for files_storage..."; done
+        until cd /app/backend; do echo "Waiting for server volume..."; done
+        while ! pg_isready -h "$$POSTGRES_HOST" -p "$$POSTGRES_PORT" -d "$$POSTGRES_NAME" -U "$$POSTGRES_USER" 2>/dev/null; do
+          echo "Waiting for DB..."
+          sleep 5
+        done
+        echo "DB is ready. Starting AV."
+        freshclam
+        service clamav-freshclam start
+        service clamav-daemon start
+        CELERY_AV_CONCURRENCY=${CELERY_AV_CONCURRENCY:-2}
+        celery --app=core worker -Q antivirus --loglevel=info --concurrency $$CELERY_AV_CONCURRENCY --task-events --hostname=worker-av@%n
+
+
+
   scheduler:
     entrypoint: /bin/sh
     command:
@@ -55,8 +79,7 @@ services:
           echo "Waiting for DB..."
           sleep 5
         done
-        echo "DB is ready. Starting scheduler (no ClamAV)."
-        rm -f /usr/bin/clamdscan /usr/bin/clamscan 2>/dev/null || true
+        echo "DB is ready. Starting scheduler."
         CELERY_CONCURRENCY=$${CELERY_CONCURRENCY:-4}
         celery --app=core worker --beat --loglevel=info --concurrency $$CELERY_CONCURRENCY --task-events --hostname=worker-beat@%n
 
