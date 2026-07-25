@@ -135,9 +135,6 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
   
-      - name: Install sshpass
-        run: sudo apt-get install sshpass
-        
       - name: Set VERSION and deploy
         run: |
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
