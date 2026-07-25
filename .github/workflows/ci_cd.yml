@@ -1,13 +1,13 @@
-name: Build & Deploy (CI/CD - DEV)
+name: Build & Deploy (CI/CD - PREVIEW)
 
 concurrency:
-  group: deploy-development
+  group: deploy-preview
   cancel-in-progress: false
 
 on:
   push:
     branches:
-      - development
+      - preview
     paths-ignore:
       - 'README.md'
       - '.github/workflows/playwright.yml'
@@ -125,7 +125,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
-      name: development
+      name: preview
      
     steps:
       - name: Set up SSH key
