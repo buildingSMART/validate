@@ -11,6 +11,7 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github/workflows/playwright.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: lts/*
                 
       - name: Install npm packages
         run: |
