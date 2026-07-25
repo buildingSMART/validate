@@ -1,7 +1,7 @@
 name: Build & Deploy (CI/CD - PREVIEW)
 
 concurrency:
-  group: deploy-preview
+  group: ci-cd-pr-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 on:
@@ -138,11 +138,11 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get install sshpass
         
-      - name: Set VERSION and deploy (Swarm)
+      - name: Set VERSION and deploy
         run: |
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
           set -euo pipefail
           cd ${{ vars.REPO_CLONE_PATH }}
           echo "${{ vars.VERSION }}" > .VERSION
-          ./redeploy.DEV.sh
+          ./redeploy.PREV.sh
           ENDSSH
