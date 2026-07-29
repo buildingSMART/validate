@@ -26,7 +26,8 @@ from apps.ifc_validation_models.models import UserAdditionalInfo
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
-from core.settings import DEVELOPMENT, LOGIN_URL, USE_WHITELIST 
+from core.settings import DEVELOPMENT, PREVIEW
+from core.settings import LOGIN_URL, USE_WHITELIST 
 from core.settings import FEATURE_URL, MAX_OUTCOMES_PER_RULE
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def get_current_user(request):
         return user
 
     # only used for local development
-    elif DEVELOPMENT and not USE_WHITELIST:
+    elif (DEVELOPMENT or PREVIEW) and not USE_WHITELIST:
 
         username = 'development'
         user = UserAdditionalInfo.find_user_by_username(username)
@@ -109,7 +110,10 @@ def get_feature_filename(feature_code):
 def get_feature_url(feature_code):
     """
     Get the URL for the corresponding feature filename
-    In DEV, we return the filename in the 'development' branch of the repository and 'main' for PROD. 
+    We return the filename in the relevant branch of the repositoy, eg.
+    - 'development' for DEV
+    - 'preview' for PREVIEW
+    - 'main' for MAIN
     """
     feature_files = get_feature_filename(feature_code)
 
@@ -141,6 +145,21 @@ def get_feature_description(feature_code):
 from apps.ifc_validation_bff.status import status_combine
 
 
+# IVS-820 follow-up: a not-yet-run check resolves to 'n' (NOT_VALIDATED) once the Model row
+# exists, which the UI draws as grey "not validated". While the run hasn't reached a terminal
+# state, a not-run cell should still show the pending hourglass ('p'), not grey. Gate on
+# request.status, NOT progress: progress hits 100 one task BEFORE status flips to COMPLETED
+# (the t3' window), so a progress gate flashes grey prematurely. Apply AFTER status_combine for
+# the combined cells, so a real 'i'/'w' from a sibling is never hidden by the 'p' early-return.
+_TERMINAL_STATUS = (ValidationRequest.Status.COMPLETED, ValidationRequest.Status.FAILED)
+
+
+def _pending_n_to_p(status, request):
+    if status == "n" and request.status not in _TERMINAL_STATUS:
+        return "p"
+    return status
+
+
 def format_request(request : ValidationRequest):
     return {
         "id": request.public_id,
@@ -162,23 +181,26 @@ def format_request(request : ValidationRequest):
         "status_syntax": status_combine(
             "p" if (request.model is None or request.model.status_syntax is None) else request.model.status_syntax,
             "p" if (request.model is None or request.model.status_header_syntax is None) else request.model.status_header_syntax,
-            allow_not_executed=True
+            # Only strip a not-executed 'n' once the run is COMPLETED (legacy files
+            # where header_syntax never ran). Mid-run, header_syntax finishes before
+            # syntax, so stripping the pending syntax 'n' would flash green before red.
+            allow_not_executed=(request.status == ValidationRequest.Status.COMPLETED)
         ),
-        "status_schema": status_combine(
+        "status_schema": _pending_n_to_p(status_combine(
             "p" if (request.model is None or request.model.status_schema_calculated is None) else request.model.status_schema_calculated,
             "p" if (request.model is None or request.model.status_prereq is None) else request.model.status_prereq
-        ),
-        "status_bsdd": "p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd,
+        ), request),
+        "status_bsdd": _pending_n_to_p("p" if (request.model is None or request.model.status_bsdd is None) else request.model.status_bsdd, request),
         "status_mvd": "p" if (request.model is None or request.model.status_mvd is None) else request.model.status_mvd,
         "status_ids": "p" if (request.model is None or request.model.status_ids is None) else request.model.status_ids,
-        "status_header": "p" if (request.model is None or request.model.status_header is None) else request.model.status_header,
-        "status_rules": status_combine(
+        "status_header": _pending_n_to_p("p" if (request.model is None or request.model.status_header is None) else request.model.status_header, request),
+        "status_rules": _pending_n_to_p(status_combine(
             "p" if (request.model is None or request.model.status_ia_calculated is None) else request.model.status_ia_calculated,
             "p" if (request.model is None or request.model.status_ip_calculated is None)  else request.model.status_ip_calculated
-        ),
-        "status_ind": "p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices,
-        "status_signatures": "p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures,
-        "status_magic_clamav": "p" if (request.model is None or request.model.status_magic_clamav is None) else request.model.status_magic_clamav,
+        ), request),
+        "status_ind": _pending_n_to_p("p" if (request.model is None or request.model.status_industry_practices is None) else request.model.status_industry_practices, request),
+        "status_signatures": _pending_n_to_p("p" if (request.model is None or request.model.status_signatures is None) else request.model.status_signatures, request),
+        "status_magic_clamav": _pending_n_to_p("p" if (request.model is None or request.model.status_magic_clamav is None) else request.model.status_magic_clamav, request),
         "deleted": 0, # TODO
         "commit_id": None #  TODO
     }

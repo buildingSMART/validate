@@ -31,13 +31,13 @@
         {% for users in detected_users.items %}
             {% if users.0 == company.pk %}
                 {% for user in users.1 %}
-                    <input type="checkbox" name="user_{{ user.pk }}" value="{{ company.pk }}" checked>
-                    <label for="user_{{ user.pk }}">#{{ user.pk }} - {{ user.get_full_name }} - {{ user.email }} {% if user.useradditionalinfo.company %}<b> -&gt; current company: {{ user.useradditionalinfo.company }}{% endif %}</b></label><br>
+                    <input type="checkbox" name="user_{{ user.pk|cut:"," }}" value="{{ company.pk|cut:"," }}" checked>
+                    <label for="user_{{ user.pk|cut:"," }}">#{{ user.pk }} - {{ user.get_full_name }} - {{ user.email }} {% if user.useradditionalinfo.company %}<b> -&gt; current company: {{ user.useradditionalinfo.company }}{% endif %}</b></label><br>
                 {% endfor %}
             {% endif %}
         {% endfor %}
     </p>
-    <input type="hidden" name="_selected_action" value="{{ company.pk }}" />
+    <input type="hidden" name="_selected_action" value="{{ company.pk|cut:"," }}" />
   {% endfor %}
 
   <input type="hidden" name="action" value="assign_users_action" />

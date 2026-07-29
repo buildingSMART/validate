@@ -47,26 +47,26 @@ start-backend:
 	$(PYTHON) manage.py runserver
 
 start-worker:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n
 
 start-worker-with-scheduler:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
 
 start-worker2:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker2@%n
 
 start-worker3:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker3@%n
 
 start-worker4:
-	$(PYTHON) -m celery --app=core worker --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
+	$(PYTHON) -m celery --app=core worker -Q celery,antivirus --loglevel=DEBUG --concurrency 2 --task-events --hostname=worker4@%n
 
 .PHONY: stop-worker
 stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine test-management-commands
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -91,6 +91,9 @@ test-file-retention-task:
 
 test-status-combine:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+
+test-management-commands:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
 
 test-utils:
 	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
