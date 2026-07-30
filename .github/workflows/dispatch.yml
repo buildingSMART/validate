@@ -28,6 +28,14 @@ jobs:
         run: echo "ifc-validation-data-model (development branch)"
         if: ${{ github.event.client_payload.repo == 'ifc-validation-data-model' && github.event.client_payload.branch == 'development' }}
 
+      - name: Dispatch from ifc-gherkin-rules (preview)
+        run: echo "ifc-gherkin-rules (preview branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-gherkin-rules' && github.event.client_payload.branch == 'preview' }}
+
+      - name: Dispatch from ifc-validation-data-model (preview)
+        run: echo "ifc-validation-data-model (preview branch)"
+        if: ${{ github.event.client_payload.repo == 'ifc-validation-data-model' && github.event.client_payload.branch == 'preview' }}
+
       - name: Dispatch from ifc-gherkin-rules (main)
         run: echo "ifc-gherkin-rules (main branch)"
         if: ${{ github.event.client_payload.repo == 'ifc-gherkin-rules' && github.event.client_payload.branch == 'main' }}
