@@ -1,7 +1,9 @@
 apiVersion: 1
 
 datasources:
-  - name: Open-Telemetry-Example
+  - name: Prometheus
     type: prometheus
+    uid: prometheus
     url: http://prometheus:9090
+    isDefault: true
     editable: true

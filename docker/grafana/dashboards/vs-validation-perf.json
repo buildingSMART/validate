@@ -1,0 +1,604 @@
+{
+  "id": null,
+  "uid": "vs-validation-perf",
+  "title": "Validation Service — Performance & Load",
+  "tags": [
+    "observability",
+    "performance",
+    "postgres"
+  ],
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "5m",
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "description": "Prestaties en belasting van de Validation Service, rechtstreeks uit de applicatiedatabase (datasource: DEV Postgres, uid devpg). Doorlooptijd = klok van aanmelden tot klaar (inclusief wachten in de wachtrij). Verwerkingstijd = som van de taakduren (alleen echt rekenwerk).",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Duration per task type over time (daily average)",
+      "description": "How long does each validation step take on average per day? Based on ifc_validation_task.ended - started. Follows the dashboard time range.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "pointSize": 5,
+            "spanNulls": true,
+            "fillOpacity": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(t.started, '1d'),\n  t.type AS metric,\n  ROUND(AVG(EXTRACT(EPOCH FROM (t.ended - t.started)))::numeric, 1) AS duration_s\nFROM ifc_validation_task t\nWHERE $__timeFilter(t.started)\n  AND t.started IS NOT NULL\n  AND t.ended IS NOT NULL\nGROUP BY 1, 2\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Validation requests per day (by final status)",
+      "description": "Volume: how many files are submitted per day, and how they ended (COMPLETED / FAILED / PENDING / INITIATED). Source: ifc_validation_request.created.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "barAlignment": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FAILED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "COMPLETED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(r.created, '1d'),\n  r.status AS metric,\n  COUNT(*)::float AS requests\nFROM ifc_validation_request r\nWHERE $__timeFilter(r.created)\nGROUP BY 1, 2\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "Failure rate per task type",
+      "description": "Which validation step breaks most often? Failure rate = FAILED / (FAILED + COMPLETED) within the selected time range. Tasks with status SKIPPED / N/A / INITIATED are excluded.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "failure_rate_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "gradient"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "failure_rate_pct",
+            "desc": true
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  t.type                                                                   AS task_type,\n  COUNT(*) FILTER (WHERE t.status IN ('COMPLETED','FAILED'))               AS completed,\n  COUNT(*) FILTER (WHERE t.status = 'FAILED')                             AS failed,\n  ROUND(100.0 * COUNT(*) FILTER (WHERE t.status = 'FAILED')\n        / NULLIF(COUNT(*) FILTER (WHERE t.status IN ('COMPLETED','FAILED')), 0), 2) AS failure_rate_pct,\n  COUNT(*) FILTER (WHERE t.status IN ('PENDING','INITIATED'))             AS unfinished\nFROM ifc_validation_task t\nWHERE $__timeFilter(t.created)\nGROUP BY 1\nORDER BY 4 DESC NULLS LAST, 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "barchart",
+      "title": "Processing time vs file size",
+      "description": "Does it get slower as files get larger? Files are grouped into size buckets; per bucket the average and p95 of processing time (sum of task durations).",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 80,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "count"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "viz": true,
+                  "legend": false,
+                  "tooltip": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "xField": "size",
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "groupWidth": 0.7,
+        "barWidth": 0.9,
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH per_request AS (\n  SELECT r.id,\n         r.size,\n         SUM(EXTRACT(EPOCH FROM (t.ended - t.started))) AS processing_time_s\n  FROM ifc_validation_request r\n  JOIN ifc_validation_task t ON t.request_id = r.id\n  WHERE $__timeFilter(r.created)\n    AND r.size IS NOT NULL\n    AND t.started IS NOT NULL\n    AND t.ended IS NOT NULL\n  GROUP BY r.id, r.size\n)\nSELECT\n  CASE\n    WHEN size <   1048576 THEN '1. < 1 MB'\n    WHEN size <   5242880 THEN '2. 1-5 MB'\n    WHEN size <  20971520 THEN '3. 5-20 MB'\n    WHEN size <  52428800 THEN '4. 20-50 MB'\n    WHEN size < 209715200 THEN '5. 50-200 MB'\n    ELSE                       '6. > 200 MB'\n  END                                                                          AS size,\n  ROUND(AVG(verwerkingstijd_s)::numeric, 0)                                    AS avg_s,\n  ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY verwerkingstijd_s)::numeric, 0) AS p95_s,\n  COUNT(*)                                                                     AS count\nFROM per_request\nGROUP BY 1\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Lead time per request (p50 / p95 per day)",
+      "description": "How long does a user actually wait? Lead time = completed - created of the request, so including queue time. Large outliers mean queueing or re-runs, not slow validation.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  $__timeGroupAlias(r.created, '1d'),\n  ROUND(percentile_cont(0.50) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (r.completed - r.created)))::numeric, 1) AS p50_s,\n  ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (r.completed - r.created)))::numeric, 1) AS p95_s\nFROM ifc_validation_request r\nWHERE $__timeFilter(r.created)\n  AND r.completed IS NOT NULL\nGROUP BY 1\nORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "20 slowest requests (last 30 days)",
+      "description": "Fixed 30-day window, independent of the time range above. Sorted by processing time (sum of task durations). Lead time is shown alongside: a large gap between the two means waiting, not working.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "mb"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "decmbytes"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "processing_time_s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "lead_time_s"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "FAILED": {
+                        "color": "red",
+                        "index": 0,
+                        "text": "FAILED"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  r.created                                                        AS submitted,\n  r.file_name                                                      AS file,\n  ROUND(r.size / 1048576.0, 1)                                     AS mb,\n  r.status,\n  ROUND(v.processing_time_s::numeric, 0)                                AS processing_time_s,\n  ROUND(EXTRACT(EPOCH FROM (r.completed - r.created))::numeric, 0)  AS lead_time_s,\n  v.langzaamste_taak\nFROM ifc_validation_request r\nJOIN (\n  SELECT t.request_id,\n         SUM(EXTRACT(EPOCH FROM (t.ended - t.started)))                    AS processing_time_s,\n         (ARRAY_AGG(t.type ORDER BY (t.ended - t.started) DESC))[1]        AS slowest_task\n  FROM ifc_validation_task t\n  WHERE t.started IS NOT NULL AND t.ended IS NOT NULL\n  GROUP BY t.request_id\n) v ON v.request_id = r.id\nWHERE r.created > NOW() - INTERVAL '30 days'\nORDER BY v.processing_time_s DESC NULLS LAST\nLIMIT 20"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Most expensive gherkin rules (total CPU time, cumulative)",
+      "description": "From the gherkin logs on the NFS share (201k measurements since Dec 2025), ingested nightly by perf-metrics/gherkin_rule_timings.sh. NOTE: this is CPU time (time.process_time), not wall-clock time, so I/O wait is not included. Logged in PRODUCTION mode only.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(15, gherkin_rule_cpu_seconds_total)",
+          "legendFormat": "{{rule}}",
+          "format": "time_series",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Rule cost: total, average and longest run",
+      "description": "Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "rule",
+            "mode": "outer"
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(20, gherkin_rule_cpu_seconds_total)",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "totaal_s"
+        },
+        {
+          "refId": "B",
+          "expr": "gherkin_rule_cpu_seconds_avg",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "gem_s"
+        },
+        {
+          "refId": "C",
+          "expr": "gherkin_rule_cpu_seconds_max",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "max_s"
+        },
+        {
+          "refId": "D",
+          "expr": "gherkin_rule_runs_total",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "runs"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Outcomes per rule (top 15, whole DB)",
+      "description": "Which rules produce the most outcomes (severity WARNING/ERROR)? Feeds backlog item F4: SWE001 and IFC105 together account for ~1.7M of the ~5M rows.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  CASE WHEN regel ~ '^[A-Z]{2,5}[0-9]{2,3}$' THEN regel\n       ELSE '(SCHEMA check, not a gherkin rule)' END AS rule,\n  SUM(warnings)::bigint AS warnings,\n  SUM(errors)::bigint  AS errors,\n  SUM(totaal)::bigint  AS total\nFROM (\n  SELECT split_part(feature, ' ', 1) AS rule,\n         SUM((severity = 3)::int) AS warnings,\n         SUM((severity = 4)::int) AS errors,\n         COUNT(*) AS total\n  FROM ifc_validation_outcome\n  WHERE severity >= 3 AND feature IS NOT NULL\n  GROUP BY 1\n) sub\nGROUP BY 1\nORDER BY totaal DESC\nLIMIT 15"
+        }
+      ]
+    }
+  ]
+}
