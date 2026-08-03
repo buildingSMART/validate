@@ -430,8 +430,26 @@ def report(request, id: str):
     if not user:
         return create_redirect_response(login=True)
 
-    # return 404-NotFound if report is not for current user or if it is deleted
-    request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=ValidationRequest.to_private_id(id)).first()
+    # resolve by request id or model id
+    if id.startswith("r"):
+        priv_id = ValidationRequest.to_private_id(id)
+        
+    elif id.startswith("m"):
+        model_id = Model.to_private_id(id)
+        priv_id = (
+            ValidationRequest.objects.filter(model_id=model_id)
+            .values_list("id", flat=True)
+            .first()
+        )
+
+    if not priv_id:
+        return HttpResponseNotFound()
+
+    # return 404-NotFound if report is not for current user or if it is deleted; still allowed for staff users
+    if not user.is_staff:
+        request = ValidationRequest.objects.filter(created_by__id=user.id, deleted=False, id=priv_id).first()
+    else:
+        request = ValidationRequest.objects.filter(id=priv_id).first()
     if not request:
         return HttpResponseNotFound()
     
