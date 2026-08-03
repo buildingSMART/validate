@@ -6,7 +6,7 @@ The preview of the Validation Service API is available at `https://dev.validate.
 ## Documentation
 
 Auto-generated documentation is available in both
-[Swagger](https://dev.validate.buildingsmart.org/api/v1/swagger-ui) 
+[Swagger](https://dev.validate.buildingsmart.org/api/v1/swagger-ui)
 and
 [Redocly](https://dev.validate.buildingsmart.org/api/v1/redoc)
 formats.
@@ -30,7 +30,6 @@ You can use this token either as a Bearer token or use it as the password in com
 
     ```shell
     curl -X GET --location 'https://dev.validate.buildingsmart.org/api/v1/validationrequest' --header 'Authorization: Basic <HASH>'
-    curl -X GET --location 'https://dev.validate.buildingsmart.org/api/validationrequest/' --header 'Authorization: Basic <HASH>'
     ```
 
    where `<HASH>` is the Base64-encoded email and token as password, separated by a colon, eg. base64(johndoe@gmail.com:abcdefgh12345)
