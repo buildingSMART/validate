@@ -11,6 +11,7 @@ on:
     paths-ignore:
       - 'README.md'
       - '.github/workflows/playwright.yml'
+      - '.github/workflows/ci.yml'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: lts/*
                 
       - name: Install npm packages
         run: |
@@ -134,9 +135,6 @@ jobs:
           echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-  
-      - name: Install sshpass
-        run: sudo apt-get install sshpass
         
       - name: Set VERSION and deploy (Swarm)
         run: |
