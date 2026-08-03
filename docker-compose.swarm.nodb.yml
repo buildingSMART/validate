@@ -71,7 +71,6 @@ services:
         deploy:
             replicas: 2
             # No placement constraint - workers run on any node
-.
             resources:
                 limits:
                     memory: ${WORKER_MEMORY_LIMIT}
