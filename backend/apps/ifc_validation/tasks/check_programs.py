@@ -3,7 +3,8 @@ import sys
 import json
 import shutil
 import subprocess
-from typing import List
+import psutil
+from typing import List, Optional
 from dataclasses import dataclass
 
 # pip install filetype
@@ -23,11 +24,43 @@ class proc_output:
     stdout : str
     stderr : str
     args: List[str]
+    peak_rss_kb : Optional[int] = None
+    min_mem_available_kb : Optional[int] = None
+
+
+def _read_proc_kb(path, field):
+    # read a "<field>:  <n> kB" line from a /proc file (Linux only)
+    try:
+        with open(path) as f:
+            for line in f:
+                if line.startswith(field + ":"):
+                    return int(line.split()[1])
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+def _read_peak_rss_kb(pid):
+    # summed over the process tree: gherkin spawns behave as a nested child, so the
+    # direct child is only a thin orchestrator while behave holds the parsed model
+    total = _read_proc_kb(f"/proc/{pid}/status", "VmHWM")
+    if total is None:
+        return None
+    try:
+        for child in psutil.Process(pid).children(recursive=True):
+            hwm = _read_proc_kb(f"/proc/{child.pid}/status", "VmHWM")
+            if hwm:
+                total += hwm
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+    return total
 
 
 def run_subprocess_wait(*popen_args, check=False, **popen_kwargs):
     process = subprocess.Popen(*popen_args, **popen_kwargs)
     out_chunks, err_chunks = [], []
+    peak_rss_kb = None
+    min_mem_available_kb = None
     try:
         while True:
             try:
@@ -37,6 +70,14 @@ def run_subprocess_wait(*popen_args, check=False, **popen_kwargs):
                 break
             except subprocess.TimeoutExpired:
                 # keep looping; you can also check your own stop conditions here
+                # tree sum is not monotonic (children exit), so keep the max
+                sample = _read_peak_rss_kb(process.pid)
+                if sample is not None:
+                    peak_rss_kb = sample if peak_rss_kb is None else max(peak_rss_kb, sample)
+                # lowest MemAvailable seen = tightest moment during this run
+                mem_available = _read_proc_kb("/proc/meminfo", "MemAvailable")
+                if mem_available is not None:
+                    min_mem_available_kb = mem_available if min_mem_available_kb is None else min(min_mem_available_kb, mem_available)
                 continue
     except BaseException as e:
         process.terminate()
@@ -50,7 +91,7 @@ def run_subprocess_wait(*popen_args, check=False, **popen_kwargs):
     stdout, stderr = "".join(out_chunks), "".join(err_chunks)
     if check and retcode != 0:
         raise subprocess.CalledProcessError(retcode, popen_args[0], output=stdout, stderr=stderr)
-    return proc_output(retcode, stdout, stderr, popen_args[0] if popen_args else [])
+    return proc_output(retcode, stdout, stderr, popen_args[0] if popen_args else [], peak_rss_kb, min_mem_available_kb)
 
 
 checks_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "checks"))
@@ -145,9 +186,16 @@ def check_magic_and_clamav(context:TaskContext):
                     '' if (scanner == clamdscan) else f'--max-filesize={MAX_FILE_SIZE_IN_MB}M', 
                     context.file_path] 
             )
-            if proc.returncode != 0:
+            if proc.returncode == 1:
+                # rc 1 = virus found
                 result = {
                     'invalid': f'suspicious file\n\n{proc.stdout}\n{proc.stderr}'
+                }
+            elif proc.returncode != 0:
+                # rc >= 2 = scanner failure (e.g. clamd down): fail the task and leave
+                # the file alone; a broken scanner is not an infected file
+                result = {
+                    'error': f'scanner error (rc={proc.returncode})\n\n{proc.stdout}\n{proc.stderr}'
                 }
             else:
                 result = {
@@ -310,6 +358,12 @@ def run_subprocess(
             env= os.environ.copy()
         )
         logger.info(f'test run task task name {task.type}, task value : {task}')
+        if proc.peak_rss_kb is not None:
+            logger.info(
+                f'Peak RSS for {task.type} subprocess (task #{task.id}): {proc.peak_rss_kb} kB '
+                f'(min MemAvailable during run: {proc.min_mem_available_kb} kB, '
+                f'worker RSS: {_read_proc_kb("/proc/self/status", "VmRSS")} kB)'
+            )
         return proc
     
     except Exception as err:

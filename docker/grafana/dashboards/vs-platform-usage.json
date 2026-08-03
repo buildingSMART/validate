@@ -1,0 +1,285 @@
+{
+  "id": null,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT created::date AS time, COUNT(*)::float AS validations FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Validation requests per day (30d)",
+      "type": "timeseries",
+      "description": "Number of files submitted per day (fixed 30-day window, independent of the time range above). Includes requests that were soft-deleted later."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT type, COUNT(*) AS n, ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p50_s, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p95_s FROM ifc_validation_task WHERE ended IS NOT NULL AND started IS NOT NULL AND created > NOW() - INTERVAL '90 days' GROUP BY type ORDER BY p95_s DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Duration per task type: p50 / p95 (90d, seconds)",
+      "type": "table",
+      "description": "Median (p50) and slow-tail (p95) duration in seconds per validation step, over 90 days. From ifc_validation_task.ended - started."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT DATE(r.created) AS time, percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ft.fs - r.created)) AS queue_wait_p95_s FROM ifc_validation_request r JOIN LATERAL (SELECT MIN(t.started) AS fs FROM ifc_validation_task t WHERE t.request_id = r.id) ft ON ft.fs IS NOT NULL WHERE r.created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Queue wait time p95 per day (s, 30d)",
+      "type": "timeseries",
+      "description": "Wait time between submission and the start of the first task. NOTE: on DEV, tasks are sometimes re-run manually on old requests, which inflates this to hours. Read it as a trend, not an absolute."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawSql": "SELECT created::date AS time, ROUND(100.0 * SUM((status='FAILED')::int) / COUNT(*), 1) AS failure_rate FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Failure rate per day (%, 30d)",
+      "type": "timeseries",
+      "description": "Percentage of requests per day that ended in status FAILED."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 8
+      },
+      "id": 5,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT EXTRACT(HOUR FROM created)::int AS hour, COUNT(*) AS requests FROM ifc_validation_request WHERE created > NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Activity by hour of day (90d)",
+      "type": "barchart",
+      "description": "Which hour of the day the platform is used (UTC), over 90 days."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 16
+      },
+      "id": 6,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT COUNT(*) FROM ifc_validation_request WHERE completed IS NULL AND status NOT IN ('COMPLETED','FAILED') AND created < NOW() - INTERVAL '1 hour'",
+          "refId": "A"
+        }
+      ],
+      "title": "Stuck requests (>1h, not finished)",
+      "type": "stat",
+      "description": "Requests older than one hour that are still not finished (not COMPLETED/FAILED). Should be 0."
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 18,
+        "x": 6,
+        "y": 16
+      },
+      "id": 7,
+      "targets": [
+        {
+          "format": "table",
+          "rawSql": "SELECT file_name, ROUND(size/1024.0/1024.0,1) AS mb, status, EXTRACT(EPOCH FROM completed-created)::int AS duration_s, created FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' ORDER BY size DESC NULLS LAST LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Largest files in the last 30d (top 10)",
+      "type": "table",
+      "description": "The ten largest files of the last 30 days. Odd-looking file names are non-Latin names exactly as stored in the database."
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Uploads per day by channel (API vs WEBUI)",
+      "description": "NOTE: all rows before 2025-07-24 were written as WEBUI during a migration, so API figures are only reliable from Aug 2025 onwards. Counts uploads only — status polling and other GET traffic exist solely in the nginx logs.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT created::date AS time, channel, COUNT(*)::float AS uploads FROM ifc_validation_request WHERE created > NOW() - INTERVAL '90 days' AND channel IS NOT NULL GROUP BY 1,2 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top API users (90d)",
+      "description": "Per account: number of uploads, total and average size. Some accounts have no email filled in, hence grouping by username.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT u.username, COUNT(*) AS uploads, ROUND(SUM(r.size)/1024.0/1024.0,1) AS total_mb, ROUND(AVG(r.size)/1024.0/1024.0,2) AS avg_mb, MAX(r.created)::date AS last_upload FROM ifc_validation_request r JOIN auth_user u ON u.id = r.created_by_id WHERE r.channel='API' AND r.created > NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY uploads DESC LIMIT 15"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Crash causes: why tasks FAIL (not validation errors)",
+      "description": "These are system failures, not 'the model is invalid'. The first line of status_reason is used as the category. Four recurring types: a duplicate-key race on concurrent requests, NUL bytes that PostgreSQL rejects, and two code bugs (TaskContext missing proc, NoneType has no id).",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT CASE WHEN status_reason LIKE '%duplicate key%' THEN 'duplicate key (race on concurrent requests)' WHEN status_reason LIKE '%NUL (0x00)%' THEN 'NUL bytes in text (PostgreSQL rejects)' WHEN status_reason LIKE '%TaskContext%' THEN 'code bug: TaskContext missing proc' WHEN status_reason LIKE '%NoneType%' THEN 'code bug: NoneType has no id' WHEN status_reason IS NULL OR status_reason='' THEN '(no reason recorded)' ELSE split_part(status_reason, E'\\n', 1) END AS cause, COUNT(*) AS count, COUNT(DISTINCT type) AS task_types, MAX(created)::date AS last_seen FROM ifc_validation_task WHERE status='FAILED' GROUP BY 1 ORDER BY aantal DESC LIMIT 15"
+        }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "tags": [
+    "observability",
+    "ivs-681"
+  ],
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "title": "Validation Service — Platform Usage (DB)",
+  "uid": "vs-platform-usage",
+  "version": 1,
+  "schemaVersion": 39,
+  "editable": true,
+  "timezone": "browser"
+}

@@ -1,0 +1,20 @@
+# Dashboards as code for the Validation Service.
+#
+# The JSON files live in this repository under docker/grafana/dashboards/ and are
+# mounted into the container at /etc/grafana/dashboards-vs.
+# Grafana re-reads them every 30 seconds and after a restart, so nothing is lost
+# when a container is recreated.
+
+apiVersion: 1
+
+providers:
+  - name: "vs-dashboards"
+    orgId: 1
+    folder: "Validation Service"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards-vs
+      foldersFromFilesStructure: false

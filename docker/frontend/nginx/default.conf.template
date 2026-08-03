@@ -31,6 +31,34 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # Grafana dashboards, served behind the same nginx as the Django admin.
+    # Grafana serves itself from /grafana/ because of root_url and
+    # serve_from_sub_path in docker/grafana/grafana.ini. It has its own login
+    # (GF_SECURITY_ADMIN_PASSWORD).
+    location /grafana/ {
+        # Important: resolve the upstream through a VARIABLE plus a resolver, not as a
+        # hardcoded host name. Without this, nginx resolves the name at startup and
+        # refuses to start the ENTIRE site whenever Grafana happens to be down.
+        # With a variable, only /grafana/ fails. 127.0.0.11 is Docker's internal DNS.
+        # Grafana's table panels use new Function() to render cells. The global CSP
+        # (around line 25) blocks that with "call to Function() blocked by CSP".
+        # This add_header replaces the inherited CSP for this location only.
+        add_header Content-Security-Policy "script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'none'" always;
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $grafana_upstream http://grafana:3000;
+        # No path rewriting: Grafana serves itself from /grafana/
+        # (serve_from_sub_path = true in grafana.ini).
+        proxy_pass $grafana_upstream$request_uri;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # live tail / websockets in Grafana
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
     # BFF (React UI)
     location /bff {
         try_files $uri @proxy_api;

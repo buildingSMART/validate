@@ -1,0 +1,594 @@
+{
+  "id": null,
+  "panels": [
+    {
+      "id": 8,
+      "type": "stat",
+      "title": "Alert candidate: antivirus queue",
+      "description": "E1 threshold: backlog on the antivirus queue > 0. Every validation passes through this queue; the av_worker zombie of 27 July sat dead for 28 hours without anyone noticing.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(celery_queue_length{queue_name=\"antivirus\"})",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Alert candidate: memory (min across nodes)",
+      "description": "E1 threshold: MemAvailable < 2 GB (red; orange below 4 GB). Lowest value across all nodes. Without swap, memory pressure is immediately fatal — that is what made the freeze so abrupt.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2147483648
+              },
+              {
+                "color": "green",
+                "value": 4294967296
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "min(node_memory_MemAvailable_bytes)",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Alert candidate: disk (max across nodes)",
+      "description": "E1 threshold: disk > 85% (orange), > 95% red. The fullest node counts. Currently red as expected: dev-vm-worker-1 sits around 96% (IVS-828, backlog item A4).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(100 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} * 100))",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Alert candidate: stuck requests (>1h)",
+      "description": "Requests older than 1 hour that are neither finished nor FAILED — same definition as the panel on Platform Usage, but as a Prometheus metric so it can drive an alert later.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "expr": "max(vs_requests_stuck)",
+          "refId": "A",
+          "legendFormat": "__auto"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 1,
+      "targets": [
+        {
+          "expr": "100 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Disk used % (per node) — the IVS-828 chart",
+      "type": "timeseries",
+      "description": "Percentage of disk in use, per Swarm node. Above ~90% things get risky."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 2,
+      "targets": [
+        {
+          "expr": "node_memory_MemAvailable_bytes",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Memory available (per node)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "id": 3,
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU usage % (per node)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 13
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "celery_active_worker_count",
+          "legendFormat": "{{queue_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Celery: active workers per queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 13
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "celery_queue_length",
+          "legendFormat": "{{queue_name}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Celery: queue length (backlog)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 6,
+      "targets": [
+        {
+          "expr": "celery_active_process_count",
+          "legendFormat": "{{hostname}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Celery: active worker processes per queue",
+      "type": "timeseries",
+      "description": "Number of worker processes the broker sees, per queue. Previously used celery_worker_tasks_active, which the exporter does not provide while worker task events are off."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 7,
+      "targets": [
+        {
+          "expr": "rate(otelcol_receiver_accepted_metric_points_total[5m])",
+          "legendFormat": "accepted",
+          "refId": "A"
+        }
+      ],
+      "title": "OTel collector: received metric points/s (empty until SDK instrumentation)",
+      "type": "timeseries",
+      "description": "Stays empty until the application itself sends OpenTelemetry metrics. The collector is running but receives nothing yet — this is expected, see backlog item C1."
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "VM restarts (boot time per node)",
+      "description": "Every upward jump is a reboot of that node. The y-axis shows the boot moment itself; a flat line means no restarts. The freeze-reboot of 28 July is directly visible here.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 29
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dateTimeAsIso",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "auto",
+            "spanNulls": true,
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "node_boot_time_seconds * 1000",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Inode usage % (per node, /)",
+      "description": "Percentage of inodes used on the root filesystem. A disk can run 'full' with gigabytes still free: every file costs an inode, and /srv/nfs (the NFS export with thousands of gherkin log files) lives on this filesystem.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 29
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "showPoints": "auto",
+            "spanNulls": true,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "100 - (node_filesystem_files_free{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_files{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "tags": [
+    "observability",
+    "ivs-681"
+  ],
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Validation Service — System Health (DEV)",
+  "uid": "vs-system-health",
+  "version": 2,
+  "schemaVersion": 39,
+  "editable": true
+}
