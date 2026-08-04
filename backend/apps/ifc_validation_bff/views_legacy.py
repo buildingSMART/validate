@@ -431,6 +431,7 @@ def report(request, id: str):
         return create_redirect_response(login=True)
 
     # resolve by request id or model id
+    priv_id = None
     try:
         if id.startswith("r"):
             priv_id = ValidationRequest.to_private_id(id)
@@ -442,12 +443,8 @@ def report(request, id: str):
                 .values_list("id", flat=True)
                 .first()
             )
-
-        else:
-            return HttpResponseNotFound()
-
-    except ValueError:
-        return HttpResponseNotFound()
+    except:
+        priv_id = None
 
     if not priv_id:
         return HttpResponseNotFound()

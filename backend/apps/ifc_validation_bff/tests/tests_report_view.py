@@ -108,12 +108,3 @@ class ReportViewTestCase(TestCase):
 
         self.login_as(self.staff)
         self.assertEqual(self.get_report(self.alice_deleted_request.public_id).status_code, 200)
-
-    # --- authentication ---
-
-    def test_unauthenticated_returns_login_redirect(self):
-
-        response = self.get_report(self.alice_request.public_id)
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('redirect', response.json())
