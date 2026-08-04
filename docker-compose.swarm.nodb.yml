@@ -71,6 +71,11 @@ services:
         deploy:
             replicas: 2
             # No placement constraint - workers run on any node
+            resources:
+                limits:
+                    memory: ${WORKER_MEMORY_LIMIT}
+                reservations:
+                    memory: ${WORKER_MEMORY_RESERVATION}
             restart_policy:
                 condition: on-failure
                 delay: 5s
@@ -90,6 +95,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 4G
             # No placement constraint - workers run on any node
             restart_policy:
                 condition: on-failure
@@ -133,6 +141,114 @@ services:
                 condition: on-failure
                 delay: 5s
 
+    # ---------------------------------------------------------------------------
+    # Observability (additive services; removing them restores the previous stack).
+    # Config files are bind-mounted from the checkout via ${PWD}, which envsubst
+    # fills in at deploy time. That is why these services are pinned to the manager
+    # node: that is where the checkout lives.
+    # ---------------------------------------------------------------------------
+
+    otel_col:
+        image: otel/opentelemetry-collector-contrib:0.156.0
+        command: ["--config=/etc/otel-collector-config.yaml"]
+        expose:
+            - 4317  # OTLP over gRPC receiver
+            - 4318  # OTLP over HTTP receiver
+            - 8888  # collector self-metrics (Prometheus scrape)
+            - 8889  # prometheus exporter: OTLP-received app metrics
+            - 13133 # health_check extension
+        volumes:
+            - ${PWD}/docker/otel/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    prometheus:
+        image: prom/prometheus:v3.13.1
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            # Keep one year of history instead of the 15-day default. Quarterly trends
+            # (file sizes, memory usage) are exactly what we need and 15 days erases
+            # them. The time-series database was only 162 MB at 15 days, so a year is
+            # cheap in storage terms.
+            - '--storage.tsdb.retention.time=1y'
+        expose:
+            - 9090
+        volumes:
+            - ${PWD}/docker/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+            - prometheus_data:/prometheus
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    grafana:
+        image: grafana/grafana:12.3.9
+        # env_file gives Grafana POSTGRES_HOST/PORT/USER/NAME/PASSWORD for the
+        # provisioned datasource (provisioning/datasources/postgres.yaml).
+        # Same pattern as backend and worker. It also avoids envsubst problems:
+        # variables not listed in the Makefile's SWARM_VARS would be substituted
+        # with an empty string.
+        # NOTE: set GF_SECURITY_ADMIN_PASSWORD in the environment file, otherwise
+        # Grafana starts with the default admin/admin credentials.
+        env_file: ${ENV_FILE}
+        ports:
+            - 3000:3000
+        volumes:
+            - ${PWD}/docker/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+            - ${PWD}/docker/grafana/provisioning:/etc/grafana/provisioning:ro
+            # dashboards as code, loaded via provisioning/dashboards/vs-dashboards.yaml
+            - ${PWD}/docker/grafana/dashboards:/etc/grafana/dashboards-vs:ro
+            - grafana_data:/var/lib/grafana
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    node_exporter:
+        image: prom/node-exporter:v1.12.1
+        command:
+            - '--path.rootfs=/host'
+        volumes:
+            - /:/host:ro,rslave
+        networks:
+            - validate
+        deploy:
+            mode: global  # one per node; Prometheus discovers via tasks.node_exporter
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    celery_exporter:
+        image: danihodovic/celery-exporter:0.12.2
+        environment:
+            CE_BROKER_URL: redis://redis:6379/0
+        expose:
+            - 9808
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
 networks:
     validate:
         driver: overlay
@@ -156,3 +272,5 @@ volumes:
             o: "addr=${NFS_SERVER_IP},nfsvers=4.1,rw,hard,timeo=600,retrans=2"
             device: ":/srv/nfs/gherkin_logs"
     clamav_data:
+    prometheus_data:
+    grafana_data:

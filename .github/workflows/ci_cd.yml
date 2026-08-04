@@ -1,13 +1,13 @@
-name: Build & Deploy (CI/CD - PREVIEW)
+name: Build & Deploy (CI/CD - DEV)
 
 concurrency:
-  group: ci-cd-pr-${{ github.event.pull_request.number || github.ref }}
+  group: deploy-development
   cancel-in-progress: false
 
 on:
   push:
     branches:
-      - preview
+      - development
     paths-ignore:
       - 'README.md'
       - '.github/workflows/playwright.yml'
@@ -126,7 +126,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     environment:
-      name: preview
+      name: development
      
     steps:
       - name: Set up SSH key
@@ -135,12 +135,12 @@ jobs:
           echo "${{ secrets.SSH_PRIV_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22 ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
-  
-      - name: Set VERSION and deploy
+        
+      - name: Set VERSION and deploy (Swarm)
         run: |
           sshpass ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} bash <<'ENDSSH'
           set -euo pipefail
           cd ${{ vars.REPO_CLONE_PATH }}
           echo "${{ vars.VERSION }}" > .VERSION
-          ./redeploy.PREV.sh
+          ./redeploy.DEV.sh
           ENDSSH

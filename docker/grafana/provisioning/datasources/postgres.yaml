@@ -1,0 +1,31 @@
+# Provisioned PostgreSQL datasource for the Azure managed Postgres.
+
+apiVersion: 1
+
+# Remove the datasource this one replaces. Earlier deployments provisioned the same
+# uid under the name "DEV Postgres"; without this, Grafana tries to insert a second
+# datasource with an existing uid and refuses to start.
+deleteDatasources:
+  - name: DEV Postgres
+    orgId: 1
+
+datasources:
+  - name: Validation Service DB
+    uid: devpg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: $POSTGRES_HOST:$POSTGRES_PORT
+    user: $POSTGRES_USER
+    database: $POSTGRES_NAME
+    isDefault: false
+    editable: false
+    jsonData:
+      sslmode: require
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 2
+      maxIdleConns: 1
+      maxIdleConnsAuto: false
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: $POSTGRES_PASSWORD

@@ -1,7 +1,7 @@
 [submodule "backend/apps/ifc_validation/checks/ifc_gherkin_rules"]
 	path = backend/apps/ifc_validation/checks/ifc_gherkin_rules
 	url = https://github.com/buildingSMART/ifc-gherkin-rules
-	branch = development
+	branch = preview
 [submodule "backend/apps/ifc_validation_models"]
 	path = backend/apps/ifc_validation_models
 	url = https://github.com/buildingSMART/ifc-validation-data-model

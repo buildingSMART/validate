@@ -1,4 +1,3 @@
-
 # Application Structure
 
 ## System Architecture

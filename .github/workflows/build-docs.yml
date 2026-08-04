@@ -1,8 +1,11 @@
 name: "Build docs with Sphinx"
 
-on: 
+on:
   pull_request:
-    branches: docs/gh-pages
+    branches:
+      - development
+    paths:
+      - 'docs/**'
 
 jobs:
   build_and_deploy:
