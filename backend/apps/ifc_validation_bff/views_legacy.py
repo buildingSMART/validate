@@ -431,16 +431,23 @@ def report(request, id: str):
         return create_redirect_response(login=True)
 
     # resolve by request id or model id
-    if id.startswith("r"):
-        priv_id = ValidationRequest.to_private_id(id)
-        
-    elif id.startswith("m"):
-        model_id = Model.to_private_id(id)
-        priv_id = (
-            ValidationRequest.objects.filter(model_id=model_id)
-            .values_list("id", flat=True)
-            .first()
-        )
+    try:
+        if id.startswith("r"):
+            priv_id = ValidationRequest.to_private_id(id)
+
+        elif id.startswith("m"):
+            model_id = Model.to_private_id(id)
+            priv_id = (
+                ValidationRequest.objects.filter(model_id=model_id)
+                .values_list("id", flat=True)
+                .first()
+            )
+
+        else:
+            return HttpResponseNotFound()
+
+    except ValueError:
+        return HttpResponseNotFound()
 
     if not priv_id:
         return HttpResponseNotFound()
