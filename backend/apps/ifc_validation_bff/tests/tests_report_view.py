@@ -32,6 +32,11 @@ class ReportViewTestCase(TestCase):
         # soft-deleted request owned by alice
         cls.alice_deleted_request = ValidationRequest.objects.create(file_name='deleted.ifc', file='deleted.ifc', size=1024, deleted=True)
 
+        # request + linked model owned by bob
+        set_user_context(cls.bob)
+        cls.bob_model = Model.objects.create(file_name='bob.ifc', file='bob.ifc', size=1024, uploaded_by=cls.bob)
+        cls.bob_request = ValidationRequest.objects.create(file_name='bob.ifc', file='bob.ifc', size=1024, model=cls.bob_model)
+
         # model without any validation request
         cls.orphan_model = Model.objects.create(file_name='orphan.ifc', file='orphan.ifc', size=1024, uploaded_by=cls.alice)
 
@@ -54,6 +59,14 @@ class ReportViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['model']['id'], self.alice_request.public_id)
 
+    def test_own_report_2nd_user_by_request_id_returns_200(self):
+    
+        self.login_as(self.bob)
+        response = self.get_report(self.bob_request.public_id)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['model']['id'], self.bob_request.public_id)
+
     def test_own_report_by_model_id_returns_200(self):
 
         self.login_as(self.alice)
@@ -61,6 +74,14 @@ class ReportViewTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['model']['id'], self.alice_request.public_id)
+
+    def test_own_report_by_model_id_returns_200(self):
+    
+        self.login_as(self.bob)
+        response = self.get_report(self.bob_model.public_id)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['model']['id'], self.bob_request.public_id)
 
     # --- malformed / unknown ids (regression tests for 500s) ---
 
@@ -108,3 +129,13 @@ class ReportViewTestCase(TestCase):
 
         self.login_as(self.staff)
         self.assertEqual(self.get_report(self.alice_deleted_request.public_id).status_code, 200)
+
+    # --- authentication ---
+
+    # RW: this test fails because there is a fallback for development user in DEV
+    # def test_unauthenticated_returns_login_redirect(self):
+    #
+    #     response = self.get_report(self.alice_request.public_id)
+    #
+    #     self.assertEqual(response.status_code, 200)
+    #     self.assertIn('redirect', response.json())
