@@ -251,7 +251,7 @@ DATABASES_ALL = {
         "OPTIONS": {
             "pool": {
                 "min_size": 2,
-                "max_size": 10,
+                "max_size": 4,  # per-process cap; swarm total = max_size × (gunicorn + celery + beat). Lowered 10→4 to stay under Postgres max_connections.
                 "max_lifetime": 600,  # recycle connections before overlay network kills them (~13 min)
             },
         },

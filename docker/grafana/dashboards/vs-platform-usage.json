@@ -270,7 +270,7 @@
   "refresh": "5m",
   "tags": [
     "observability",
-    "ivs-681"
+    "validation-service"
   ],
   "time": {
     "from": "now-30d",
