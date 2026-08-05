@@ -473,7 +473,7 @@
       "id": 7,
       "type": "barchart",
       "title": "Most expensive gherkin rules (total CPU time, cumulative)",
-      "description": "From the gherkin logs on the NFS share (201k measurements since Dec 2025), ingested nightly by perf-metrics/gherkin_rule_timings.sh. NOTE: this is CPU time (time.process_time), not wall-clock time, so I/O wait is not included. Logged in PRODUCTION mode only.",
+      "description": "TEMPORARILY EMPTY after the 3 Aug release: the nightly log-ingest (textfile exporter) is not part of the release stack yet — it returns via a small follow-up PR. The underlying data (201k measurements) is safe in the gherkin logs. From the gherkin logs on the NFS share (201k measurements since Dec 2025), ingested nightly by perf-metrics/gherkin_rule_timings.sh. NOTE: this is CPU time (time.process_time), not wall-clock time, so I/O wait is not included. Logged in PRODUCTION mode only.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -507,7 +507,7 @@
       "id": 8,
       "type": "table",
       "title": "Rule cost: total, average and longest run",
-      "description": "Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
+      "description": "TEMPORARILY EMPTY after the 3 Aug release: the nightly log-ingest (textfile exporter) is not part of the release stack yet — it returns via a small follow-up PR. The underlying data (201k measurements) is safe in the gherkin logs. Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -562,7 +562,7 @@
       "id": 9,
       "type": "table",
       "title": "Outcomes per rule (top 15, whole DB)",
-      "description": "Which rules produce the most outcomes (severity WARNING/ERROR)? Feeds backlog item F4: SWE001 and IFC105 together account for ~1.7M of the ~5M rows.",
+      "description": "Which rules produce the most outcomes (severity WARNING/ERROR)? SWE001 and IFC105 together account for ~1.7M of the ~5M rows (candidates for retention pruning).",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "devpg"

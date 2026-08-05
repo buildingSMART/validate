@@ -5,7 +5,7 @@
       "id": 8,
       "type": "stat",
       "title": "Alert candidate: antivirus queue",
-      "description": "E1 threshold: backlog on the antivirus queue > 0. Every validation passes through this queue; the av_worker zombie of 27 July sat dead for 28 hours without anyone noticing.",
+      "description": "Alert threshold: backlog on the antivirus queue > 0. Every validation passes through this queue; the av_worker zombie of 27 July sat dead for 28 hours without anyone noticing.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -62,7 +62,7 @@
       "id": 9,
       "type": "stat",
       "title": "Alert candidate: memory (min across nodes)",
-      "description": "E1 threshold: MemAvailable < 2 GB (red; orange below 4 GB). Lowest value across all nodes. Without swap, memory pressure is immediately fatal — that is what made the freeze so abrupt.",
+      "description": "Alert threshold: MemAvailable < 2 GB (red; orange below 4 GB). Lowest value across all nodes. Without swap, memory pressure is immediately fatal — that is what made the freeze so abrupt.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -123,7 +123,7 @@
       "id": 10,
       "type": "stat",
       "title": "Alert candidate: disk (max across nodes)",
-      "description": "E1 threshold: disk > 85% (orange), > 95% red. The fullest node counts. Currently red as expected: dev-vm-worker-1 sits around 96% (IVS-828, backlog item A4).",
+      "description": "Alert threshold: disk > 85% (orange), > 95% red. The fullest node counts. The small 28 GB disk of dev-vm-worker-1 historically fills first (Docker images); at 100% it broke a deploy on 3 Aug.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -280,7 +280,7 @@
           "refId": "A"
         }
       ],
-      "title": "Disk used % (per node) — the IVS-828 chart",
+      "title": "Disk used % (per node)",
       "type": "timeseries",
       "description": "Percentage of disk in use, per Swarm node. Above ~90% things get risky."
     },
@@ -310,7 +310,8 @@
         }
       ],
       "title": "Memory available (per node)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Memory the kernel can still hand out, per node. These VMs have no swap, so hitting zero freezes the node outright (as happened 28 Jul). Bands match the alert tile: orange below 4 GB, red below 2 GB."
     },
     {
       "datasource": {
@@ -339,7 +340,8 @@
         }
       ],
       "title": "CPU usage % (per node)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "CPU load per node (100% = all cores busy). In every incident so far the bottleneck was memory or disk, never CPU — kept for completeness."
     },
     {
       "datasource": {
@@ -368,7 +370,8 @@
         }
       ],
       "title": "Celery: active workers per queue",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Number of Celery worker instances consuming each queue. Zero on a queue means nobody is listening — the zombie-worker signature of 27 Jul, when the queue filled while Docker still reported the container as Running."
     },
     {
       "datasource": {
@@ -397,7 +400,8 @@
         }
       ],
       "title": "Celery: queue length (backlog)",
-      "type": "timeseries"
+      "type": "timeseries",
+      "description": "Tasks waiting in each Redis queue. A growing line while workers appear active means processing is stuck. The antivirus queue matters most: it has a single consumer and every validation passes through it first."
     },
     {
       "datasource": {
@@ -579,7 +583,7 @@
   "refresh": "30s",
   "tags": [
     "observability",
-    "ivs-681"
+    "validation-service"
   ],
   "time": {
     "from": "now-3h",
