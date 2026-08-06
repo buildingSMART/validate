@@ -198,6 +198,9 @@ SPECTACULAR_SETTINGS = {
     'REDOC_DIST': 'SIDECAR',
 
     # OTHER SETTINGS
+    'ENUM_NAME_OVERRIDES': {
+        'StatusEnum': 'apps.ifc_validation_models.models.Model.Status',
+    }
 }
 
 ROOT_URLCONF = "core.urls"
