@@ -199,7 +199,7 @@ SPECTACULAR_SETTINGS = {
 
     # OTHER SETTINGS
     'ENUM_NAME_OVERRIDES': {
-        'StatusEnum': 'apps.ifc_validation_models.models.Model.Status',
+        'ModelStatusEnum': 'apps.ifc_validation_models.models.Model.Status',
     }
 }
 
