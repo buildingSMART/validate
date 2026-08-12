@@ -261,14 +261,19 @@ services:
     # the false-quarantine incident: long-lived daemons inside containers (clamd)
     # were invisible to both host-level and per-subprocess measurements.
     cadvisor:
-        image: gcr.io/cadvisor/cadvisor:v0.52.1
+        # v0.55+: v0.52 chokes on Docker 29's containerd image store (rw-layer
+        # lookup fails -> ALL metrics for those containers silently dropped).
+        image: gcr.io/cadvisor/cadvisor:v0.55.1
         command:
             - '--docker_only=true'
             - '--housekeeping_interval=15s'
             - '--store_container_labels=false'
             # keep only this label: needed to group metrics per swarm service
             - '--whitelisted_container_labels=com.docker.swarm.service.name'
-            - '--disable_metrics=percpu,sched,tcp,udp,advtcp,process,hugetlb,referenced_memory,cpu_topology,resctrl'
+            # disk/diskIO also disabled: the rw-layer lookup they require breaks
+            # on Docker 29's containerd image store (no overlayfs/layerdb path),
+            # which silently drops ALL metrics for those containers.
+            - '--disable_metrics=percpu,sched,tcp,udp,advtcp,process,hugetlb,referenced_memory,cpu_topology,resctrl,disk,diskIO'
         volumes:
             - /:/rootfs:ro
             - /var/run:/var/run:ro

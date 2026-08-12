@@ -37,5 +37,7 @@ scrape_configs:
   # Per-container memory/CPU. Closes the gap that made the clamd incident
   # possible: long-lived daemons inside containers were invisible.
   - job_name: "cadvisor"
-    static_configs:
-      - targets: ["cadvisor:8080"]
+    dns_sd_configs:
+      - names: ["tasks.cadvisor"]
+        type: A
+        port: 8080
