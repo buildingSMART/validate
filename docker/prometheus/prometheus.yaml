@@ -21,3 +21,21 @@ scrape_configs:
   - job_name: "celery"
     static_configs:
       - targets: ["celery_exporter:9808"]
+
+  # Django HTTP metrics (django-prometheus): requests, latencies and status codes
+  # per view - including 429s, which never reach the database.
+  - job_name: "django"
+    static_configs:
+      - targets: ["backend:8000"]
+
+  # Batch metrics written as .prom files by cron jobs on the manager
+  # (per-rule gherkin costs, harvested peak-RSS numbers).
+  - job_name: "textfile"
+    static_configs:
+      - targets: ["textfile_exporter:9100"]
+
+  # Per-container memory/CPU. Closes the gap that made the clamd incident
+  # possible: long-lived daemons inside containers were invisible.
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]

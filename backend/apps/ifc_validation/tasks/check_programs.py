@@ -89,6 +89,12 @@ def run_subprocess_wait(*popen_args, check=False, **popen_kwargs):
         raise
     retcode = process.returncode
     stdout, stderr = "".join(out_chunks), "".join(err_chunks)
+    if retcode is not None and retcode < 0:
+        # killed by a signal; -9 (SIGKILL) usually means the container hit its
+        # memory limit and the kernel OOM-killed this subprocess. Without this
+        # line such deaths are indistinguishable from ordinary failures.
+        logger.warning(f"Subprocess was killed by signal {-retcode} (likely OOM if 9); "
+                       f"peak RSS before death: {peak_rss_kb} kB")
     if check and retcode != 0:
         raise subprocess.CalledProcessError(retcode, popen_args[0], output=stdout, stderr=stderr)
     return proc_output(retcode, stdout, stderr, popen_args[0] if popen_args else [], peak_rss_kb, min_mem_available_kb)

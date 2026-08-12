@@ -45,6 +45,11 @@ def redirect_to_v1(request, resource, suffix=None):
 
 urlpatterns = [
 
+    # Prometheus scrape endpoint (/metrics). Internal only: nginx serves the React
+    # app at / and never proxies this path, so it is reachable solely on the
+    # overlay network (backend:8000).
+    path('', include('django_prometheus.urls')),
+
     # Django Admin
     path("admin/",           admin.site.urls),
 
