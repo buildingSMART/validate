@@ -207,3 +207,30 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertEquals('MyFabTool', model.produced_by.name)
         self.assertEquals('2025.1', model.produced_by.version)
         self.assertEquals('Acme Inc.', model.produced_by.company.name)
+
+    def test_header_validation_task_decodes_step_escapes(self):
+
+        # arrange
+        HeaderValidationTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='pass_non_ascii_x2_escape_header.ifc',
+            file='pass_non_ascii_x2_escape_header.ifc',
+            size=1
+        )
+        request.mark_as_initiated()
+
+        # act
+        header_validation_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'},
+            id=request.id,
+            file_name=request.file_name
+        )
+
+        # assert
+        model = Model.objects.get(id=request.id)
+        self.assertIsNotNone(model)
+        self.assertEqual(model.status_header, Model.Status.VALID)
+        self.assertEqual('Buhodra Ingeniería S.A.', model.header_validation.get('company_name'))
+        self.assertEqual('Buhodra Ingeniería S.A. - Istram - 26.06', model.header_validation.get('originating_system'))
+        self.assertNotIn('\\X2\\', str(model.header_validation))
+        self.assertEquals('Buhodra Ingeniería S.A.', model.produced_by.company.name)

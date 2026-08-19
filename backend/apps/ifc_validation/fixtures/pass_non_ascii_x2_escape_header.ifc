@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('ViewDefinition [ReferenceView_V1.2]', 'ExchangeRequirement [Any]'),'2;1');
+FILE_NAME('pass_non_ascii_x2_escape_header.ifc','2025-02-13T15:58:45',('jdoe'),('Buhodra Ingenier\X2\00ED\X0\a S.A.'),'ABC rel. 0.1.2','Buhodra Ingenier\X2\00ED\X0\a S.A. - Istram - 26.06','IFC4 model');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#1=IFCPERSON($,$,'',$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;

@@ -42,6 +42,51 @@ def ifcopenshell_pre_validation(file):
     return extracted_info
 
 
+# ISO 10303-21 string escapes; \X2\/\X4\ must be tried before the single-byte \X\
+STEP_ESCAPE_PATTERN = re.compile(
+    r"\\X2\\(?P<x2>(?:[0-9A-Fa-f]{4})+)\\X0\\"
+    r"|\\X4\\(?P<x4>(?:[0-9A-Fa-f]{8})+)\\X0\\"
+    r"|\\X\\(?P<x>[0-9A-Fa-f]{2})"
+    r"|\\S\\(?P<s>.)"
+    r"|\\P(?P<p>[A-I])\\"
+    r"|\\(?P<backslash>\\)"
+)
+
+
+def decode_step_string(value):
+    """Decode ISO 10303-21 string escapes (\\X2\\..\\X0\\, \\X\\, \\S\\, \\P?\\, \\\\)
+    so that e.g. 'Ingenier\\X2\\00ED\\X0\\a' is presented as 'Ingeniería'."""
+    if not isinstance(value, str) or "\\" not in value:
+        return value
+
+    parts = []
+    codepage = "iso-8859-1"  # default alphabet; switched by \P?\ directives
+    position = 0
+    for match in STEP_ESCAPE_PATTERN.finditer(value):
+        parts.append(value[position:match.start()])
+        position = match.end()
+        if match.group("x2"):
+            parts.append(bytes.fromhex(match.group("x2")).decode("utf-16-be", "replace"))
+        elif match.group("x4"):
+            parts.append(bytes.fromhex(match.group("x4")).decode("utf-32-be", "replace"))
+        elif match.group("x"):
+            parts.append(bytes([int(match.group("x"), 16)]).decode("iso-8859-1"))
+        elif match.group("s"):
+            parts.append(bytes([(ord(match.group("s")) + 128) & 0xFF]).decode(codepage, "replace"))
+        elif match.group("p"):
+            codepage = f"iso-8859-{ord(match.group('p')) - ord('A') + 1}"
+        else:
+            parts.append("\\")
+    parts.append(value[position:])
+    return "".join(parts)
+
+
+def decode_step_strings(value):
+    if isinstance(value, tuple):
+        return tuple(decode_step_strings(v) for v in value)
+    return decode_step_string(value)
+
+
 def is_valid_iso8601(dt_str: str) -> bool:
     try:
         isoparse(dt_str)
@@ -119,8 +164,8 @@ class HeaderStructure(ConfiguredBaseModel):
                 (file_name, 'authorization', 6)
             ]
 
-            attributes = {field: getattr(obj, field) for obj, field, index in fields}
-            
+            attributes = {field: decode_step_strings(getattr(obj, field)) for obj, field, index in fields}
+
             attributes['validation_errors'] = []
             attributes['mvd'] = file.mvd.view_definitions
             attributes['comments'] = file.mvd.comments
@@ -232,11 +277,17 @@ def main():
         print("Usage: python -m validate_header <path_to_ifc_file>")
         sys.exit(1)
 
-    filename = sys.argv[1] 
+    filename = sys.argv[1]
+    # the parse-error class was renamed upstream (SyntaxError -> CollectedValidationErrors);
+    # resolve whichever exists so a parse failure lands in "syntax_error" on either version
+    parse_errors = tuple(
+        exc for name in ("SyntaxError", "CollectedValidationErrors")
+        if (exc := getattr(ifcopenshell.simple_spf, name, None)) is not None
+    )
     try:
         file = ifcopenshell.simple_spf.open(filename, only_header=True)
         header = HeaderStructure(file=file)
-    except ifcopenshell.simple_spf.SyntaxError:
+    except parse_errors:
         header = HeaderStructure(file=None, validation_errors=["syntax_error"])
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
