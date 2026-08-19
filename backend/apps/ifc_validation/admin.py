@@ -70,7 +70,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
-    readonly_fields = ["id", "public_id", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"] 
+    readonly_fields = ["id", "public_id", "model", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"] 
     date_hierarchy = "created"
 
     list_filter = [
