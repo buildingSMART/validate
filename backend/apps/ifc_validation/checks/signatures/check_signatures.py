@@ -297,8 +297,42 @@ def get_signatures(data: str):
     yield from (SignatureData(m.group(1).strip(), *m.span()) for m in matches)
 
 
+SIGNATURE_MARKER = b"SIGNATURE;"
+
+# control characters and DEL, removed by strip_content
+STRIP_DELETE = bytes(range(0x20)) + b"\x7f"
+
+
 def strip_content(data: str) -> str:
-    return "".join(char for char in data if 0x20 <= ord(char) <= 0xFF and ord(char) != 0x7F)
+    """
+    Remove control characters (line endings, tabs, DEL, ...) so that a
+    signature block can be matched regardless of how its lines are wrapped.
+
+    Same result as filtering per character, but at C speed: the latin-1
+    round trip drops anything above 0xFF, translate removes STRIP_DELETE.
+    """
+    return data.encode("latin-1", "ignore").translate(None, STRIP_DELETE).decode("latin-1")
+
+
+def contains_signature(fn, chunk_size=1024 * 1024) -> bool:
+    """
+    Cheap pre-check: does the file contain a "SIGNATURE;" marker at all?
+
+    Reads in chunks, so memory use stays constant regardless of file size.
+    Chunks are stripped of control characters before matching (so a marker
+    broken by a line ending is still found) and `tail` carries the last few
+    bytes over to the next round (so a marker crossing a chunk boundary is
+    still found).
+    """
+    overlap = len(SIGNATURE_MARKER) - 1
+    tail = b""
+    with open(fn, "rb") as f:
+        while chunk := f.read(chunk_size):
+            window = tail + chunk.translate(None, STRIP_DELETE)
+            if SIGNATURE_MARKER in window:
+                return True
+            tail = window[-overlap:]
+    return False
 
 
 def run(fn):
@@ -319,10 +353,15 @@ def run(fn):
         store.add_cert(crypto.load_certificate(crypto.FILETYPE_PEM, pem))
     """
 
+    # almost no uploads carry a signature: a streaming scan for the marker
+    # avoids loading and stripping the entire file in memory for nothing
+    if not contains_signature(fn):
+        return
+
     ca = CertAuthorityBundle.from_path(os.path.join(os.path.dirname(__file__), "store"))
 
-    with open(fn, "r", encoding="ascii") as f:
-        ifc_file = strip_content(f.read())
+    with open(fn, "rb") as f:
+        ifc_file = f.read().translate(None, STRIP_DELETE).decode("ascii")
 
     sigs = list(get_signatures(ifc_file))
 

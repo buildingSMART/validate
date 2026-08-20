@@ -1,0 +1,10 @@
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''),'2;1');
+FILE_NAME('café.ifc','2025-02-13T15:58:45',('jdoe'),('Acme Inc.'),'','','');
+FILE_SCHEMA(('IFC4'));
+ENDSEC;
+DATA;
+#1=IFCPROJECT('0pYKP47wH3MwYXYFzgmYrB',$,'Café Übung',$,$,$,$,$,$);
+ENDSEC;
+END-ISO-10303-21;
