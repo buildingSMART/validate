@@ -14,6 +14,16 @@ import os
 from config import ConfiguredBaseModel
 
 
+STEP_ESCAPE_PATTERN = re.compile(
+        r"\\X2\\(?P<x2>(?:[0-9A-Fa-f]{4})+)\\X0\\"
+        r"|\\X4\\(?P<x4>(?:[0-9A-Fa-f]{8})+)\\X0\\"
+        r"|\\X\\(?P<x>[0-9A-Fa-f]{2})"
+        r"|\\S\\(?P<s>.)"
+        r"|\\P(?P<p>[A-I])\\"
+        r"|\\(?P<backslash>\\)"
+    )
+
+
 def ifcopenshell_pre_validation(file):
     log_stream = io.StringIO()
     
@@ -50,6 +60,42 @@ def is_valid_iso8601(dt_str: str) -> bool:
         return False
     
 
+def decode_ifc_step_string(value):
+    """
+    Decodes an ISO 10303-21 (STEP) encoded string into a clean Python Unicode string.
+    Supports \\X2\\...\\X0\\, \\X4\\...\\X0\\, \\X\\, \\S\\, \\P?\\ and \\\\
+    
+    See: https://technical.buildingsmart.org/resources/ifcimplementationguidance/string-encoding
+    """
+    if not isinstance(value, str) or "\\" not in value:
+        return value
+
+    state = { "codepage": "iso-8859-1" }
+
+    def replacer(match):
+        gd = match.groupdict()
+        
+        # ordered by statistically most common ISO-10303-21 escape sequences
+        if gd["x2"]:
+            return bytes.fromhex(gd["x2"]).decode("utf-16-be", "replace")
+        if gd["backslash"]:
+            return "\\"
+        if gd["x4"]:
+            return bytes.fromhex(gd["x4"]).decode("utf-32-be", "replace")
+        if gd["x"]:
+            return bytes([int(gd["x"], 16)]).decode("iso-8859-1")
+        if gd["s"]:
+            return bytes([(ord(gd["s"]) + 128) & 0xFF]).decode(state["codepage"], "replace")
+        if gd["p"]:
+            state["codepage"] = f"iso-8859-{ord(gd['p']) - 64}" # 64 is ord('A') - 1
+            return ""
+            
+        return ""
+
+    # re.sub handles all non-matched text slicing and joining
+    return STEP_ESCAPE_PATTERN.sub(replacer, value)
+
+
 def validate_and_split_originating_system(attributes):
     # Define the pattern with literal spaces around the hyphen
     # pattern = re.compile(r"^([^ ]+) - (.+) - (\d+([.,;|]\d+)*)$")
@@ -70,8 +116,8 @@ def validate_and_split_originating_system(attributes):
         company_name = application_name = version = None
     
     attributes |= {
-        'company_name': company_name,
-        'application_name': application_name,
+        'company_name': decode_ifc_step_string(company_name),
+        'application_name': decode_ifc_step_string(application_name),
         'version': version,
     }
         
@@ -196,7 +242,6 @@ class HeaderStructure(ConfiguredBaseModel):
         if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
             values.data['validation_errors'].append(values.field_name)
         return v
-
         
         
     @field_validator('company_name', 'application_name')
@@ -220,6 +265,7 @@ class HeaderStructure(ConfiguredBaseModel):
             except InvalidVersion:
                 values.data['validation_errors'].append(values.field_name)
         return v
+
 
     @field_validator('schema_identifier')
     def store_schema(cls, v, values):
