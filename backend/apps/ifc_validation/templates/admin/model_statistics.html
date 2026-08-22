@@ -1,0 +1,476 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
+    &rsaquo; Model statistics query builder
+  </div>
+{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    <p>
+      Build a transient query one clause at a time. Filter clauses are combined
+      with AND. Nothing is saved.
+    </p>
+    <details class="statistics-examples">
+      <summary>Example query patterns</summary>
+      <p>
+        These recipes mirror the Source selector and clause rows below. Replace
+        example values such as model <code>123</code>, <code>IFC4</code>, and
+        <code>IfcWall</code> with the values for your query.
+      </p>
+      {% for example in statistics_query_examples %}
+        <details class="statistics-example-pattern">
+          <summary>{{ example.title }}</summary>
+          <div class="statistics-example-source">
+            <strong>Source</strong>
+            <span class="statistics-example-control">{{ example.source }}</span>
+          </div>
+          <div class="statistics-example-headings" aria-hidden="true">
+            <span>Operation</span><span>Field / selection</span><span>Operator</span><span>Value</span>
+          </div>
+          <div class="statistics-example-clauses">
+            {% for clause in example.clauses %}
+              <div class="statistics-example-clause">
+                <span class="statistics-example-control">{{ clause.operation }}</span>
+                {% if clause.expression %}
+                  <span class="statistics-example-expression">
+                    <span class="statistics-example-control{% if not clause.expression.function_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.function }}</span>
+                    {% if clause.expression.function_active %}<span>(</span>{% endif %}
+                    <span class="statistics-example-control">{{ clause.expression.operand_a }}</span>
+                    <span class="statistics-example-control{% if not clause.expression.operator_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.operator }}</span>
+                    <span class="statistics-example-control{% if not clause.expression.operand_b_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.operand_b }}</span>
+                    {% if clause.expression.function_active %}<span>)</span>{% endif %}
+                  </span>
+                {% else %}
+                  {% if clause.selection %}<span class="statistics-example-control">{{ clause.selection }}</span>{% else %}<span></span>{% endif %}
+                  {% if clause.operator %}<span class="statistics-example-control">{{ clause.operator }}</span>{% else %}<span></span>{% endif %}
+                  {% if clause.value %}<span class="statistics-example-control">{{ clause.value }}</span>{% else %}<span></span>{% endif %}
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+          <div class="statistics-example-actions">
+            <button type="button" class="button statistics-apply-example" data-example-index="{{ forloop.counter0 }}">Apply</button>
+          </div>
+        </details>
+      {% endfor %}
+      <p>
+        Ranges use two Filter rows, for example Count &gt; X and Count &lt; Y.
+        Ratios are returned as fractions, so <code>0.8</code> represents 80%.
+      </p>
+    </details>
+
+    <form method="post">
+      {% csrf_token %}
+      <fieldset class="module aligned">
+        <h2>Source</h2>
+        {{ source_form.as_p }}
+      </fieldset>
+      <fieldset class="module statistics-query">
+        <h2>Query</h2>
+        {{ clause_formset.management_form }}
+        {{ clause_formset.non_form_errors }}
+        {% if query_error %}<p class="errornote">{{ query_error }}</p>{% endif %}
+        <div class="statistics-clause-headings" aria-hidden="true">
+          <span>Operation</span><span>Field / selection</span><span>Operator</span><span>Value</span><span></span>
+        </div>
+        <div id="statistics-clause-rows">
+          {% for clause_form in clause_formset %}
+            <div class="statistics-clause-row">
+              <div class="statistics-clause-errors">{{ clause_form.errors }}</div>
+              <div class="statistics-operation">{{ clause_form.operation }}</div>
+              <div class="statistics-target">{{ clause_form.target }}</div>
+              <div class="statistics-operator">{{ clause_form.operator }}</div>
+              <div class="statistics-value">{{ clause_form.value }}</div>
+              <div class="statistics-expression">
+                {{ clause_form.expression_function }}
+                <span class="statistics-expression-parenthesis">(</span>
+                {{ clause_form.operand_a }}
+                {{ clause_form.expression_operator }}
+                <span class="statistics-operand-b">{{ clause_form.operand_b }}</span>
+                <span class="statistics-expression-parenthesis">)</span>
+              </div>
+              <div>
+                <span class="statistics-delete-control">{{ clause_form.DELETE }}</span>
+                <button type="button" class="button statistics-remove-clause">Remove</button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+        <p><button type="button" class="button" id="statistics-add-clause">Add</button></p>
+      </fieldset>
+      <div class="submit-row">
+        <input type="submit" value="Run query" class="default">
+      </div>
+    </form>
+
+    {% if columns %}
+      <p class="statistics-result-actions">
+        <button type="button" class="button" id="statistics-copy-results">
+          Copy results for Excel
+        </button>
+        <span id="statistics-copy-status" role="status" aria-live="polite"></span>
+      </p>
+      <table id="result_list">
+        <thead>
+          <tr>
+            {% for column in columns %}<th scope="col">{{ column }}</th>{% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in display_rows %}
+            <tr class="{% cycle 'row1' 'row2' %}">
+              {% for value in row %}<td>{{ value }}</td>{% endfor %}
+            </tr>
+          {% empty %}
+            <tr><td colspan="{{ columns|length }}">No computed statistics matched this query.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if sql %}
+        <details>
+          <summary>Generated SQL</summary>
+          <pre style="white-space: pre-wrap;">{{ sql }}</pre>
+        </details>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <template id="statistics-empty-clause">
+    <div class="statistics-clause-row">
+      <div class="statistics-clause-errors">{{ clause_formset.empty_form.errors }}</div>
+      <div class="statistics-operation">{{ clause_formset.empty_form.operation }}</div>
+      <div class="statistics-target">{{ clause_formset.empty_form.target }}</div>
+      <div class="statistics-operator">{{ clause_formset.empty_form.operator }}</div>
+      <div class="statistics-value">{{ clause_formset.empty_form.value }}</div>
+      <div class="statistics-expression">
+        {{ clause_formset.empty_form.expression_function }}
+        <span class="statistics-expression-parenthesis">(</span>
+        {{ clause_formset.empty_form.operand_a }}
+        {{ clause_formset.empty_form.expression_operator }}
+        <span class="statistics-operand-b">{{ clause_formset.empty_form.operand_b }}</span>
+        <span class="statistics-expression-parenthesis">)</span>
+      </div>
+      <div>
+        <span class="statistics-delete-control">{{ clause_formset.empty_form.DELETE }}</span>
+        <button type="button" class="button statistics-remove-clause">Remove</button>
+      </div>
+    </div>
+  </template>
+
+  <datalist id="statistics-model-values">
+    {% for value, label in filter_suggestions.models %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </datalist>
+  <datalist id="statistics-schema-values">
+    {% for value, label in filter_suggestions.schemas %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </datalist>
+  <datalist id="statistics-entity-values">
+    {% for value, label in filter_suggestions.entities %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </datalist>
+  <datalist id="statistics-template-values">
+    {% for value, label in filter_suggestions.templates %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+  </datalist>
+  <datalist id="statistics-entity-kind-values">
+    <option value="concrete"><option value="inherited">
+  </datalist>
+  <datalist id="statistics-pset-scope-values">
+    <option value="definitions"><option value="associations">
+  </datalist>
+  <datalist id="statistics-standardized-values">
+    <option value="standard"><option value="custom">
+  </datalist>
+  <datalist id="statistics-graph-path-values">
+    <option value="PropertyType">
+    <option value="ParentCurve">
+    <option value="PropertySetName">
+  </datalist>
+  {{ clause_target_choices|json_script:"statistics-clause-targets" }}
+  {{ filter_operator_choices|json_script:"statistics-filter-operators" }}
+  {{ statistics_query_examples|json_script:"statistics-query-examples" }}
+
+  <style>
+    .statistics-examples { margin: 1rem 0 1.5rem; }
+    .statistics-example-pattern {
+      border: 1px solid var(--border-color);
+      margin: 0.75rem 0;
+    }
+    .statistics-example-pattern > summary {
+      background: var(--darkened-bg);
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0.75rem;
+    }
+    .statistics-example-source,
+    .statistics-example-headings,
+    .statistics-example-clause {
+      display: grid;
+      grid-template-columns: minmax(9rem, 1fr) minmax(14rem, 1.5fr) minmax(10rem, 1fr) minmax(14rem, 1.5fr);
+      gap: 0.75rem;
+      align-items: center;
+      min-width: 58rem;
+      padding: 0.6rem 0.75rem;
+    }
+    .statistics-example-pattern[open] { overflow-x: auto; }
+    .statistics-example-source .statistics-example-control { grid-column: 2; }
+    .statistics-example-headings { font-weight: bold; padding-bottom: 0; }
+    .statistics-example-clause:nth-child(odd) { background: var(--darkened-bg); }
+    .statistics-example-control {
+      background: var(--body-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      box-sizing: border-box;
+      display: block;
+      min-height: 2.25rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .statistics-example-expression {
+      grid-column: 2 / 5;
+      display: grid;
+      grid-template-columns: minmax(8rem, 0.8fr) auto minmax(8rem, 1fr) minmax(8rem, 0.8fr) minmax(8rem, 1fr) auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .statistics-example-placeholder {
+      background: transparent;
+      border-color: transparent;
+    }
+    .statistics-example-actions {
+      padding: 0.75rem;
+      text-align: right;
+    }
+    .statistics-clause-headings,
+    .statistics-clause-row {
+      display: grid;
+      grid-template-columns: minmax(9rem, 1fr) minmax(14rem, 1.5fr) minmax(10rem, 1fr) minmax(14rem, 1.5fr) auto;
+      gap: 0.75rem;
+      align-items: start;
+      padding: 0.75rem;
+    }
+    .statistics-clause-headings { font-weight: bold; padding-bottom: 0; }
+    .statistics-clause-row:nth-child(odd) { background: var(--darkened-bg); }
+    .statistics-clause-row[hidden] { display: none; }
+    .statistics-clause-row select,
+    .statistics-clause-row input[type="text"] { width: 100%; box-sizing: border-box; }
+    .statistics-expression {
+      grid-column: 2 / 5;
+      display: grid;
+      grid-template-columns: minmax(8rem, 0.8fr) auto minmax(8rem, 1fr) minmax(8rem, 0.8fr) minmax(8rem, 1fr) auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .statistics-operand-b select { width: 100%; }
+    .statistics-expression select.statistics-empty-placeholder {
+      appearance: none;
+      background: transparent;
+      border-color: transparent;
+      box-shadow: none;
+      cursor: pointer;
+    }
+    .statistics-expression select.statistics-empty-placeholder:hover,
+    .statistics-expression select.statistics-empty-placeholder:focus {
+      border-color: var(--border-color);
+    }
+    .statistics-expression[hidden],
+    .statistics-expression-parenthesis[hidden] { display: none; }
+    .statistics-clause-errors { grid-column: 1 / -1; }
+    .statistics-clause-errors:empty { display: none; }
+    .statistics-delete-control { display: none; }
+  </style>
+
+  <script>
+    (() => {
+      const targetChoices = JSON.parse(document.getElementById("statistics-clause-targets").textContent);
+      const operatorChoices = JSON.parse(document.getElementById("statistics-filter-operators").textContent);
+      const exampleQueries = JSON.parse(document.getElementById("statistics-query-examples").textContent);
+      const source = document.getElementById("id_source");
+      const rows = document.getElementById("statistics-clause-rows");
+      const totalForms = document.getElementById("id_clauses-TOTAL_FORMS");
+      const emptyClause = document.getElementById("statistics-empty-clause");
+      const queryFieldset = document.querySelector(".statistics-query");
+      const valueLists = {
+        "filter:model": "statistics-model-values",
+        "filter:schema": "statistics-schema-values",
+        "filter:entity": "statistics-entity-values",
+        "filter:entity_kind": "statistics-entity-kind-values",
+        "filter:pset_scope": "statistics-pset-scope-values",
+        "filter:standardized": "statistics-standardized-values",
+        "filter:template": "statistics-template-values",
+        "group:graph_value": "statistics-graph-path-values",
+      };
+      const placeholders = {
+        "filter:model": "Database model ID",
+        "filter:schema": "For example IFC4",
+        "filter:entity": "For example IfcWall",
+        "filter:count": "Non-negative integer",
+        "filter:entity_kind": "concrete or inherited",
+        "filter:pset_name": "Property-set name",
+        "filter:pset_scope": "definitions or associations",
+        "filter:standardized": "standard or custom",
+        "filter:template": "Template filename",
+        "group:graph_value": "For example PropertyType",
+        limit: "1 to 1000, or all",
+      };
+
+      function replaceChoices(select, choices) {
+        const selected = select.value;
+        select.replaceChildren(...choices.map(choice => {
+          const option = document.createElement("option");
+          option.value = choice.value;
+          option.textContent = choice.label;
+          return option;
+        }));
+        if ([...select.options].some(option => option.value === selected)) {
+          select.value = selected;
+        }
+      }
+
+      function syncClauseRow(row) {
+        const operation = row.querySelector('select[name$="-operation"]');
+        const target = row.querySelector('select[name$="-target"]');
+        const operator = row.querySelector('select[name$="-operator"]');
+        const value = row.querySelector('input[name$="-value"]');
+        const targetCell = row.querySelector(".statistics-target");
+        const operatorCell = row.querySelector(".statistics-operator");
+        const valueCell = row.querySelector(".statistics-value");
+        const expressionCell = row.querySelector(".statistics-expression");
+        const expressionFunction = row.querySelector('select[name$="-expression_function"]');
+        const parentheses = row.querySelectorAll(".statistics-expression-parenthesis");
+
+        let choices = targetChoices[operation.value] || [];
+        if (["filter", "group"].includes(operation.value)) {
+          choices = choices[source.value] || [];
+        }
+        replaceChoices(target, choices);
+        targetCell.hidden = ["expression", "limit"].includes(operation.value);
+        operatorCell.hidden = operation.value !== "filter";
+        const needsGroupValue = (
+          operation.value === "group" && target.value === "group:graph_value"
+        );
+        valueCell.hidden = (
+          !["filter", "limit"].includes(operation.value) && !needsGroupValue
+        );
+        expressionCell.hidden = operation.value !== "expression";
+        parentheses.forEach(parenthesis => {
+          parenthesis.hidden = !expressionFunction.value;
+        });
+        expressionCell.querySelectorAll("select").forEach(select => {
+          select.classList.toggle("statistics-empty-placeholder", !select.value);
+        });
+
+        if (operation.value === "filter") {
+          replaceChoices(operator, operatorChoices[target.value] || []);
+        }
+        value.placeholder = placeholders[target.value] || placeholders[operation.value] || "Value";
+        if (valueLists[target.value]) {
+          value.setAttribute("list", valueLists[target.value]);
+        } else {
+          value.removeAttribute("list");
+        }
+      }
+
+      function appendClause(values = {}) {
+        const index = Number(totalForms.value);
+        const wrapper = document.createElement("div");
+        wrapper.innerHTML = emptyClause.innerHTML.replaceAll("__prefix__", index).trim();
+        const row = wrapper.firstElementChild;
+        rows.appendChild(row);
+        totalForms.value = index + 1;
+
+        if (values.operation) {
+          row.querySelector('select[name$="-operation"]').value = values.operation;
+        }
+        syncClauseRow(row);
+        if (values.target) {
+          row.querySelector('select[name$="-target"]').value = values.target;
+          syncClauseRow(row);
+        }
+        Object.entries(values).forEach(([field, value]) => {
+          if (["operation", "target"].includes(field)) return;
+          const control = row.querySelector(`[name$="-${field}"]`);
+          if (control) control.value = value;
+        });
+        syncClauseRow(row);
+        return row;
+      }
+
+      function tableToTsv(table) {
+        return [...table.rows].map(row => (
+          [...row.cells].map(cell => (
+            cell.textContent
+              .replace(/[\t\r\n]+/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+          )).join("\t")
+        )).join("\r\n");
+      }
+
+      async function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return;
+        }
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.opacity = "0";
+        document.body.appendChild(textArea);
+        textArea.select();
+        const copied = document.execCommand("copy");
+        textArea.remove();
+        if (!copied) throw new Error("The browser rejected the copy operation.");
+      }
+
+      document.getElementById("statistics-add-clause").addEventListener("click", () => {
+        appendClause();
+      });
+
+      document.querySelector(".statistics-examples").addEventListener("click", event => {
+        const button = event.target.closest(".statistics-apply-example");
+        if (!button) return;
+        const example = exampleQueries[Number(button.dataset.exampleIndex)].form_data;
+        source.value = example.source;
+        rows.replaceChildren();
+        totalForms.value = 0;
+        example.clauses.forEach(appendClause);
+        queryFieldset.querySelectorAll(".errornote, .errorlist.nonform").forEach(error => {
+          error.remove();
+        });
+        queryFieldset.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+
+      rows.addEventListener("change", event => {
+        if (event.target.matches('select[name$="-operation"], select[name$="-target"], .statistics-expression select')) {
+          syncClauseRow(event.target.closest(".statistics-clause-row"));
+        }
+      });
+      rows.addEventListener("click", event => {
+        const button = event.target.closest(".statistics-remove-clause");
+        if (!button || !rows.contains(button)) return;
+        event.preventDefault();
+        const row = button.closest(".statistics-clause-row");
+        row.querySelector('input[name$="-DELETE"]').checked = true;
+        row.hidden = true;
+      });
+      source.addEventListener("change", () => {
+        rows.querySelectorAll(".statistics-clause-row").forEach(syncClauseRow);
+      });
+      const copyResults = document.getElementById("statistics-copy-results");
+      if (copyResults) {
+        copyResults.addEventListener("click", async () => {
+          const status = document.getElementById("statistics-copy-status");
+          try {
+            await copyText(tableToTsv(document.getElementById("result_list")));
+            status.textContent = "Copied. Paste directly into Excel.";
+          } catch (error) {
+            status.textContent = `Copy failed: ${error.message}`;
+          }
+        });
+      }
+      rows.querySelectorAll(".statistics-clause-row").forEach(syncClauseRow);
+    })();
+  </script>
+{% endblock %}
