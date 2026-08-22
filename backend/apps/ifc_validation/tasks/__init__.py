@@ -14,7 +14,13 @@ from .task_runner import (
     bsdd_validation_subtask,
     industry_practices_subtask, 
     instance_completion_subtask,
-    magic_clamav_subtask
+    magic_clamav_subtask,
+)
+from .statistics_tasks import (
+    populate_entity_count_histogram,
+    populate_pset_count_histogram,
+    populate_template_statistics,
+    schedule_model_statistic_tasks,
 )
 
 __all__ = [
@@ -29,5 +35,9 @@ __all__ = [
     "normative_rules_ip_validation_subtask",
     "industry_practices_subtask",
     "instance_completion_subtask",
-    "magic_clamav_subtask"
+    "magic_clamav_subtask",
+    "populate_entity_count_histogram",
+    "populate_pset_count_histogram",
+    "populate_template_statistics",
+    "schedule_model_statistic_tasks",
 ]

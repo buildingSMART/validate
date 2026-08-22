@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlencode
 
 from django.urls import path
 from django.contrib import admin
@@ -6,11 +7,13 @@ from django.contrib import messages
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
+from django.core.exceptions import FieldError, PermissionDenied
 from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import ngettext
 from django.utils.html import format_html
+from django.db import DatabaseError
 from django.db.models import F, Case, When, DurationField, Count
 from django.db.models.functions import Now
 from django import forms
@@ -20,6 +23,9 @@ from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import ValidationOutcome
 from apps.ifc_validation_models.models import Model
+from apps.ifc_validation_models.models import EntityCountHistogram
+from apps.ifc_validation_models.models import PsetCountHistogram
+from apps.ifc_validation_models.models import TemplateStatistic
 from apps.ifc_validation_models.models import ModelInstance
 from apps.ifc_validation_models.models import Company
 from apps.ifc_validation_models.models import AuthoringTool
@@ -36,6 +42,16 @@ from .filters import CreatedByAdvancedFilter
 
 from core import utils
 from core.filters import AdvancedDateFilter
+from .statistics_query import (
+    StatisticsQueryClauseFormSet,
+    StatisticsQueryBuilder,
+    StatisticsSourceForm,
+    build_statistics_specification,
+    bind_statistics_query_form_data,
+    format_sql,
+    model_histogram_query,
+    statistics_query_ui_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -503,7 +519,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
         ('Auditing Information', {"classes": ("wide"), "fields": [("created",), ("updated")]})
     ]
 
-    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "created", "updated"]
+    list_display = ["id", "public_id", "file_name", "size_text", "authoring_tool_link", "schema", "mvd", "timestamp", "header_file_name", "is_signed", "histogram_link", "pset_histogram_link", "created", "updated"]
     readonly_fields = ["id", "public_id", "file", "file_name", "size", "size_text", "date", "schema", "mvd", "produced_by", "created", "updated", "status_schema_calculated"]
     date_hierarchy = "created"
 
@@ -515,7 +531,86 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
         ('date', AdvancedDateFilter), 
         ('created', AdvancedDateFilter)
     ]
-    
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom = [
+            path(
+                "statistics/",
+                self.admin_site.admin_view(self.statistics_view),
+                name="ifc_validation_models_model_statistics",
+            ),
+        ]
+        return custom + urls
+
+    @admin.display(description="Entities")
+    def histogram_link(self, obj):
+        link = reverse("admin:ifc_validation_models_model_statistics")
+        link = f"{link}?{urlencode({'source': 'entity', 'model': obj.pk})}"
+        return format_html('<a href="{}">View</a>', link)
+
+    @admin.display(description="Property Sets")
+    def pset_histogram_link(self, obj):
+        link = reverse("admin:ifc_validation_models_model_statistics")
+        link = f"{link}?{urlencode({'source': 'pset', 'model': obj.pk})}"
+        return format_html('<a href="{}">View</a>', link)
+
+    def statistics_view(self, request):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+
+        preset_query = None
+        if (
+            request.method == "GET"
+            and request.GET.get("source") in {"entity", "pset"}
+            and request.GET.get("model")
+        ):
+            preset_query = model_histogram_query(
+                request.GET["source"],
+                request.GET["model"],
+            )
+        data = (
+            request.POST
+            if request.method == "POST"
+            else bind_statistics_query_form_data(preset_query) if preset_query else None
+        )
+        source_form = StatisticsSourceForm(data)
+        clause_formset = StatisticsQueryClauseFormSet(
+            data,
+            prefix="clauses",
+        )
+        result = None
+        query_error = ""
+        forms_are_valid = (
+            data is not None
+            and source_form.is_valid()
+            and clause_formset.is_valid()
+        )
+        if forms_are_valid:
+            try:
+                specification = build_statistics_specification(
+                    source_form.cleaned_data["source"],
+                    clause_formset,
+                )
+                result = StatisticsQueryBuilder(specification).execute()
+            except (DatabaseError, FieldError, RuntimeError, ValueError) as error:
+                query_error = str(error)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "title": "Model statistics query builder",
+            "source_form": source_form,
+            "clause_formset": clause_formset,
+            "query_error": query_error,
+            "columns": result.columns if result else [],
+            "rows": result.rows if result else [],
+            "display_rows": result.display_rows if result else [],
+            "sql": result.sql if result else "",
+            **statistics_query_ui_context(),
+        }
+        return TemplateResponse(request, "admin/model_statistics.html", context)
+
     @admin.display(description="File Size", ordering='size')
     def size_text(self, obj):
         
@@ -567,6 +662,22 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
     paginator = utils.LargeTablePaginator
     show_full_result_count = False # do not use COUNT(*) twice
+
+
+class EntityCountHistogramAdmin(admin.ModelAdmin):
+    readonly_fields = ["entity_name"]
+
+    @admin.display(description="Entity name")
+    def entity_name(self, obj):
+        return obj.entity_name
+
+
+class PsetCountHistogramAdmin(admin.ModelAdmin):
+    readonly_fields = ["entity_name"]
+
+    @admin.display(description="Entity name")
+    def entity_name(self, obj):
+        return obj.entity_name
 
 
 class CompanyAdmin(BaseAdmin):
@@ -900,20 +1011,7 @@ class WhiteListEntryAdmin(BaseAdmin):
 
                 try:
                     qs = entry.build().apply(ValidationOutcome.objects.filter(pk=outcome_id))
-                    sql = str(qs.query)
-                    try:
-                        # This is most likely a transitive dependency from django, but
-                        # if somehow unavailable it doesn't matter
-                        import sqlparse
-                        sql = sqlparse.format(
-                            sql,
-                            reindent=True,
-                            keyword_case="upper",
-                            identifier_case=None,
-                        )
-                    except:
-                        pass
-                    result["sql"] = sql
+                    result["sql"] = format_sql(str(qs.query))
                 except Exception as e:
                     result["error"] = str(e)
         else:
@@ -946,6 +1044,9 @@ admin.site.register(ValidationRequest, ValidationRequestAdmin)
 admin.site.register(ValidationTask, ValidationTaskAdmin)
 admin.site.register(ValidationOutcome, ValidationOutcomeAdmin)
 admin.site.register(Model, ModelAdmin)
+admin.site.register(EntityCountHistogram, EntityCountHistogramAdmin)
+admin.site.register(PsetCountHistogram, PsetCountHistogramAdmin)
+admin.site.register(TemplateStatistic)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
