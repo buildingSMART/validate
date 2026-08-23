@@ -1,5 +1,6 @@
 import gzip
 import os
+import shutil
 import tempfile
 from types import SimpleNamespace
 
@@ -41,6 +42,7 @@ class ResolveStepLinesTestCase(TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.path = _write(SPF, self.dir)
 
     def test_returns_line_number_and_source(self):
@@ -100,6 +102,7 @@ class AddStepLinesTestCase(TestCase):
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         _write(SPF, self.dir, name='uploaded.ifc')
         self.instances = {'i1': {'guid': '#1', 'type': 'IfcPerson'},
                           'i2': {'guid': '#12', 'type': 'IfcWall'}}
