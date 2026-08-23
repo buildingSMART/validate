@@ -428,6 +428,7 @@ def schedule_model_statistic_tasks(batch_size=100, cpu_threshold=50):
 
     retained_models = Model.objects.filter(
         Q(request__isnull=True) | Q(request__file_removed__isnull=True),
+        status_syntax=Model.Status.VALID,
     ).exclude(file="")
 
     entity_model_ids = list(
