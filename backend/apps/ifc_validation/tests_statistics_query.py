@@ -557,6 +557,62 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "histogram completed" in str(entity_marker)
         assert "histogram completed" in str(pset_marker)
 
+    def test_failed_subprocesses_create_completion_markers(self):
+        model = Model.objects.create(
+            file_name="invalid.ifc",
+            file="invalid.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.VALID,
+            uploaded_by=self.user,
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+        template_names = available_template_names()
+        with (
+            patch(
+                f"{task_module}.get_absolute_file_path",
+                return_value="invalid.ifc",
+            ),
+            patch(
+                f"{task_module}.extract_entity_histogram_in_subprocess",
+                side_effect=RuntimeError("entity extraction failed"),
+            ),
+            patch(
+                f"{task_module}.extract_pset_histogram_in_subprocess",
+                side_effect=RuntimeError("pset extraction failed"),
+            ),
+            patch(
+                f"{task_module}.extract_template_statistics_in_subprocess",
+                side_effect=RuntimeError("template extraction failed"),
+            ),
+        ):
+            assert populate_entity_count_histogram.run(model.pk) == 0
+            assert populate_pset_count_histogram.run(model.pk) == 0
+            assert populate_template_statistics.run(
+                model.pk,
+                template_names,
+            ) == 0
+
+        assert model.histogram_entries.filter(count=0).count() == 1
+        assert model.pset_count_entries.filter(count=0).count() == 1
+        assert set(
+            model.template_statistics.filter(graph__isnull=True).values_list(
+                "template_name",
+                flat=True,
+            ),
+        ) == set(template_names)
+
+        with (
+            patch(f"{task_module}.psutil.cpu_percent", return_value=0),
+            patch(
+                f"{task_module}.available_template_names",
+                return_value=template_names,
+            ),
+            patch(f"{task_module}.group") as task_group,
+        ):
+            assert schedule_model_statistic_tasks.run(batch_size=10) == 0
+            task_group.assert_not_called()
+
     def test_statistic_tasks_fall_back_to_retained_gzip_file(self):
         model = Model.objects.create(
             file_name="archived.ifc",
