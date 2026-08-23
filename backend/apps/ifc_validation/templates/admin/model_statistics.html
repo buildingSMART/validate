@@ -397,6 +397,25 @@
         return row;
       }
 
+      function renumberClauseRows() {
+        rows.querySelectorAll(".statistics-clause-row").forEach((row, index) => {
+          row.querySelectorAll("[name], [id], label[for]").forEach(element => {
+            for (const attribute of ["name", "id", "for"]) {
+              if (element.hasAttribute(attribute)) {
+                element.setAttribute(
+                  attribute,
+                  element.getAttribute(attribute).replace(
+                    /clauses-\d+-/,
+                    `clauses-${index}-`,
+                  ),
+                );
+              }
+            }
+          });
+        });
+        totalForms.value = rows.querySelectorAll(".statistics-clause-row").length;
+      }
+
       function tableToTsv(table) {
         return [...table.rows].map(row => (
           [...row.cells].map(cell => (
@@ -452,8 +471,8 @@
         if (!button || !rows.contains(button)) return;
         event.preventDefault();
         const row = button.closest(".statistics-clause-row");
-        row.querySelector('input[name$="-DELETE"]').checked = true;
-        row.hidden = true;
+        row.remove();
+        renumberClauseRows();
       });
       source.addEventListener("change", () => {
         rows.querySelectorAll(".statistics-clause-row").forEach(syncClauseRow);

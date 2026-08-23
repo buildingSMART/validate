@@ -263,7 +263,7 @@ def build_statistics_specification(source, clause_formset):
             operations["order"][0]["resolved_value"]
             if operations["order"] else "descending"
         ),
-        limit=operations["limit"][0]["resolved_value"] if operations["limit"] else 10,
+        limit=operations["limit"][0]["resolved_value"] if operations["limit"] else None,
         filters=tuple(
             QueryFilter(clause["resolved_value"], clause["operator"], clause["typed_value"])
             for clause in operations["filter"]
