@@ -9,6 +9,7 @@ from pathlib import Path
 import psutil
 from celery import group, shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from django.db.models import Count, Q
 
 from core.utils import log_execution
@@ -428,6 +429,7 @@ def schedule_model_statistic_tasks(batch_size=100, cpu_threshold=50):
 
     retained_models = Model.objects.filter(
         Q(request__isnull=True) | Q(request__file_removed__isnull=True),
+        size__lte=settings.MAX_FILE_SIZE_IN_MB * 1024 * 1024,
         status_syntax=Model.Status.VALID,
     ).exclude(file="")
 
