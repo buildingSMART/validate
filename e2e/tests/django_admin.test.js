@@ -141,7 +141,10 @@ test.describe('UI - Django Admin', () => {
     // navigate and check elements of the screen
     await page.goto(`${BASE_URL}/ifc_validation_models/`);
     await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/`);
-    await expect(page.getByText('Statistics')).toBeVisible();
+    await expect(page.getByRole('heading', {
+      name: 'Metrics & Statistics',
+      exact: true,
+    })).toBeVisible();
     await expect(page.getByText('Choose a year')).toBeVisible();
 
     // check some stats
