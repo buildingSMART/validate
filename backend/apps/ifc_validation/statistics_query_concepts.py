@@ -65,6 +65,8 @@ to the model.
 | pset_name      | Property-set name             | filter, group    | pset                   | eq, ne, contains, not_contains |
 | pset_scope     | Property-set scope            | filter           | pset                   | eq, ne |
 | standardized   | Standardized / custom         | filter, group    | pset                   | eq, ne |
+| is_vendor      | Uploader is vendor            | filter           | entity, pset, template | eq, ne |
+| is_staff       | Uploader is staff             | filter           | entity, pset, template | eq, ne |
 | proxy          | Proxy / other element subtype | group            | entity                 | — |
 | template       | Template                      | filter, group    | template               | eq, ne, contains, not_contains |
 | authoring_tool | Authoring tool                | group            | template               | — |
@@ -302,6 +304,7 @@ _FILTER = frozenset({"filter"})
 _GROUP = frozenset({"group"})
 _BOTH = _FILTER | _GROUP
 _ENTITY_PSET = frozenset({"entity", "pset"})
+_BOOLEAN_VALUES = (("true", True), ("false", False))
 CONCEPTS = (
     Concept("model", "Model ID", _BOTH, operators=("eq", "ne"), lookup="model_id",
             value_type="non_negative_integer", group_fields=("model_id", "model__file_name"),
@@ -324,6 +327,11 @@ CONCEPTS = (
             ("eq", "ne"), "is_standardized",
             (("standard", True), ("true", True), ("custom", False), ("false", False)),
             group_fields=("is_standardized",), result_labels=("Standardized",)),
+    Concept("is_vendor", "Uploader is vendor", _FILTER,
+            operators=("eq", "ne"), values=_BOOLEAN_VALUES),
+    Concept("is_staff", "Uploader is staff", _FILTER,
+            operators=("eq", "ne"), lookup="model__uploaded_by__is_staff",
+            values=_BOOLEAN_VALUES),
     Concept("proxy", "Proxy / other element subtype", _GROUP, frozenset({"entity"})),
     Concept("template", "Template", _BOTH, frozenset({"template"}),
             ("eq", "ne", "contains", "not_contains"), "template_name",

@@ -7,11 +7,13 @@ from decimal import Decimal
 import ifcopenshell
 from django import forms
 from django.db.models import (
+    BooleanField,
     Case,
     CharField,
     Count,
     F,
     FloatField,
+    Q,
     Value,
     When,
 )
@@ -475,8 +477,32 @@ class StatisticsQueryBuilder:
             if not self.schema:
                 raise ValueError("Entity filters require one model or one exact schema filter.")
             return self.apply_entity_filter(query, clause.operator, clause.value)
+        if concept.name == "is_vendor":
+            return self.apply_vendor_filter(
+                query, clause.operator, clause.value, "model__",
+            )
         return self.apply_lookup_filter(
             query, concept.lookup, clause.operator, clause.value,
+        )
+
+    @classmethod
+    def apply_vendor_filter(cls, query, operator, value, model_prefix):
+        vendor_status = Case(
+            When(
+                Q(**{
+                    f"{model_prefix}uploaded_by__useradditionalinfo__is_vendor": True,
+                })
+                | Q(**{
+                    f"{model_prefix}uploaded_by__useradditionalinfo__is_vendor_self_declared": True,
+                }),
+                then=Value(True),
+            ),
+            default=Value(False),
+            output_field=BooleanField(),
+        )
+        query = query.annotate(statistics_is_vendor=vendor_status)
+        return cls.apply_lookup_filter(
+            query, "statistics_is_vendor", operator, value,
         )
 
     def apply_entity_filter(self, query, operator, entity_name):
@@ -519,12 +545,19 @@ class StatisticsQueryBuilder:
     def computed_model_count(self):
         models = Model.objects.all()
         for clause in self.filters:
-            if clause.concept not in {"model", "schema"}:
-                continue
-            lookup = "pk" if clause.concept == "model" else "schema"
-            models = self.apply_lookup_filter(
-                models, lookup, clause.operator, clause.value,
-            )
+            if clause.concept == "is_vendor":
+                models = self.apply_vendor_filter(
+                    models, clause.operator, clause.value, "",
+                )
+            elif clause.concept in {"model", "schema", "is_staff"}:
+                lookup = {
+                    "model": "pk",
+                    "schema": "schema",
+                    "is_staff": "uploaded_by__is_staff",
+                }[clause.concept]
+                models = self.apply_lookup_filter(
+                    models, lookup, clause.operator, clause.value,
+                )
         if self.source.name == "entity":
             models = models.filter(
                 histogram_entries__count=EntityCountHistogram.COMPLETION_MARKER_COUNT,

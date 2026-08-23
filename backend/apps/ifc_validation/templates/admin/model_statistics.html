@@ -183,6 +183,9 @@
   <datalist id="statistics-standardized-values">
     <option value="standard"><option value="custom">
   </datalist>
+  <datalist id="statistics-boolean-values">
+    <option value="true"><option value="false">
+  </datalist>
   <datalist id="statistics-graph-path-values">
     <option value="PropertyType">
     <option value="ParentCurve">
@@ -298,6 +301,8 @@
         "filter:entity_kind": "statistics-entity-kind-values",
         "filter:pset_scope": "statistics-pset-scope-values",
         "filter:standardized": "statistics-standardized-values",
+        "filter:is_vendor": "statistics-boolean-values",
+        "filter:is_staff": "statistics-boolean-values",
         "filter:template": "statistics-template-values",
         "group:graph_value": "statistics-graph-path-values",
       };
@@ -310,6 +315,8 @@
         "filter:pset_name": "Property-set name",
         "filter:pset_scope": "definitions or associations",
         "filter:standardized": "standard or custom",
+        "filter:is_vendor": "true or false",
+        "filter:is_staff": "true or false",
         "filter:template": "Template filename",
         "group:graph_value": "For example PropertyType",
         limit: "1 to 1000, or all",
