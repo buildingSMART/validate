@@ -1364,6 +1364,17 @@ class StatisticsQueryBuilderTests(TestCase):
             ["IFC4", "IfcBuildingElementProxy", 2],
         ]
 
+    def test_omitting_limit_clause_does_not_apply_an_implicit_limit(self):
+        response = self.post_query([
+            {"operation": "group", "target": "group:entity"},
+            self.expression(function="sum"),
+            {"operation": "order", "target": "order:descending"},
+        ])
+
+        assert response.status_code == 200
+        assert response.context["query_error"] == ""
+        assert "LIMIT" not in response.context["sql"]
+
     def test_admin_post_builds_result_without_persisting_a_report(self):
         before = EntityCountHistogram.objects.count()
         response = self.post_query([
