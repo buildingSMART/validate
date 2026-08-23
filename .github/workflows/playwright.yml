@@ -110,6 +110,7 @@ jobs:
           mkdir -p .dev/venv/lib/python3.11/site-packages
           unzip -o -d .dev/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
           rm /tmp/ifcopenshell_python.zip
+          make install-ifcopenshell-mvd IFCOPENSHELL_SITE_PACKAGES=.dev/venv/lib/python3.11/site-packages
           # Verify installation
           ls -la .dev/venv/lib/python3.11/site-packages/
           echo "Checking for ifcopenshell installation:"
