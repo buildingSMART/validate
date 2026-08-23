@@ -268,6 +268,7 @@ DJANGO_DB_BULK_CREATE_BATCH_SIZE = int(os.environ.get("DJANGO_DB_BULK_CREATE_BAT
 # only (no is_staff or superuser bypass); files above the size limit are skipped
 STEP_LINE_VIEWER_GROUP = os.environ.get("STEP_LINE_VIEWER_GROUP", "step-line-viewers")
 STEP_LINE_MAX_FILE_SIZE_MB = int(os.environ.get("STEP_LINE_MAX_FILE_SIZE_MB", 50))
+STEP_LINE_MAX_CHARS = int(os.environ.get("STEP_LINE_MAX_CHARS", 500))
 
 # SQL Explorer configuration (default)
 EXPLORER_CONNECTIONS = { 'Default': 'default' }

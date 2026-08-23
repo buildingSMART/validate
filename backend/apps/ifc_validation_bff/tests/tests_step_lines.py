@@ -90,6 +90,23 @@ class ResolveStepLinesTestCase(TestCase):
 
         self.assertEqual(resolve_step_lines('/does/not/exist.ifc', []), {})
 
+    def test_long_source_is_truncated(self):
+
+        long_line = '#900=IFCPOLYLOOP((' + ','.join(f'#{i}' for i in range(1, 400)) + '));\n'
+        path = _write(SPF + long_line, self.dir, name='long.ifc')
+
+        found = resolve_step_lines(path, [900], max_chars=50)
+
+        self.assertEqual(len(found[900]['source']), 52)          # 50 + space + ellipsis
+        self.assertTrue(found[900]['source'].endswith(' \u2026'))
+        self.assertEqual(found[900]['line'], 10)                 # line number stays exact
+
+    def test_source_below_the_limit_is_untouched(self):
+
+        found = resolve_step_lines(self.path, [1], max_chars=500)
+
+        self.assertEqual(found[1]['source'], "#1=IFCPERSON('a',$,$);")
+
     def test_gzipped_file_yields_the_same_result(self):
 
         gz_path = _write(SPF, self.dir, name='sample2.ifc.gz', gzipped=True)

@@ -59,7 +59,7 @@ def _end_of_instance(buffer, start):
     return -1
 
 
-def _scan(buffer, stepfile_ids):
+def _scan(buffer, stepfile_ids, max_chars):
 
     """
     Single pass over the file. Line numbers are counted incrementally, so the
@@ -81,11 +81,14 @@ def _scan(buffer, stepfile_ids):
         if end < 0:
             continue
 
-        source = bytes(buffer[match.start():end])
-        found[stepfile_id] = {
-            'line': line_number,
-            'source': source.decode('utf-8', errors='replace')
-        }
+        source = bytes(buffer[match.start():end]).decode('utf-8', errors='replace')
+        if max_chars and len(source) > max_chars:
+            # a single instance can run to thousands of characters (a closed shell
+            # referencing every face); truncating keeps both the table and the
+            # response readable
+            source = source[:max_chars] + ' \u2026'
+
+        found[stepfile_id] = {'line': line_number, 'source': source}
 
         if len(found) == len(stepfile_ids):
             break
@@ -93,23 +96,27 @@ def _scan(buffer, stepfile_ids):
     return found
 
 
-def resolve_step_lines(file_path, stepfile_ids):
+def resolve_step_lines(file_path, stepfile_ids, max_chars=None):
 
     """
     Returns {stepfile_id: {'line': .., 'source': ..}} for the ids that were found.
+    Sources longer than max_chars are truncated with a trailing ellipsis.
     """
 
     stepfile_ids = set(stepfile_ids)
     if not stepfile_ids:
         return {}
 
+    if max_chars is None:
+        max_chars = getattr(settings, 'STEP_LINE_MAX_CHARS', 500)
+
     if file_path.endswith('.gz'):
         with gzip.open(file_path, 'rb') as file:
-            return _scan(file.read(), stepfile_ids)
+            return _scan(file.read(), stepfile_ids, max_chars)
 
     with open(file_path, 'rb') as file:
         with mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as buffer:
-            return _scan(buffer, stepfile_ids)
+            return _scan(buffer, stepfile_ids, max_chars)
 
 
 def _resolve_file_path(validation_request):
