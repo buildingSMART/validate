@@ -1,6 +1,8 @@
+import gzip
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from django.conf import settings
@@ -10,6 +12,7 @@ from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.test import SimpleTestCase, TestCase
 from django.urls import NoReverseMatch, reverse
+from django.utils import timezone
 
 from apps.ifc_validation.checks.statistics.apply_mvd import available_template_names
 from apps.ifc_validation.statistics_query import (
@@ -43,6 +46,7 @@ from apps.ifc_validation_models.models import (
     ModelInstance,
     PsetCountHistogram,
     TemplateStatistic,
+    ValidationRequest,
 )
 
 
@@ -218,7 +222,7 @@ class StatisticsSubprocessTests(SimpleTestCase):
         entities = extract_entity_histogram_in_subprocess(str(file_path))
         psets = extract_pset_histogram_in_subprocess(str(file_path))
 
-        assert entities["schema_identifier"] == "IFC2X3"
+        assert entities["schema_identifier"] == "IFC4X3_ADD2"
         assert any(
             entity_name == "IfcPropertySet" and not is_supertype and count > 0
             for entity_name, is_supertype, count in entities["entries"]
@@ -227,7 +231,7 @@ class StatisticsSubprocessTests(SimpleTestCase):
             (entity_name, pset_name): count
             for entity_name, pset_name, count in psets["entries"]
         }
-        assert psets["schema_identifier"] == "IFC2X3"
+        assert psets["schema_identifier"] == "IFC4X3_ADD2"
         assert pset_counts[(None, "Pset_ColumnCommon")] == 2
 
     def test_template_statistics_are_extracted_in_a_subprocess(self):
@@ -240,6 +244,24 @@ class StatisticsSubprocessTests(SimpleTestCase):
         assert {result["template"] for result in results} == {
             "Use_of_property_types.md",
         }
+
+    def test_all_statistics_are_extracted_from_a_retained_gzip_file(self):
+        source = self.statistics_fixtures / "ColumnPSetsOfSets.ifc"
+        with TemporaryDirectory() as directory:
+            archive = Path(directory) / "ColumnPSetsOfSets.ifc.gz"
+            with gzip.open(archive, "wb") as compressed_file:
+                compressed_file.write(source.read_bytes())
+
+            entities = extract_entity_histogram_in_subprocess(str(archive))
+            psets = extract_pset_histogram_in_subprocess(str(archive))
+            templates = extract_template_statistics_in_subprocess(
+                str(archive),
+                ("Use_of_property_types.md",),
+            )
+
+        assert entities["schema_identifier"] == "IFC4X3_ADD2"
+        assert psets["schema_identifier"] == "IFC4X3_ADD2"
+        assert len(templates) == 17
 
     def test_pset_definition_resources_cover_schema_addenda(self):
         assert pset_resource_schema("IFC2X3_TC1") == "IFC2X3"
@@ -535,6 +557,83 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "histogram completed" in str(entity_marker)
         assert "histogram completed" in str(pset_marker)
 
+    def test_statistic_tasks_fall_back_to_retained_gzip_file(self):
+        model = Model.objects.create(
+            file_name="archived.ifc",
+            file="archived.ifc",
+            size=1,
+            schema="IFC4",
+            uploaded_by=self.user,
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+
+        def resolve_file(file_name):
+            if file_name == "archived.ifc.gz":
+                return "/files_storage/archived.ifc.gz"
+            raise FileNotFoundError(file_name)
+
+        with (
+            patch(
+                f"{task_module}.get_absolute_file_path",
+                side_effect=resolve_file,
+            ),
+            patch(
+                f"{task_module}.extract_entity_histogram_in_subprocess",
+                return_value={"schema_identifier": "IFC4", "entries": []},
+            ) as extract_entities,
+            patch(
+                f"{task_module}.extract_pset_histogram_in_subprocess",
+                return_value={"schema_identifier": "IFC4", "entries": []},
+            ) as extract_psets,
+            patch(
+                f"{task_module}.extract_template_statistics_in_subprocess",
+                return_value=[],
+            ) as extract_templates,
+        ):
+            assert populate_entity_count_histogram.run(model.pk) == 0
+            assert populate_pset_count_histogram.run(model.pk) == 0
+            assert populate_template_statistics.run(model.pk, ("First.md",)) == 0
+
+        archive = "/files_storage/archived.ifc.gz"
+        extract_entities.assert_called_once_with(archive)
+        extract_psets.assert_called_once_with(archive)
+        extract_templates.assert_called_once_with(archive, ("First.md",))
+
+    def test_statistic_tasks_skip_when_original_and_archive_are_deleted(self):
+        model = Model.objects.create(
+            file_name="deleted.ifc",
+            file="deleted.ifc",
+            size=1,
+            schema="IFC4",
+            uploaded_by=self.user,
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+        with (
+            patch(
+                f"{task_module}.get_absolute_file_path",
+                side_effect=FileNotFoundError,
+            ),
+            patch(
+                f"{task_module}.extract_entity_histogram_in_subprocess",
+            ) as extract_entities,
+            patch(
+                f"{task_module}.extract_pset_histogram_in_subprocess",
+            ) as extract_psets,
+            patch(
+                f"{task_module}.extract_template_statistics_in_subprocess",
+            ) as extract_templates,
+        ):
+            assert populate_entity_count_histogram.run(model.pk) == 0
+            assert populate_pset_count_histogram.run(model.pk) == 0
+            assert populate_template_statistics.run(model.pk, ("First.md",)) == 0
+
+        extract_entities.assert_not_called()
+        extract_psets.assert_not_called()
+        extract_templates.assert_not_called()
+        assert not model.histogram_entries.exists()
+        assert not model.pset_count_entries.exists()
+        assert not model.template_statistics.exists()
+
     def test_histogram_data_rows_have_database_uniqueness_constraints(self):
         entity = self.first.histogram_entries.filter(
             count__gt=0,
@@ -569,6 +668,23 @@ class StatisticsQueryBuilderTests(TestCase):
             schema="IFC4",
             uploaded_by=self.user,
         )
+        removed_model = Model.objects.create(
+            file_name="removed.ifc",
+            file="removed.ifc",
+            size=1,
+            schema="IFC4",
+            uploaded_by=self.user,
+        )
+        ValidationRequest.objects.bulk_create([
+            ValidationRequest(
+                file_name="removed.ifc",
+                file="",
+                file_removed=timezone.now(),
+                size=1,
+                model=removed_model,
+                created_by=self.user,
+            ),
+        ])
         TemplateStatistic.objects.bulk_create([
             TemplateStatistic(
                 model=completed_model,

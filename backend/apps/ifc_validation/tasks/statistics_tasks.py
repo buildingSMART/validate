@@ -35,17 +35,30 @@ PSET_DEFINITIONS_ROOT = (
 )
 
 
-_ENTITY_HISTOGRAM_SCRIPT = textwrap.dedent(
+_IFC_LOADER_SCRIPT = textwrap.dedent(
     """
-    import functools
+    import gzip
     import json
     import sys
-    from collections import Counter
 
     import ifcopenshell
 
+    def open_ifc(file_path):
+        if file_path.lower().endswith(".gz"):
+            with gzip.open(file_path, "rt", encoding="utf-8") as compressed_file:
+                return ifcopenshell.file.from_string(compressed_file.read())
+        return ifcopenshell.open(file_path)
+    """
+)
+
+
+_ENTITY_HISTOGRAM_SCRIPT = _IFC_LOADER_SCRIPT + textwrap.dedent(
+    """
+    import functools
+    from collections import Counter
+
     file_path = json.load(sys.stdin)
-    ifc_file = ifcopenshell.open(file_path)
+    ifc_file = open_ifc(file_path)
     schema_identifier = ifc_file.schema_identifier
     schema = ifcopenshell.schema_by_name(schema_identifier)
 
@@ -77,16 +90,12 @@ _ENTITY_HISTOGRAM_SCRIPT = textwrap.dedent(
 )
 
 
-_PSET_HISTOGRAM_SCRIPT = textwrap.dedent(
+_PSET_HISTOGRAM_SCRIPT = _IFC_LOADER_SCRIPT + textwrap.dedent(
     """
-    import json
-    import sys
     from collections import Counter
 
-    import ifcopenshell
-
     file_path = json.load(sys.stdin)
-    ifc_file = ifcopenshell.open(file_path)
+    ifc_file = open_ifc(file_path)
     counts = Counter()
 
     def property_definitions(value):
@@ -134,11 +143,8 @@ _PSET_HISTOGRAM_SCRIPT = textwrap.dedent(
 )
 
 
-_TEMPLATE_STATISTICS_SCRIPT = textwrap.dedent(
+_TEMPLATE_STATISTICS_SCRIPT = _IFC_LOADER_SCRIPT + textwrap.dedent(
     """
-    import json
-    import sys
-
     from apps.ifc_validation.checks.statistics.apply_mvd import (
         extract_template_statistics,
     )
@@ -146,7 +152,7 @@ _TEMPLATE_STATISTICS_SCRIPT = textwrap.dedent(
     file_path, template_names = json.load(sys.stdin)
     json.dump(
         extract_template_statistics(
-            file_path,
+            open_ifc(file_path),
             template_names=template_names,
         ),
         sys.stdout,
@@ -186,6 +192,29 @@ def extract_template_statistics_in_subprocess(file_path, template_names):
         _TEMPLATE_STATISTICS_SCRIPT,
         [file_path, list(template_names)],
     )
+
+
+def model_statistics_file_path(model):
+    file_name = str(model.file)
+    try:
+        return get_absolute_file_path(file_name)
+    except FileNotFoundError:
+        archive_name = (
+            file_name if file_name.lower().endswith(".gz")
+            else f"{file_name}.gz"
+        )
+        if archive_name != file_name:
+            try:
+                return get_absolute_file_path(archive_name)
+            except FileNotFoundError:
+                pass
+
+    logger.warning(
+        "Skipping statistics for model %s: neither %s nor its gzip archive exists",
+        model.pk,
+        file_name,
+    )
+    return None
 
 
 def pset_resource_schema(schema_identifier):
@@ -232,9 +261,10 @@ def missing_template_names(model, template_names=None):
 @log_execution
 def populate_entity_count_histogram(model_id):
     model = Model.objects.get(pk=model_id)
-    extracted = extract_entity_histogram_in_subprocess(
-        get_absolute_file_path(model.file),
-    )
+    file_path = model_statistics_file_path(model)
+    if file_path is None:
+        return 0
+    extracted = extract_entity_histogram_in_subprocess(file_path)
     schema_identifier = extracted["schema_identifier"]
     entries = [
         EntityCountHistogram(
@@ -261,9 +291,10 @@ def populate_entity_count_histogram(model_id):
 @log_execution
 def populate_pset_count_histogram(model_id):
     model = Model.objects.get(pk=model_id)
-    extracted = extract_pset_histogram_in_subprocess(
-        get_absolute_file_path(model.file),
-    )
+    file_path = model_statistics_file_path(model)
+    if file_path is None:
+        return 0
+    extracted = extract_pset_histogram_in_subprocess(file_path)
     schema_identifier = extracted["schema_identifier"]
     standardized_names = standardized_pset_names(schema_identifier)
     entries = [
@@ -296,8 +327,11 @@ def populate_pset_count_histogram(model_id):
 def populate_template_statistics(model_id, template_names):
     model = Model.objects.get(pk=model_id)
     template_names = tuple(template_names)
+    file_path = model_statistics_file_path(model)
+    if file_path is None:
+        return 0
     extracted = extract_template_statistics_in_subprocess(
-        get_absolute_file_path(model.file),
+        file_path,
         template_names,
     )
 
@@ -343,23 +377,25 @@ def schedule_model_statistic_tasks(batch_size=100, cpu_threshold=50):
         )
         return 0
 
+    retained_models = Model.objects.filter(
+        Q(request__isnull=True) | Q(request__file_removed__isnull=True),
+    ).exclude(file="")
+
     entity_model_ids = list(
-        Model.objects
+        retained_models
         .exclude(
             histogram_entries__count=EntityCountHistogram.COMPLETION_MARKER_COUNT,
         )
-        .exclude(file="")
         .distinct()
         .order_by("pk")
         .values_list("pk", flat=True)[:batch_size]
     )
 
     pset_model_ids = list(
-        Model.objects
+        retained_models
         .exclude(
             pset_count_entries__count=PsetCountHistogram.COMPLETION_MARKER_COUNT,
         )
-        .exclude(file="")
         .distinct()
         .order_by("pk")
         .values_list("pk", flat=True)[:batch_size]
@@ -368,8 +404,7 @@ def schedule_model_statistic_tasks(batch_size=100, cpu_threshold=50):
     template_names = available_template_names()
     if template_names:
         template_models = list(
-            Model.objects
-            .exclude(file="")
+            retained_models
             .annotate(
                 completed_template_count=Count(
                     "template_statistics__template_name",
