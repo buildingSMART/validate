@@ -722,11 +722,28 @@ class StatisticsQueryBuilderTests(TestCase):
             file="pending.ifc",
             size=1,
             schema="IFC4",
+            status_syntax=Model.Status.VALID,
             uploaded_by=self.user,
         )
         removed_model = Model.objects.create(
             file_name="removed.ifc",
             file="removed.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.VALID,
+            uploaded_by=self.user,
+        )
+        Model.objects.create(
+            file_name="syntax-invalid.ifc",
+            file="syntax-invalid.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.INVALID,
+            uploaded_by=self.user,
+        )
+        Model.objects.create(
+            file_name="syntax-not-validated.ifc",
+            file="syntax-not-validated.ifc",
             size=1,
             schema="IFC4",
             uploaded_by=self.user,
