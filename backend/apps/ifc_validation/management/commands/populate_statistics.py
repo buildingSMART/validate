@@ -71,7 +71,7 @@ class Command(BaseCommand):
             .filter(incomplete)
             .exclude(file="")
             .distinct()
-            .order_by("pk")
+            .order_by("-pk")
             [:count]
         )
 
