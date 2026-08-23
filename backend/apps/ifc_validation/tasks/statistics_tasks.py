@@ -9,6 +9,7 @@ from pathlib import Path
 import psutil
 from celery import group, shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 from django.db.models import Count, Q
 
 from core.utils import log_execution
@@ -257,6 +258,18 @@ def missing_template_names(model, template_names=None):
     return tuple(name for name in template_names if name not in completed)
 
 
+def _complete_failed_statistics(model, statistic_name, marker_queryset, markers):
+    logger.exception(
+        "Failed to populate %s for model %s; recording completion marker(s)",
+        statistic_name,
+        model.pk,
+    )
+    markers = tuple(markers)
+    marker_queryset.delete()
+    if markers:
+        type(markers[0]).objects.bulk_create(markers)
+
+
 @shared_task
 @log_execution
 def populate_entity_count_histogram(model_id):
@@ -264,20 +277,31 @@ def populate_entity_count_histogram(model_id):
     file_path = model_statistics_file_path(model)
     if file_path is None:
         return 0
-    extracted = extract_entity_histogram_in_subprocess(file_path)
-    schema_identifier = extracted["schema_identifier"]
-    entries = [
-        EntityCountHistogram(
-            model=model,
-            entity_index=EntityCountHistogram.index_from_string(
-                schema_identifier,
-                entity_name,
+    try:
+        extracted = extract_entity_histogram_in_subprocess(file_path)
+        schema_identifier = extracted["schema_identifier"]
+        entries = [
+            EntityCountHistogram(
+                model=model,
+                entity_index=EntityCountHistogram.index_from_string(
+                    schema_identifier,
+                    entity_name,
+                ),
+                count=count,
+                is_supertype=is_supertype,
+            )
+            for entity_name, is_supertype, count in extracted["entries"]
+        ]
+    except Exception:
+        _complete_failed_statistics(
+            model,
+            "entity-count histogram",
+            model.histogram_entries.filter(
+                count=EntityCountHistogram.COMPLETION_MARKER_COUNT,
             ),
-            count=count,
-            is_supertype=is_supertype,
+            [EntityCountHistogram.completion_marker(model)],
         )
-        for entity_name, is_supertype, count in extracted["entries"]
-    ]
+        return 0
 
     model.histogram_entries.all().delete()
     EntityCountHistogram.objects.bulk_create([
@@ -294,25 +318,36 @@ def populate_pset_count_histogram(model_id):
     file_path = model_statistics_file_path(model)
     if file_path is None:
         return 0
-    extracted = extract_pset_histogram_in_subprocess(file_path)
-    schema_identifier = extracted["schema_identifier"]
-    standardized_names = standardized_pset_names(schema_identifier)
-    entries = [
-        PsetCountHistogram(
-            model=model,
-            entity_index=(
-                EntityCountHistogram.index_from_string(
-                    schema_identifier,
-                    entity_name,
-                )
-                if entity_name is not None else None
+    try:
+        extracted = extract_pset_histogram_in_subprocess(file_path)
+        schema_identifier = extracted["schema_identifier"]
+        standardized_names = standardized_pset_names(schema_identifier)
+        entries = [
+            PsetCountHistogram(
+                model=model,
+                entity_index=(
+                    EntityCountHistogram.index_from_string(
+                        schema_identifier,
+                        entity_name,
+                    )
+                    if entity_name is not None else None
+                ),
+                pset_name=pset_name,
+                is_standardized=pset_name in standardized_names,
+                count=count,
+            )
+            for entity_name, pset_name, count in extracted["entries"]
+        ]
+    except Exception:
+        _complete_failed_statistics(
+            model,
+            "property-set histogram",
+            model.pset_count_entries.filter(
+                count=PsetCountHistogram.COMPLETION_MARKER_COUNT,
             ),
-            pset_name=pset_name,
-            is_standardized=pset_name in standardized_names,
-            count=count,
+            [PsetCountHistogram.completion_marker(model)],
         )
-        for entity_name, pset_name, count in extracted["entries"]
-    ]
+        return 0
 
     model.pset_count_entries.all().delete()
     PsetCountHistogram.objects.bulk_create([
@@ -330,10 +365,25 @@ def populate_template_statistics(model_id, template_names):
     file_path = model_statistics_file_path(model)
     if file_path is None:
         return 0
-    extracted = extract_template_statistics_in_subprocess(
-        file_path,
-        template_names,
-    )
+    try:
+        extracted = extract_template_statistics_in_subprocess(
+            file_path,
+            template_names,
+        )
+    except Exception:
+        _complete_failed_statistics(
+            model,
+            "template statistics",
+            model.template_statistics.filter(
+                template_name__in=template_names,
+                graph__isnull=True,
+            ),
+            (
+                TemplateStatistic.completion_marker(model, template_name)
+                for template_name in template_names
+            ),
+        )
+        return 0
 
     model.template_statistics.filter(
         template_name__in=template_names,
@@ -379,6 +429,8 @@ def schedule_model_statistic_tasks(batch_size=100, cpu_threshold=50):
 
     retained_models = Model.objects.filter(
         Q(request__isnull=True) | Q(request__file_removed__isnull=True),
+        size__lte=settings.MAX_FILE_SIZE_IN_MB * 1024 * 1024,
+        status_syntax=Model.Status.VALID,
     ).exclude(file="")
 
     entity_model_ids = list(

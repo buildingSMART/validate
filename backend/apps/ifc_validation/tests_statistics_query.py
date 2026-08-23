@@ -557,6 +557,62 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "histogram completed" in str(entity_marker)
         assert "histogram completed" in str(pset_marker)
 
+    def test_failed_subprocesses_create_completion_markers(self):
+        model = Model.objects.create(
+            file_name="invalid.ifc",
+            file="invalid.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.VALID,
+            uploaded_by=self.user,
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+        template_names = available_template_names()
+        with (
+            patch(
+                f"{task_module}.get_absolute_file_path",
+                return_value="invalid.ifc",
+            ),
+            patch(
+                f"{task_module}.extract_entity_histogram_in_subprocess",
+                side_effect=RuntimeError("entity extraction failed"),
+            ),
+            patch(
+                f"{task_module}.extract_pset_histogram_in_subprocess",
+                side_effect=RuntimeError("pset extraction failed"),
+            ),
+            patch(
+                f"{task_module}.extract_template_statistics_in_subprocess",
+                side_effect=RuntimeError("template extraction failed"),
+            ),
+        ):
+            assert populate_entity_count_histogram.run(model.pk) == 0
+            assert populate_pset_count_histogram.run(model.pk) == 0
+            assert populate_template_statistics.run(
+                model.pk,
+                template_names,
+            ) == 0
+
+        assert model.histogram_entries.filter(count=0).count() == 1
+        assert model.pset_count_entries.filter(count=0).count() == 1
+        assert set(
+            model.template_statistics.filter(graph__isnull=True).values_list(
+                "template_name",
+                flat=True,
+            ),
+        ) == set(template_names)
+
+        with (
+            patch(f"{task_module}.psutil.cpu_percent", return_value=0),
+            patch(
+                f"{task_module}.available_template_names",
+                return_value=template_names,
+            ),
+            patch(f"{task_module}.group") as task_group,
+        ):
+            assert schedule_model_statistic_tasks.run(batch_size=10) == 0
+            task_group.assert_not_called()
+
     def test_statistic_tasks_fall_back_to_retained_gzip_file(self):
         model = Model.objects.create(
             file_name="archived.ifc",
@@ -666,11 +722,28 @@ class StatisticsQueryBuilderTests(TestCase):
             file="pending.ifc",
             size=1,
             schema="IFC4",
+            status_syntax=Model.Status.VALID,
             uploaded_by=self.user,
         )
         removed_model = Model.objects.create(
             file_name="removed.ifc",
             file="removed.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.VALID,
+            uploaded_by=self.user,
+        )
+        Model.objects.create(
+            file_name="syntax-invalid.ifc",
+            file="syntax-invalid.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.INVALID,
+            uploaded_by=self.user,
+        )
+        Model.objects.create(
+            file_name="syntax-not-validated.ifc",
+            file="syntax-not-validated.ifc",
             size=1,
             schema="IFC4",
             uploaded_by=self.user,
@@ -1363,6 +1436,17 @@ class StatisticsQueryBuilderTests(TestCase):
             ["IFC4", "IfcProject", 1],
             ["IFC4", "IfcBuildingElementProxy", 2],
         ]
+
+    def test_omitting_limit_clause_does_not_apply_an_implicit_limit(self):
+        response = self.post_query([
+            {"operation": "group", "target": "group:entity"},
+            self.expression(function="sum"),
+            {"operation": "order", "target": "order:descending"},
+        ])
+
+        assert response.status_code == 200
+        assert response.context["query_error"] == ""
+        assert "LIMIT" not in response.context["sql"]
 
     def test_admin_post_builds_result_without_persisting_a_report(self):
         before = EntityCountHistogram.objects.count()
