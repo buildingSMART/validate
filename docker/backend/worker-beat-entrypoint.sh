@@ -18,7 +18,8 @@ do
 done
 echo "DB is ready."
 
-CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-6} # default 6 worker processes
-echo "Celery concurrency: $CELERY_CONCURRENCY"
-
-celery --app=core worker -Q celery --loglevel=info --concurrency $CELERY_CONCURRENCY --task-events --hostname=worker@%n --beat --scheduler django_celery_beat.schedulers:DatabaseScheduler
+# Beat-only: this service schedules periodic tasks and no longer consumes the
+# celery queue itself. Task capacity lives in the worker service, where it is
+# budgeted (resources.limits x CELERY_CONCURRENCY); the previous embedded worker
+# added 4 unbudgeted task slots and peaked at 8 GB RSS without any memory limit.
+celery --app=core beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
