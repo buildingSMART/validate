@@ -93,14 +93,22 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
         "status", 
         "deleted",
         "file_removed", 
-        "model__produced_by",
         ModelProducedByAdvancedFilter,
         "channel", 
         CreatedByAdvancedFilter, 
         "created_by__useradditionalinfo__is_vendor", 
         "created_by__useradditionalinfo__is_vendor_self_declared", 
         ('created', AdvancedDateFilter)]
-    search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
+
+    search_fields = (
+        'file_name', 
+        'status', 
+        'model__produced_by__name', 
+        'model__produced_by__version',
+        'model__produced_by__company__name',
+        'created_by__username', 
+        'updated_by__username'
+    )
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
     actions_on_top = True
