@@ -25,6 +25,8 @@ from apps.ifc_validation_models.models import UserAdditionalInfo
 
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
+from .step_lines import add_step_lines, can_view_step_lines
+
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
 from core.settings import DEVELOPMENT, PREVIEW
 from core.settings import LOGIN_URL, USE_WHITELIST 
@@ -652,6 +654,11 @@ def report(request, id: str):
         task = ValidationTask.objects.filter(request_id=request.id, type=ValidationTask.Type.DIGITAL_SIGNATURES).last()
         signatures = [t.observed for t in task.outcomes.iterator()] if task else None
         
+    # privileged users additionally see the source line each instance was declared on;
+    # omitted server-side for everyone else, so nothing reaches the client
+    if can_view_step_lines(user):
+        add_step_lines(instances, request)
+
     response_data = {
         'instances': instances,
         'model': model,
