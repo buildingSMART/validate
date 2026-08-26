@@ -3,6 +3,7 @@ import datetime
 import os
 
 from apps.ifc_validation_models.models import Model, AuthoringTool, Company
+from apps.ifc_validation_models.languages import split_language
 from .. import TaskContext, logger, with_model
 
 def process_header(context:TaskContext):
@@ -62,15 +63,21 @@ def process_header(context:TaskContext):
                     authoring_tool.save()
                     logger.debug(f'Updated existing Authoring Tool with company: {company.name}')
 
+                if authoring_tool.canonical_name is None:
+                    authoring_tool.canonical_name, authoring_tool.language_code = split_language(authoring_tool.name)
+                    authoring_tool.save()
+
                 model.produced_by = authoring_tool
                 logger.debug(f'Retrieved existing Authoring Tool from DB = {model.produced_by.full_name}')
 
             elif authoring_tool is None:
                 company, _ = Company.objects.get_or_create(name=company_name)
+                canonical_name, language_code = split_language(app)
                 authoring_tool, _ = AuthoringTool.objects.get_or_create(
                     company=company,
                     name=app,
-                    version=version
+                    version=version,
+                    defaults={'canonical_name': canonical_name, 'language_code': language_code}
                 )
                 model.produced_by = authoring_tool
                 logger.debug(f'Authoring app not found, ApplicationFullName = {app}, Version = {version} - created new instance')
