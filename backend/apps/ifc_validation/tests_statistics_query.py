@@ -1,4 +1,5 @@
 import gzip
+from collections import Counter
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -46,8 +47,24 @@ from apps.ifc_validation_models.models import (
     ModelInstance,
     PsetCountHistogram,
     TemplateStatistic,
+    UserAdditionalInfo,
     ValidationRequest,
 )
+
+
+COLUMN_PROPERTY_PROJECTION_NAMES = Counter({
+    "Pset_SpaceCommon": 8,
+    "Pset_BuildingStoreyCommon": 6,
+    "Pset_ColumnCommon": 4,
+    "Pset_SiteCommon": 1,
+    "Pset_EnvironmentalImpactIndicators": 1,
+    "Pset_ReinforcementBarPitchOfColumn": 1,
+    "Pset_BuildingCommon": 3,
+    "Pset_BuildingElementProxyCommon": 2,
+    "Pset_BuildingSystemCommon": 1,
+    "PSet_1": 1,
+    "PSet_2": 1,
+})
 
 
 class StatisticsValueTests(SimpleTestCase):
@@ -175,6 +192,19 @@ class StatisticsValueTests(SimpleTestCase):
         assert not form.is_valid()
         assert "value" in form.errors
 
+    def test_uploader_boolean_filters_parse_true_and_false(self):
+        for field in ("is_vendor", "is_staff"):
+            for value, expected in (("true", True), ("false", False)):
+                form = StatisticsQueryClauseForm(data={
+                    "operation": "filter",
+                    "target": f"filter:{field}",
+                    "operator": "eq",
+                    "value": value,
+                })
+
+                assert form.is_valid(), form.errors
+                assert form.cleaned_data["typed_value"] is expected
+
     def test_dimension_values_are_not_treated_as_numbers(self):
         assert format_statistics_value("IFC4") == "IFC4"
         assert format_statistics_value("IfcWall") == "IfcWall"
@@ -240,7 +270,9 @@ class StatisticsSubprocessTests(SimpleTestCase):
             ("Use_of_property_types.md",),
         )
 
-        assert len(results) == 17
+        assert Counter(
+            result["graph"]["PropertySetName"] for result in results
+        ) == COLUMN_PROPERTY_PROJECTION_NAMES
         assert {result["template"] for result in results} == {
             "Use_of_property_types.md",
         }
@@ -261,7 +293,9 @@ class StatisticsSubprocessTests(SimpleTestCase):
 
         assert entities["schema_identifier"] == "IFC4X3_ADD2"
         assert psets["schema_identifier"] == "IFC4X3_ADD2"
-        assert len(templates) == 17
+        assert Counter(
+            result["graph"]["PropertySetName"] for result in templates
+        ) == COLUMN_PROPERTY_PROJECTION_NAMES
 
     def test_pset_definition_resources_cover_schema_addenda(self):
         assert pset_resource_schema("IFC2X3_TC1") == "IFC2X3"
@@ -802,6 +836,54 @@ class StatisticsQueryBuilderTests(TestCase):
             assert schedule_model_statistic_tasks.run(batch_size=10) == 0
             task_group.assert_not_called()
 
+    def test_template_task_stores_every_extracted_graph_projection(self):
+        model = Model.objects.create(
+            file_name="ColumnPSetsOfSets.ifc",
+            file="ColumnPSetsOfSets.ifc",
+            size=1,
+            schema="IFC4X3_ADD2",
+            uploaded_by=self.user,
+        )
+        file_path = (
+            Path(__file__).parent
+            / "checks"
+            / "statistics"
+            / "tests"
+            / "ColumnPSetsOfSets.ifc"
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+
+        with patch(
+            f"{task_module}.get_absolute_file_path",
+            return_value=str(file_path),
+        ):
+            assert populate_template_statistics.run(
+                model.pk,
+                ("Use_of_property_types.md",),
+            ) == sum(COLUMN_PROPERTY_PROJECTION_NAMES.values())
+
+        projections = model.template_statistics.filter(graph__isnull=False)
+        assert Counter(
+            projection.graph["PropertySetName"]
+            for projection in projections
+        ) == COLUMN_PROPERTY_PROJECTION_NAMES
+
+        column_common = projections.filter(
+            focus_instance__stepfile_id=97,
+        )
+        assert column_common.count() == 3
+        assert all(
+            projection.graph == {
+                "PropertySetName": "Pset_ColumnCommon",
+                "PropertyType": "IfcPropertySingleValue",
+            }
+            for projection in column_common
+        )
+        assert model.template_statistics.filter(
+            template_name="Use_of_property_types.md",
+            graph__isnull=True,
+        ).exists()
+
     def test_template_task_replaces_selected_templates_and_marks_each_one(self):
         model = Model.objects.create(
             file_name="templates.ifc",
@@ -945,6 +1027,106 @@ class StatisticsQueryBuilderTests(TestCase):
 
         assert average.rows[0] == ["IFC4", "IfcWall", 20]
         assert model_count.rows == [["IFC4", "IfcWall", 2]]
+
+    def test_uploader_vendor_and_staff_filters(self):
+        verified_vendor = get_user_model().objects.create_user(
+            username="verified-vendor",
+        )
+        non_vendor = get_user_model().objects.create_user(username="non-vendor")
+        no_additional_info = get_user_model().objects.create_user(
+            username="no-additional-info",
+        )
+        UserAdditionalInfo.objects.bulk_create([
+            UserAdditionalInfo(
+                user=self.user,
+                is_vendor=False,
+                is_vendor_self_declared=True,
+                created_by=self.user,
+            ),
+            UserAdditionalInfo(
+                user=verified_vendor,
+                is_vendor=True,
+                is_vendor_self_declared=False,
+                created_by=self.user,
+            ),
+            UserAdditionalInfo(
+                user=non_vendor,
+                is_vendor=False,
+                is_vendor_self_declared=False,
+                created_by=self.user,
+            ),
+        ])
+
+        entity_index = EntityCountHistogram.index_from_string("IFC4", "IfcWall")
+        extra_models = []
+        for uploader in (verified_vendor, non_vendor, no_additional_info):
+            model = Model.objects.create(
+                file_name=f"{uploader.username}.ifc",
+                file=f"{uploader.username}.ifc",
+                size=1,
+                schema="IFC4",
+                uploaded_by=uploader,
+            )
+            extra_models.append(model)
+            EntityCountHistogram.objects.bulk_create([
+                EntityCountHistogram(
+                    model=model,
+                    entity_index=entity_index,
+                    is_supertype=False,
+                    count=1,
+                ),
+                EntityCountHistogram.completion_marker(model),
+            ])
+
+        def filtered_model_ids(field, value):
+            result = self.execute(
+                group_by="model",
+                limit=100,
+                filters=[self.clause(field, "eq", str(value).lower(), value)],
+            )
+            return {row[0] for row in result.rows}
+
+        verified_model, non_vendor_model, no_info_model = extra_models
+        assert filtered_model_ids("is_vendor", True) == {
+            self.first.pk,
+            self.second.pk,
+            verified_model.pk,
+        }
+        assert filtered_model_ids("is_vendor", False) == {
+            non_vendor_model.pk,
+            no_info_model.pk,
+        }
+        assert filtered_model_ids("is_staff", True) == {
+            self.first.pk,
+            self.second.pk,
+        }
+        assert filtered_model_ids("is_staff", False) == {
+            verified_model.pk,
+            non_vendor_model.pk,
+            no_info_model.pk,
+        }
+        for source in ("pset", "template"):
+            result = self.execute(
+                source=source,
+                group_by="model",
+                limit=100,
+                filters=[self.clause("is_vendor", "eq", "true", True)],
+            )
+            assert {row[0] for row in result.rows} == {
+                self.first.pk,
+                self.second.pk,
+            }
+
+        vendor_average = self.execute(
+            expression="count / computed_models",
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+                self.clause("entity", "eq", "IfcWall"),
+                self.clause("entity_kind", "eq", "concrete", False),
+                self.clause("is_vendor", "eq", "true", True),
+            ],
+        )
+        self.assertAlmostEqual(vendor_average.rows[0][-1], 41 / 3)
 
     def test_explicit_division_by_computed_models(self):
         result = self.execute(
@@ -1340,6 +1522,10 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "filter:pset_name" not in entity_filters
         assert "filter:pset_name" in pset_filters
         assert "filter:count" not in template_filters
+        for uploader_filter in ("filter:is_vendor", "filter:is_staff"):
+            assert uploader_filter in entity_filters
+            assert uploader_filter in pset_filters
+            assert uploader_filter in template_filters
         assert "group:template" in template_groups
         assert "group:authoring_tool" in template_groups
         assert "group:graph_value" in template_groups
