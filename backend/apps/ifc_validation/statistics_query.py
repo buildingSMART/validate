@@ -47,6 +47,7 @@ from apps.ifc_validation.statistics_query_concepts import (
     SOURCE,
     SOURCES,
     QueryFilter,
+    StatisticsAnnotation,
     StatisticsExpression,
     StatisticsQuery,
     choices,
@@ -64,10 +65,18 @@ class StatisticsQueryClauseForm(forms.Form):
     target = forms.ChoiceField(choices=[
         *((f"filter:{concept.name}", concept.label) for concept in CONCEPTS if "filter" in concept.acts_in),
         *((f"group:{concept.name}", concept.label) for concept in CONCEPTS if "group" in concept.acts_in),
+        ("annotate:none", "No additional condition"),
+        *((f"annotate:{concept.name}", f"Where {concept.label}")
+          for concept in CONCEPTS if "filter" in concept.acts_in),
         *((f"order:{ordering.name}", ordering.label) for ordering in ORDERINGS),
     ], required=False)
     operator = forms.ChoiceField(choices=choices(QUERY_OPERATORS), required=False)
     value = forms.CharField(max_length=1024, required=False)
+    annotation_name = forms.CharField(
+        max_length=64,
+        required=False,
+        widget=forms.TextInput(attrs={"placeholder": "Name"}),
+    )
     expression_function = forms.ChoiceField(
         choices=choices(FUNCTIONS),
         required=False,
@@ -88,6 +97,35 @@ class StatisticsQueryClauseForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={"aria-label": "Operand B"}),
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        annotation_names = dict.fromkeys(
+            str(value).strip()
+            for key, value in self.data.items()
+            if key.endswith("-annotation_name") and str(value).strip()
+        )
+        for field_name, placeholder in (("operand_a", "𝑎"), ("operand_b", "𝑏")):
+            self.fields[field_name].choices = [
+                ("", placeholder),
+                *choices(OPERANDS),
+                *((name, name) for name in annotation_names),
+            ]
+
+    def clean_expression(self, cleaned):
+        operand_a = cleaned.get("operand_a")
+        expression_operator = cleaned.get("expression_operator")
+        operand_b = cleaned.get("operand_b")
+        if not operand_a:
+            self.add_error("operand_a", "Select operand A.")
+        if expression_operator and not operand_b:
+            self.add_error("operand_b", "Select operand B.")
+        if operand_b and not expression_operator:
+            self.add_error("expression_operator", "Select an operator.")
+        return StatisticsExpression(
+            cleaned.get("expression_function"), operand_a,
+            expression_operator, operand_b,
+        )
 
     def clean(self):
         cleaned = super().clean()
@@ -115,21 +153,30 @@ class StatisticsQueryClauseForm(forms.Form):
                 cleaned["resolved_value"] = limit
             return cleaned
 
+        clause_expression = None
+        if operation in {"annotate", "expression"}:
+            clause_expression = self.clean_expression(cleaned)
         if operation == "expression":
-            operand_a = cleaned.get("operand_a")
-            expression_operator = cleaned.get("expression_operator")
-            operand_b = cleaned.get("operand_b")
-            if not operand_a:
-                self.add_error("operand_a", "Select operand A.")
-            if expression_operator and not operand_b:
-                self.add_error("operand_b", "Select operand B.")
-            if operand_b and not expression_operator:
-                self.add_error("expression_operator", "Select an operator.")
-            cleaned["resolved_value"] = StatisticsExpression(
-                cleaned.get("expression_function"), operand_a,
-                expression_operator, operand_b,
-            )
+            cleaned["resolved_value"] = clause_expression
             return cleaned
+
+        annotation_name = cleaned.get("annotation_name", "").strip()
+        if operation == "annotate":
+            if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", annotation_name):
+                self.add_error(
+                    "annotation_name",
+                    "Enter a name using letters, numbers, and underscores.",
+                )
+            elif annotation_name in OPERAND:
+                self.add_error(
+                    "annotation_name",
+                    "Annotation names cannot replace built-in operands.",
+                )
+            if clause_expression.function == "average":
+                self.add_error(
+                    "expression_function",
+                    "AVG is available only in the final Expression clause.",
+                )
 
         expected_prefix = f"{operation}:"
         if not target or not target.startswith(expected_prefix):
@@ -137,6 +184,12 @@ class StatisticsQueryClauseForm(forms.Form):
             return cleaned
         resolved_value = target.removeprefix(expected_prefix)
         cleaned["resolved_value"] = resolved_value
+        if operation == "annotate" and resolved_value == "none":
+            cleaned["resolved_value"] = StatisticsAnnotation(
+                annotation_name,
+                clause_expression,
+            )
+            return cleaned
         if operation == "group" and resolved_value == "graph_value":
             if not value:
                 self.add_error("value", "Enter a JSON graph path.")
@@ -148,7 +201,7 @@ class StatisticsQueryClauseForm(forms.Form):
             else:
                 cleaned["resolved_value"] = f"graph_value:{value}"
             return cleaned
-        if operation != "filter":
+        if operation not in {"filter", "annotate"}:
             return cleaned
 
         field = resolved_value
@@ -170,6 +223,12 @@ class StatisticsQueryClauseForm(forms.Form):
         else:
             cleaned["value"] = value
             cleaned["typed_value"] = typed_value
+            if operation == "annotate":
+                cleaned["resolved_value"] = StatisticsAnnotation(
+                    annotation_name,
+                    clause_expression,
+                    (QueryFilter(field, operator, typed_value),),
+                )
         return cleaned
 
 StatisticsQueryClauseFormSet = forms.formset_factory(
@@ -210,14 +269,37 @@ def query_form_clauses(query):
         if graph_path:
             clause["value"] = graph_path
         clauses.append(clause)
+    for annotation in query.annotations:
+        if len(annotation.filters) > 1:
+            raise ValueError(
+                "The query form supports one condition per Annotate clause.",
+            )
+        clause = {
+            "operation": "annotate",
+            "annotation_name": annotation.name,
+            "target": "annotate:none",
+            "expression_function": annotation.expression.function,
+            "operand_a": annotation.expression.operand_a,
+            "expression_operator": annotation.expression.operator,
+            "operand_b": annotation.expression.operand_b,
+        }
+        if annotation.filters:
+            item = annotation.filters[0]
+            clause.update({
+                "target": f"annotate:{item.concept}",
+                "operator": item.operator,
+                "value": CONCEPT[item.concept].serialize(item.value),
+            })
+        clauses.append(clause)
     clauses.extend((
         {"operation": "expression", "expression_function": query.expression.function,
          "operand_a": query.expression.operand_a,
          "expression_operator": query.expression.operator,
          "operand_b": query.expression.operand_b},
         {"operation": "order", "target": f"order:{query.ordering}"},
-        {"operation": "limit", "value": query.limit if query.limit is not None else "all"},
     ))
+    if query.limit is not None:
+        clauses.append({"operation": "limit", "value": query.limit})
     return clauses
 
 
@@ -246,13 +328,19 @@ def build_statistics_specification(source, clause_formset):
         operation: [clause for clause in clauses if clause["operation"] == operation]
         for operation in OPERATION
     }
-    if not operations["group"]:
-        raise ValueError("The query requires at least one group clause.")
     if len(operations["expression"]) != 1:
         raise ValueError("The query requires exactly one expression clause.")
     for operation in ("order", "limit"):
         if len(operations[operation]) > 1:
             raise ValueError(f"The query accepts at most one {operation} clause.")
+
+    annotations = tuple(
+        clause["resolved_value"]
+        for clause in operations["annotate"]
+    )
+    annotation_names = [annotation.name for annotation in annotations]
+    if len(annotation_names) != len(set(annotation_names)):
+        raise ValueError("Annotation names must be unique.")
 
     return StatisticsQuery(
         source=source,
@@ -270,32 +358,64 @@ def build_statistics_specification(source, clause_formset):
             QueryFilter(clause["resolved_value"], clause["operator"], clause["typed_value"])
             for clause in operations["filter"]
         ),
+        annotations=annotations,
     )
+
+
+def _example_expression_context(clause):
+    expression = StatisticsExpression(
+        clause["expression_function"], clause["operand_a"],
+        clause["expression_operator"], clause["operand_b"],
+    )
+    return {
+        "function": FUNCTION[expression.function].label,
+        "function_active": bool(expression.function),
+        "operand_a": (
+            OPERAND[expression.operand_a].label
+            if expression.operand_a in OPERAND else expression.operand_a
+        ),
+        "operator": EXPRESSION_OPERATOR[expression.operator].label,
+        "operator_active": bool(expression.operator),
+        "operand_b": (
+            OPERAND[expression.operand_b].label
+            if expression.operand_b in OPERAND
+            else expression.operand_b or "𝑏"
+        ),
+        "operand_b_active": bool(expression.operand_b),
+    }
 
 
 def _example_clause_context(clause):
     operation = clause["operation"]
     if operation == "expression":
-        expression = StatisticsExpression(
-            clause["expression_function"], clause["operand_a"],
-            clause["expression_operator"], clause["operand_b"],
-        )
         return {
             "operation": OPERATION[operation].label,
-            "expression": {
-                "function": FUNCTION[expression.function].label,
-                "function_active": bool(expression.function),
-                "operand_a": OPERAND[expression.operand_a].label,
-                "operator": EXPRESSION_OPERATOR[expression.operator].label,
-                "operator_active": bool(expression.operator),
-                "operand_b": OPERAND[expression.operand_b].label if expression.operand_b else "𝑏",
-                "operand_b_active": bool(expression.operand_b),
-            },
+            "expression": _example_expression_context(clause),
             "form": clause,
         }
     if operation == "limit":
         return {"operation": OPERATION[operation].label, "selection": str(clause["value"]),
                 "operator": "", "value": "", "form": clause}
+    if operation == "annotate":
+        _, target = clause["target"].split(":", 1)
+        condition = ""
+        if target != "none":
+            condition = " ".join((
+                "where",
+                CONCEPT[target].label,
+                QUERY_OPERATOR[clause["operator"]].label,
+                str(clause.get("value", "")),
+            ))
+        expression_context = _example_expression_context(clause)
+        expression_context.update({
+            "annotation_name": clause["annotation_name"],
+            "condition": condition,
+        })
+        return {
+            "operation": OPERATION[operation].label,
+            "expression": expression_context,
+            "form": clause,
+        }
     _, target = clause["target"].split(":", 1)
     selection = ORDERING[target].label if operation == "order" else CONCEPT[target].label
     return {"operation": OPERATION[operation].label, "selection": selection,
@@ -349,6 +469,17 @@ def statistics_query_ui_context():
                 ]
                 for source in SOURCE
             },
+            "annotate": {
+                source: [
+                    {"value": "annotate:none", "label": "No additional condition"},
+                    *(
+                        {"value": f"annotate:{concept.name}",
+                         "label": f"Where {concept.label}"}
+                        for concept in CONCEPTS if concept.supports("filter", source)
+                    ),
+                ]
+                for source in SOURCE
+            },
             "expression": [],
             "order": [
                 {"value": f"order:{value}", "label": label}
@@ -357,12 +488,21 @@ def statistics_query_ui_context():
             "limit": [],
         },
         "filter_operator_choices": {
-            f"filter:{field}": [
+            f"{operation}:{field}": [
                 {"value": operator, "label": QUERY_OPERATOR[operator].label}
                 for operator in concept.operators
             ]
+            for operation in ("filter", "annotate")
             for field, concept in CONCEPT.items() if "filter" in concept.acts_in
         },
+        "statistics_operand_choices": [
+            {"value": value, "label": label}
+            for value, label in choices(OPERANDS)
+        ],
+        "statistics_function_choices": [
+            {"value": value, "label": label}
+            for value, label in choices(FUNCTIONS)
+        ],
         "filter_suggestions": {
             "models": [
                 (str(model.pk), f"#{model.pk} - {model.file_name}")
@@ -419,7 +559,9 @@ class StatisticsQueryBuilder:
         self.source = SOURCE[specification.source]
         self.filters = specification.filters
         self.groups = specification.groups
+        self.annotations = specification.annotations
         self.schema = self.resolve_schema()
+        self.validate_annotations()
 
     def resolve_schema(self):
         model_ids = {
@@ -484,6 +626,62 @@ class StatisticsQueryBuilder:
         return self.apply_lookup_filter(
             query, concept.lookup, clause.operator, clause.value,
         )
+
+    def filter_condition(self, clause):
+        concept = CONCEPT[clause.concept]
+        if not concept.supports("filter", self.source.name):
+            raise ValueError(
+                f"Filter {concept.name!r} is not available for {self.source.name!r}.",
+            )
+        if clause.operator not in concept.operators:
+            raise ValueError(
+                f"Operator {clause.operator!r} is not available for {concept.name!r}.",
+            )
+        if concept.name == "entity":
+            if not self.schema:
+                raise ValueError(
+                    "Entity annotation filters require one model or one exact schema filter.",
+                )
+            if clause.operator in {"subtype_of", "not_subtype_of"}:
+                values = self.subtype_indices(self.schema, clause.value)
+                if self.source.name == "template":
+                    values = [
+                        EntityCountHistogram.string_from_index(self.schema, index)
+                        for index in values
+                    ]
+                    lookup = "focus_instance__ifc_type__in"
+                else:
+                    lookup = "entity_index__in"
+                condition = Q(**{lookup: values})
+                return ~condition if clause.operator == "not_subtype_of" else condition
+            value = (
+                clause.value
+                if self.source.name == "template"
+                else EntityCountHistogram.index_from_string(self.schema, clause.value)
+            )
+            lookup = (
+                "focus_instance__ifc_type"
+                if self.source.name == "template" else "entity_index"
+            )
+            condition = Q(**{lookup: value})
+            return ~condition if clause.operator == "ne" else condition
+        if concept.name == "is_vendor":
+            vendor = (
+                Q(model__uploaded_by__useradditionalinfo__is_vendor=True)
+                | Q(model__uploaded_by__useradditionalinfo__is_vendor_self_declared=True)
+            )
+            matches = vendor if clause.value else ~vendor
+            return ~matches if clause.operator == "ne" else matches
+
+        operation = QUERY_OPERATOR[clause.operator]
+        if operation.special:
+            raise ValueError(
+                f"Operator {clause.operator!r} requires an entity concept.",
+            )
+        condition = Q(**{
+            f"{concept.lookup}{operation.suffix}": clause.value,
+        })
+        return ~condition if operation.negated else condition
 
     @classmethod
     def apply_vendor_filter(cls, query, operator, value, model_prefix):
@@ -613,18 +811,12 @@ class StatisticsQueryBuilder:
                     raise ValueError(
                         "Proxy grouping requires entity counts and one schema or model.",
                     )
-                proxy_indices = set(
-                    self.subtype_indices(self.schema, "IfcBuildingElementProxy"),
-                )
-                proxy_indices.add(
-                    EntityCountHistogram.index_from_string(
-                        self.schema,
-                        "IfcBuildingElementProxy",
-                    )
-                )
                 base = base.annotate(
                     proxy_group=Case(
-                        When(entity_index__in=proxy_indices, then=Value("Proxy")),
+                        When(
+                            entity_index__in=self.proxy_group_indices(),
+                            then=Value("Proxy"),
+                        ),
                         default=Value("Other element subtypes"),
                         output_field=CharField(),
                     )
@@ -642,6 +834,111 @@ class StatisticsQueryBuilder:
 
     def count_expression(self):
         return self.source.count_expression()
+
+    def proxy_group_indices(self):
+        if self.source.name != "entity" or not self.schema:
+            raise ValueError(
+                "Proxy grouping requires entity counts and one schema or model.",
+            )
+        return (
+            *self.subtype_indices(self.schema, "IfcBuildingElementProxy"),
+            EntityCountHistogram.index_from_string(
+                self.schema,
+                "IfcBuildingElementProxy",
+            ),
+        )
+
+    def validate_annotations(self):
+        names = [annotation.name for annotation in self.annotations]
+        if len(names) != len(set(names)):
+            raise ValueError("Annotation names must be unique.")
+        reserved_names = {
+            *OPERAND,
+            "group_count",
+            "source_count",
+            "source_models",
+            "statistics_scalar",
+            "value",
+            *(
+                name
+                for field in self.source.model._meta.get_fields()
+                for name in (field.name, getattr(field, "attname", field.name))
+            ),
+        }
+        available_names = set(StatisticsExpression.NAMES)
+        for annotation in self.annotations:
+            if (
+                not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", annotation.name)
+                or annotation.name in reserved_names
+            ):
+                raise ValueError(f"Unsupported annotation name {annotation.name!r}.")
+            annotation.expression.validate()
+            if annotation.expression.is_average:
+                raise ValueError(
+                    "AVG is available only in the final Expression clause.",
+                )
+            self.validate_expression_names(
+                annotation.expression,
+                available_names,
+                f"annotation {annotation.name!r}",
+            )
+            for clause in annotation.filters:
+                self.filter_condition(clause)
+            available_names.add(annotation.name)
+        self.spec.expression.validate()
+        self.validate_expression_names(
+            self.spec.expression,
+            available_names,
+            "final expression",
+        )
+
+    def annotation_condition(self, annotation):
+        condition = None
+        for clause in annotation.filters:
+            clause_condition = self.filter_condition(clause)
+            condition = (
+                clause_condition
+                if condition is None else condition & clause_condition
+            )
+        return condition
+
+    @staticmethod
+    def validate_expression_names(expression, available_names, label):
+        unknown_names = expression.names - set(available_names)
+        if unknown_names:
+            raise ValueError(
+                f"Unknown operand(s) in {label}: "
+                + ", ".join(sorted(unknown_names)),
+            )
+
+    def formula_names(self, expression):
+        names = set(expression.names)
+        for annotation in self.annotations:
+            names.update(annotation.expression.names)
+        return names
+
+    def apply_annotations(self, query, computed_models, total_count):
+        aliases = {}
+        for annotation in self.annotations:
+            condition = self.annotation_condition(annotation)
+            count = self.source.count_expression(condition)
+            models = Count("model_id", distinct=True, filter=condition)
+            values = {
+                "count": Cast(count, FloatField()),
+                "models": Cast(models, FloatField()),
+                "computed_models": Value(float(computed_models or 1)),
+                "total_count": Value(float(total_count or 1)),
+                **aliases,
+            }
+            if annotation.expression.source == "count":
+                value = count
+            elif annotation.expression.source == "models":
+                value = models
+            else:
+                value = annotation.expression.compile(values)
+            query = query.annotate(**{annotation.name: value})
+            aliases[annotation.name] = Cast(F(annotation.name), FloatField())
+        return query, aliases
 
     def display_key(self, fields, values):
         displayed = list(values)
@@ -685,11 +982,31 @@ class StatisticsQueryBuilder:
                 expression,
             )
 
-        total_count = base.aggregate(total=count_expression)["total"] or 0
-        computed_models = self.computed_model_count()
-        query = grouped_base.values(*fields).annotate(
-            source_count=count_expression,
-            source_models=Count("model_id", distinct=True),
+        formula_names = self.formula_names(expression)
+        total_count = (
+            base.aggregate(total=count_expression)["total"] or 0
+            if "total_count" in formula_names else None
+        )
+        computed_models = (
+            self.computed_model_count()
+            if "computed_models" in formula_names else None
+        )
+        query_fields = list(fields)
+        if not query_fields:
+            grouped_base = grouped_base.annotate(statistics_scalar=Value(1))
+            query_fields.append("statistics_scalar")
+        query = grouped_base.values(*query_fields)
+        source_values = {}
+        if "count" in expression.names:
+            source_values["source_count"] = count_expression
+        if expression.source == "models":
+            source_values["source_models"] = Count("model_id", distinct=True)
+        if source_values:
+            query = query.annotate(**source_values)
+        query, annotation_values = self.apply_annotations(
+            query,
+            computed_models,
+            total_count,
         )
         if expression.source == "count":
             query = query.annotate(value=F("source_count"))
@@ -701,14 +1018,20 @@ class StatisticsQueryBuilder:
                 "models": Cast(F("source_models"), FloatField()),
                 "computed_models": Value(float(computed_models or 1)),
                 "total_count": Value(float(total_count or 1)),
+                **annotation_values,
             }
-            query = query.annotate(value=expression.compile(expression_values))
+            query = query.annotate(
+                value=expression.compile(expression_values),
+            )
 
         query = query.order_by("-value" if descending else "value")
         if limit is not None:
             query = query[:limit]
-        raw_rows = list(query.values_list(*fields, "value"))
-        rows = [self.display_key(fields, row[:-1]) + [row[-1]] for row in raw_rows]
+        raw_rows = list(query.values_list(*query_fields, "value"))
+        rows = [
+            self.display_key(fields, row[:len(fields)]) + [row[-1]]
+            for row in raw_rows
+        ]
         return StatisticsQueryResult(
             labels + [expression.source],
             rows,
@@ -716,31 +1039,68 @@ class StatisticsQueryBuilder:
         )
 
     def average_expression_result(self, base, fields, labels, count_expression, expression):
-        per_model = (
-            base.values("model_id", *fields)
-            .annotate(group_count=count_expression)
-            .order_by()
+        denominator = self.computed_model_count()
+        total_count = (
+            base.aggregate(total=count_expression)["total"] or 0
+            if "total_count" in self.formula_names(expression) else None
         )
-        records = list(per_model.values_list("model_id", *fields, "group_count"))
+        needs_group_count = bool(
+            expression.names & {"count", "model_total_count"}
+        ) or not self.annotations
+        per_model = base.values("model_id", *fields)
+        if needs_group_count:
+            per_model = per_model.annotate(group_count=count_expression)
+        per_model, _ = self.apply_annotations(
+            per_model,
+            denominator,
+            total_count,
+        )
+        per_model = per_model.order_by()
+        annotation_names = [annotation.name for annotation in self.annotations]
+        value_fields = [
+            *(["group_count"] if needs_group_count else []),
+            *annotation_names,
+        ]
+        records = list(per_model.values_list(
+            "model_id",
+            *fields,
+            *value_fields,
+        ))
         totals = defaultdict(float)
         grouped = defaultdict(float)
+        grouped_annotations = {
+            name: defaultdict(float) for name in annotation_names
+        }
+        group_keys = []
+        seen_group_keys = set()
         for record in records:
             model_id = record[0]
-            key = tuple(record[1:-1])
-            count = record[-1]
-            totals[model_id] += count
-            grouped[(model_id, key)] += count
+            key = tuple(record[1:1 + len(fields)])
+            group_key = (model_id, key)
+            if group_key not in seen_group_keys:
+                seen_group_keys.add(group_key)
+                group_keys.append(group_key)
+            value_offset = 1 + len(fields)
+            if needs_group_count:
+                count = record[value_offset]
+                totals[model_id] += count
+                grouped[group_key] += count
+                value_offset += 1
+            for offset, name in enumerate(annotation_names, start=value_offset):
+                grouped_annotations[name][(model_id, key)] += record[offset]
 
-        denominator = self.computed_model_count()
-        total_count = sum(totals.values())
         averages = defaultdict(float)
-        for (model_id, key), count in grouped.items():
+        for model_id, key in group_keys:
             averages[key] += expression.evaluate({
-                "count": count,
+                "count": grouped[(model_id, key)],
                 "models": 1,
                 "computed_models": denominator,
                 "total_count": total_count,
                 "model_total_count": totals[model_id],
+                **{
+                    name: values[(model_id, key)]
+                    for name, values in grouped_annotations.items()
+                },
             })
         rows = [
             self.display_key(fields, key) + [value / (denominator or 1)]
