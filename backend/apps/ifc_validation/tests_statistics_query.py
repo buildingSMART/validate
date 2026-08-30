@@ -20,6 +20,7 @@ from apps.ifc_validation.statistics_query import (
     CONCEPTS,
     SOURCES,
     QueryFilter,
+    StatisticsAnnotation,
     StatisticsExpression,
     StatisticsQuery,
     StatisticsQueryClauseForm,
@@ -118,6 +119,12 @@ class StatisticsValueTests(SimpleTestCase):
             "operand_b": "model_total_count",
         }) == "avg(count / model_total_count)"
         assert build_statistics_expression({
+            "function": "",
+            "operand_a": "wall_count",
+            "operator": "divide",
+            "operand_b": "door_count",
+        }) == "wall_count / door_count"
+        assert build_statistics_expression({
             "function": "count_distinct",
             "operand_a": "model",
             "operator": "",
@@ -160,6 +167,39 @@ class StatisticsValueTests(SimpleTestCase):
         assert "expression_operator" in missing_operator.errors
         assert not missing_operand_b.is_valid()
         assert "operand_b" in missing_operand_b.errors
+
+    def test_annotate_uses_the_same_structured_expression_controls(self):
+        form = StatisticsQueryClauseForm(data={
+            "operation": "annotate",
+            "annotation_name": "scaled_count",
+            "target": "annotate:none",
+            "operand_a": "count",
+            "expression_operator": "multiply",
+            "operand_b": "100",
+        })
+
+        assert form.is_valid(), form.errors
+        annotation = form.cleaned_data["resolved_value"]
+        assert annotation == StatisticsAnnotation(
+            "scaled_count",
+            StatisticsExpression(
+                operand_a="count",
+                operator="multiply",
+                operand_b="100",
+            ),
+        )
+
+    def test_average_is_reserved_for_the_final_expression_stage(self):
+        form = StatisticsQueryClauseForm(data={
+            "operation": "annotate",
+            "annotation_name": "average_count",
+            "target": "annotate:none",
+            "expression_function": "average",
+            "operand_a": "count",
+        })
+
+        assert not form.is_valid()
+        assert "expression_function" in form.errors
 
     def test_average_rejects_operands_unavailable_per_model(self):
         with self.assertRaisesRegex(ValueError, "Unsupported AVG expression"):
@@ -332,8 +372,8 @@ class StatisticsQueryBuilderTests(TestCase):
         indices = {
             name: EntityCountHistogram.index_from_string("IFC4", name)
             for name in (
-                "IfcDoor", "IfcBuildingElementProxy", "IfcElement", "IfcProject",
-                "IfcWall",
+                "IfcDoor", "IfcBuildingElement", "IfcBuildingElementProxy",
+                "IfcElement", "IfcProject", "IfcWall",
             )
         }
         EntityCountHistogram.objects.bulk_create([
@@ -360,11 +400,16 @@ class StatisticsQueryBuilderTests(TestCase):
         ] + [
             EntityCountHistogram(
                 model=model,
-                entity_index=indices["IfcElement"],
+                entity_index=indices[name],
                 count=count,
                 is_supertype=True,
             )
-            for model, count in ((cls.first, 17), (cls.second, 35))
+            for model, name, count in (
+                (cls.first, "IfcBuildingElement", 17),
+                (cls.first, "IfcElement", 17),
+                (cls.second, "IfcBuildingElement", 35),
+                (cls.second, "IfcElement", 35),
+            )
         ] + [
             EntityCountHistogram.completion_marker(model)
             for model in (cls.first, cls.second)
@@ -471,6 +516,7 @@ class StatisticsQueryBuilderTests(TestCase):
                 "value": "IFC4",
                 "typed_value": "IFC4",
             }],
+            "annotations": (),
         }
         specification.update(overrides)
         expressions = {
@@ -485,6 +531,22 @@ class StatisticsQueryBuilderTests(TestCase):
             ),
             "avg(count / model_total_count)": StatisticsExpression(
                 "average", operator="divide", operand_b="model_total_count",
+            ),
+            "proxy_count / building_element_count": StatisticsExpression(
+                operand_a="proxy_count",
+                operator="divide",
+                operand_b="building_element_count",
+            ),
+            "avg(proxy_count / building_element_count)": StatisticsExpression(
+                "average",
+                operand_a="proxy_count",
+                operator="divide",
+                operand_b="building_element_count",
+            ),
+            "wall_count / door_count": StatisticsExpression(
+                operand_a="wall_count",
+                operator="divide",
+                operand_b="door_count",
             ),
         }
         groups = specification["group_by"]
@@ -501,6 +563,7 @@ class StatisticsQueryBuilderTests(TestCase):
                 QueryFilter(clause["field"], clause["operator"], clause["typed_value"])
                 for clause in specification["filters"]
             ),
+            specification["annotations"],
         )
         return StatisticsQueryBuilder(query).execute()
 
@@ -1017,16 +1080,17 @@ class StatisticsQueryBuilderTests(TestCase):
             ],
         )
         model_count = self.execute(
+            group_by=(),
             expression="models",
             filters=[
                 self.clause("schema", "eq", "IFC4"),
                 self.clause("entity", "eq", "IfcWall"),
-                self.clause("count", "gt", 0),
+                self.clause("entity_kind", "eq", "concrete", False),
             ],
         )
 
         assert average.rows[0] == ["IFC4", "IfcWall", 20]
-        assert model_count.rows == [["IFC4", "IfcWall", 2]]
+        assert model_count.rows == [[2]]
 
     def test_uploader_vendor_and_staff_filters(self):
         verified_vendor = get_user_model().objects.create_user(
@@ -1163,21 +1227,133 @@ class StatisticsQueryBuilderTests(TestCase):
         assert one_model.rows == [["Standard", .8], ["Custom", .2]]
         assert dict(schema_average.rows) == {"Standard": .5, "Custom": .5}
 
-    def test_proxy_ratio_uses_filtered_element_total(self):
+    def test_proxy_ratio_uses_direct_entity_counts(self):
+        annotations = (
+            StatisticsAnnotation(
+                "proxy_count",
+                filters=(QueryFilter("entity", "eq", "IfcBuildingElementProxy"),),
+            ),
+            StatisticsAnnotation(
+                "building_element_count",
+                filters=(QueryFilter("entity", "eq", "IfcBuildingElement"),),
+            ),
+        )
         result = self.execute(
-            group_by="proxy",
-            expression="count / total_count",
+            group_by=(),
+            expression="proxy_count / building_element_count",
+            annotations=annotations,
             filters=[
                 self.clause("model", "eq", self.first.pk),
-                self.clause("entity", "subtype_of", "IfcElement"),
-                self.clause("entity_kind", "eq", "concrete", False),
             ],
         )
 
-        assert result.rows[0][0] == "Other element subtypes"
-        self.assertAlmostEqual(result.rows[0][1], 15 / 17)
-        assert result.rows[1][0] == "Proxy"
-        self.assertAlmostEqual(result.rows[1][1], 2 / 17)
+        assert result.columns == ["proxy_count / building_element_count"]
+        self.assertAlmostEqual(result.rows[0][0], 2 / 17)
+        assert "GROUP BY" not in result.sql, result.sql
+        assert '"entity_index" IN' not in result.sql
+        assert 'NOT "ifc_validation_models_entitycounthistogram"."is_supertype"' not in result.sql
+
+    def test_average_proxy_ratio_is_a_scalar_expression(self):
+        result = self.execute(
+            group_by=(),
+            expression="avg(proxy_count / building_element_count)",
+            annotations=(
+                StatisticsAnnotation(
+                    "proxy_count",
+                    filters=(QueryFilter(
+                        "entity", "eq", "IfcBuildingElementProxy",
+                    ),),
+                ),
+                StatisticsAnnotation(
+                    "building_element_count",
+                    filters=(QueryFilter(
+                        "entity", "eq", "IfcBuildingElement",
+                    ),),
+                ),
+            ),
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+            ],
+        )
+
+        assert result.columns == ["avg(proxy_count / building_element_count)"]
+        self.assertAlmostEqual(result.rows[0][0], (2 / 17) / 2)
+        assert '"entity_index" IN' not in result.sql
+        assert 'AS "group_count"' not in result.sql
+
+    def test_conditional_annotations_are_not_proxy_specific(self):
+        result = self.execute(
+            group_by=(),
+            expression="wall_count / door_count",
+            annotations=(
+                StatisticsAnnotation(
+                    "wall_count",
+                    filters=(QueryFilter("entity", "eq", "IfcWall"),),
+                ),
+                StatisticsAnnotation(
+                    "door_count",
+                    filters=(QueryFilter("entity", "eq", "IfcDoor"),),
+                ),
+            ),
+            filters=[
+                self.clause("model", "eq", self.first.pk),
+            ],
+        )
+
+        assert result.columns == ["wall_count / door_count"]
+        assert result.rows == [[2.0]]
+
+    def test_annotation_can_name_a_full_arithmetic_expression(self):
+        query = StatisticsQuery(
+            source="entity",
+            groups=(),
+            expression=StatisticsExpression(
+                operand_a="scaled_wall_count",
+                operator="divide",
+                operand_b="total_count",
+            ),
+            filters=(
+                QueryFilter("model", "eq", self.first.pk),
+                QueryFilter("entity", "subtype_of", "IfcElement"),
+                QueryFilter("entity_kind", "eq", False),
+            ),
+            annotations=(StatisticsAnnotation(
+                "scaled_wall_count",
+                StatisticsExpression(
+                    operand_a="count",
+                    operator="multiply",
+                    operand_b="100",
+                ),
+                (QueryFilter("entity", "eq", "IfcWall"),),
+            ),),
+        )
+
+        result = StatisticsQueryBuilder(query).execute()
+
+        assert result.columns == ["scaled_wall_count / total_count"]
+        self.assertAlmostEqual(result.rows[0][0], 1000 / 17)
+        assert "scaled_wall_count" in result.sql
+
+    def test_annotation_dependencies_must_follow_clause_order(self):
+        query = StatisticsQuery(
+            source="entity",
+            groups=(),
+            expression=StatisticsExpression(operand_a="later_count"),
+            filters=(QueryFilter("model", "eq", self.first.pk),),
+            annotations=(
+                StatisticsAnnotation(
+                    "early_count",
+                    StatisticsExpression(operand_a="later_count"),
+                ),
+                StatisticsAnnotation("later_count"),
+            ),
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unknown operand.*annotation 'early_count'.*later_count",
+        ):
+            StatisticsQueryBuilder(query)
 
     def test_entity_origin_and_negated_subtype_filters(self):
         inherited = self.execute(filters=[
@@ -1190,7 +1366,10 @@ class StatisticsQueryBuilderTests(TestCase):
             self.clause("entity_kind", "eq", "concrete", False),
         ])
 
-        assert inherited.rows == [["IFC4", "IfcElement", 17]]
+        assert {row[1]: row[2] for row in inherited.rows} == {
+            "IfcBuildingElement": 17,
+            "IfcElement": 17,
+        }
         assert outside_elements.rows == [["IFC4", "IfcProject", 1]]
 
     def test_ordering_and_limit_apply_to_selected_value(self):
@@ -1407,7 +1586,7 @@ class StatisticsQueryBuilderTests(TestCase):
         ])
 
         assert response.status_code == 200
-        assert response.context["rows"][0] == ["IFC4", "IfcElement", 52]
+        assert ["IFC4", "IfcElement", 52] in response.context["rows"]
         assert b"<td>IFC4</td>" in response.content
         assert b"<td>IfcElement</td>" in response.content
         assert b"<td>52</td>" in response.content
@@ -1445,9 +1624,10 @@ class StatisticsQueryBuilderTests(TestCase):
         assert response.status_code == 200
         assert response.context["query_error"] == ""
         assert response.context["clause_formset"].is_valid()
-        assert response.context["clause_formset"].forms[-1].cleaned_data[
-            "resolved_value"
-        ] is None
+        assert not any(
+            form.cleaned_data["operation"] == "limit"
+            for form in response.context["clause_formset"].forms
+        )
         assert {
             row[1]: row[-1]
             for row in response.context["rows"]
@@ -1471,9 +1651,10 @@ class StatisticsQueryBuilderTests(TestCase):
         assert response.status_code == 200
         assert response.context["query_error"] == ""
         assert response.context["clause_formset"].is_valid()
-        assert response.context["clause_formset"].forms[-1].cleaned_data[
-            "resolved_value"
-        ] is None
+        assert not any(
+            form.cleaned_data["operation"] == "limit"
+            for form in response.context["clause_formset"].forms
+        )
         assert response.context["columns"] == [
             "Schema", "Entity", "Property set", "Standardized", "count",
         ]
@@ -1541,16 +1722,20 @@ class StatisticsQueryBuilderTests(TestCase):
             "Average top 10 property sets used in files of an IFC version",
             "Ratio of standard versus custom property sets in one file",
             "Average ratio of standard versus custom property sets by IFC version",
-            "Ratio of proxy versus other element subtypes in one file",
+            "Proxy ratio in one file",
             "Average proxy ratio in files of an IFC version",
             "Property type counts grouped by AuthoringTool",
             "Property type counts for a single model",
             "Basis counts grouped by AuthoringTool",
             "Basis type counts for a single model",
         ]
-        for example in examples:
+        for index, example in enumerate(examples):
             operations = [clause["operation"] for clause in example["clauses"]]
-            assert operations.count("Group by") >= 1
+            if index in {2, 7, 8}:
+                assert operations.count("Group by") == 0
+            else:
+                assert operations.count("Group by") >= 1
+            assert operations.count("Annotate") == (2 if index in {7, 8} else 0)
             assert operations.count("Expression") == 1
 
         expressions = [
@@ -1569,6 +1754,60 @@ class StatisticsQueryBuilderTests(TestCase):
         assert expressions[6]["expression"]["function"] == "AVG"
         assert expressions[6]["expression"]["operand_b"] == (
             "model total count"
+        )
+        assert expressions[7]["expression"] == {
+            "function": "𝑓",
+            "function_active": False,
+            "operand_a": "proxy_count",
+            "operator": "÷",
+            "operator_active": True,
+            "operand_b": "building_element_count",
+            "operand_b_active": True,
+        }
+        assert expressions[8]["expression"]["function"] == "AVG"
+        assert expressions[8]["expression"]["operand_a"] == "proxy_count"
+        assert expressions[8]["expression"]["operand_b"] == "building_element_count"
+
+        proxy_clauses = examples[7]["form_data"]["clauses"]
+        annotations = {
+            clause["annotation_name"]: clause
+            for clause in proxy_clauses
+            if clause["operation"] == "annotate"
+        }
+        expression = next(
+            clause for clause in proxy_clauses
+            if clause["operation"] == "expression"
+        )
+        assert annotations["proxy_count"] == {
+            "operation": "annotate",
+            "annotation_name": "proxy_count",
+            "target": "annotate:entity",
+            "expression_function": "",
+            "operand_a": "count",
+            "expression_operator": "",
+            "operand_b": "",
+            "operator": "eq",
+            "value": "IfcBuildingElementProxy",
+        }
+        assert annotations["building_element_count"] == {
+            "operation": "annotate",
+            "annotation_name": "building_element_count",
+            "target": "annotate:entity",
+            "expression_function": "",
+            "operand_a": "count",
+            "expression_operator": "",
+            "operand_b": "",
+            "operator": "eq",
+            "value": "IfcBuildingElement",
+        }
+        assert expression["operand_a"] == "proxy_count"
+        assert expression["operand_b"] == "building_element_count"
+
+        model_count_clauses = examples[2]["form_data"]["clauses"]
+        assert not any(
+            clause["operation"] in {"group", "limit"}
+            or clause.get("target") == "filter:count"
+            for clause in model_count_clauses
         )
 
     def test_every_example_payload_executes_through_the_admin_builder(self):
@@ -1768,6 +2007,41 @@ class StatisticsQueryBuilderTests(TestCase):
         assert response.status_code == 200
         assert "Unsupported SUM expression" in response.context["query_error"]
 
+    def test_admin_builder_accepts_a_scalar_proxy_ratio_without_a_group(self):
+        response = self.post_query([
+            {
+                "operation": "annotate",
+                "annotation_name": "proxy_count",
+                "target": "annotate:entity",
+                "operand_a": "count",
+                "operator": "eq",
+                "value": "IfcBuildingElementProxy",
+            },
+            {
+                "operation": "annotate",
+                "annotation_name": "building_element_count",
+                "target": "annotate:entity",
+                "operand_a": "count",
+                "operator": "eq",
+                "value": "IfcBuildingElement",
+            },
+            self.expression(
+                operand_a="proxy_count",
+                operator="divide",
+                operand_b="building_element_count",
+            ),
+            {
+                "operation": "filter",
+                "target": "filter:model",
+                "operator": "eq",
+                "value": self.first.pk,
+            },
+        ])
+
+        assert response.status_code == 200
+        assert response.context["query_error"] == ""
+        self.assertAlmostEqual(response.context["rows"][0][0], 2 / 17)
+
     def test_invalid_composition_is_reported_by_backend_builder(self):
         response = self.post_query([
             {"operation": "group", "target": "group:entity"},
@@ -1793,7 +2067,7 @@ class StatisticsQueryBuilderTests(TestCase):
 
         assert response.status_code == 200
         assert response.context["query_error"] == ""
-        assert response.context["rows"][0] == ["IFC4", "IfcElement", 52]
+        assert ["IFC4", "IfcElement", 52] in response.context["rows"]
 
     def test_all_supported_group_and_expression_combinations_execute(self):
         expressions = (
