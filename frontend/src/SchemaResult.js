@@ -125,6 +125,7 @@ export default function SchemaResult({ summary, count, content, status, instance
           <div>
             { data.length
               ? data.map(([hd, rows]) => {
+                  const hasSourceLine = rows.some(row => instances[row.instance_id]?.step_line)
                   return <TreeView 
                     defaultCollapseIcon={<ExpandMoreIcon />}
                     defaultExpandIcon={<ChevronRightIcon />}
@@ -149,7 +150,7 @@ export default function SchemaResult({ summary, count, content, status, instance
                       }
                       <table width='100%' style={{ 'text-align': 'left'}}>
                           <thead>
-                            <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th></tr>
+                            <tr><th>Id</th><th>Entity</th><th>Severity</th><th>Message</th>{hasSourceLine && <th>Line</th>}{hasSourceLine && <th>Source</th>}</tr>
                           </thead>
                           <tbody>
                           {rows.map((row, rowIndex) => {
@@ -177,6 +178,8 @@ export default function SchemaResult({ summary, count, content, status, instance
                                       }
                                     </span>
                                   </td>
+                                  {hasSourceLine && <td>{instances[row.instance_id]?.line ?? '-'}</td>}
+                                  {hasSourceLine && <td style={{ 'fontFamily': 'monospace', 'wordBreak': 'break-all' }}>{instances[row.instance_id]?.step_line || '-'}</td>}
                                 </tr>
                               );
                             })}

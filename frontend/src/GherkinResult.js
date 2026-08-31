@@ -154,8 +154,9 @@ export default function GherkinResult({ summary, count, content, status, instanc
 
   const copyTableToClipboard = async (feature, rows) => {
     const hasMessage = rows.some(row => row.message && row.message.length > 0);
+    const hasSourceLine = rows.some(row => instances[row.instance_id]?.step_line);
     let text = `${feature}\n\n`;
-    text += `Severity\tId\tEntity\tExpected\tObserved${hasMessage ? `\tMessage` : ''}\n`;
+    text += `Severity\tId\tEntity\tExpected\tObserved${hasMessage ? `\tMessage` : ''}${hasSourceLine ? `\tLine\tSource` : ''}\n`;
 
     rows.forEach(row => {
       const severity = severityToLabel[row.severity] || '';
@@ -164,8 +165,10 @@ export default function GherkinResult({ summary, count, content, status, instanc
       const expected = row.expected ? extractPlainText(row.expected) : '-';
       const observed = row.observed ? extractPlainText(row.observed) : '-';
       const message = hasMessage ? (row.message || '-') : '';
+      const line = hasSourceLine ? (instances[row.instance_id]?.line ?? '-') : '';
+      const source = hasSourceLine ? (instances[row.instance_id]?.step_line || '-') : '';
 
-      text += `${severity}\t${id}\t${entity}\t${expected}\t${observed}${hasMessage ? `\t${message}` : ''}\n`
+      text += `${severity}\t${id}\t${entity}\t${expected}\t${observed}${hasMessage ? `\t${message}` : ''}${hasSourceLine ? `\t${line}\t${source}` : ''}\n`
     });
 
     try {
@@ -308,6 +311,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
           { data.length
             ? data.map(([feature, rows, severity]) => {
                 const hasMessage = rows.some(row => row.message && row.message.length > 0)
+                const hasSourceLine = rows.some(row => instances[row.instance_id]?.step_line)
                 return <TreeView
                   defaultCollapseIcon={<ExpandMoreIcon />}
                   defaultExpandIcon={<ChevronRightIcon />}
@@ -350,7 +354,7 @@ export default function GherkinResult({ summary, count, content, status, instanc
                       </div>
                       <table width='100%' style={{ 'text-align': 'left'}}>
                         <thead>
-                          <tr><th>Severity</th><th>Id</th><th>Entity</th><th>Expected</th><th>Observed</th>{hasMessage && <th>Message</th>}</tr>
+                          <tr><th>Severity</th><th>Id</th><th>Entity</th><th>Expected</th><th>Observed</th>{hasMessage && <th>Message</th>}{hasSourceLine && <th>Line</th>}{hasSourceLine && <th>Source</th>}</tr>
                         </thead>
                         <tbody>
                           {
@@ -365,6 +369,8 @@ export default function GherkinResult({ summary, count, content, status, instanc
                                 <td>{row.expected ? format(row.expected) : '-'}</td>
                                 <td>{row.observed ? format(row.observed) : '-'}</td>
                                 {hasMessage && <td>{row.message && row.message.length > 0 ? row.message : '-'}</td>}
+                                {hasSourceLine && <td>{instances[row.instance_id]?.line ?? '-'}</td>}
+                                {hasSourceLine && <td style={{ 'fontFamily': 'monospace', 'wordBreak': 'break-all' }}>{instances[row.instance_id]?.step_line || '-'}</td>}
                             </tr>
                             })
                           }

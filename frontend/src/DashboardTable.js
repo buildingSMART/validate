@@ -399,9 +399,12 @@ export default function DashboardTable({ models }) {
                   <TableCell align="left">
                   {row.filename}{" "}
                   {wrap_status(
-                      row.status_header === 'i' ? "w" : 
-                      row.status_header === 'v' ? "info-valid" : 
-                      "info",                      
+                      // any header policy error (e.g. an invalid MVD) shows a warning,
+                      // independent of status_header, which also gates the scorecards
+                      row.status_header === 'i' ? "w" :
+                      (row.header_validation?.validation_errors?.length > 0) ? "w" :
+                      row.status_header === 'v' ? "info-valid" :
+                      "info",
                       context.sandboxId
                         ? `/sandbox/report_file/${context.sandboxId}/${row.code}`
                         : `/report_file/${row.code}`
