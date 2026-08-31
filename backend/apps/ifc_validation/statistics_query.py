@@ -55,6 +55,9 @@ from apps.ifc_validation.statistics_query_concepts import (
 from apps.ifc_validation.statistics_query_examples import EXAMPLES
 
 
+MODEL_SUGGESTION_LIMIT = 250
+
+
 class StatisticsSourceForm(forms.Form):
     source = forms.ChoiceField(choices=choices(SOURCES))
 
@@ -504,9 +507,11 @@ def statistics_query_ui_context():
             for value, label in choices(FUNCTIONS)
         ],
         "filter_suggestions": {
+            # only a suggestion list: rendering every model bloats the page
             "models": [
                 (str(model.pk), f"#{model.pk} - {model.file_name}")
-                for model in Model.objects.only("id", "file_name").order_by("-created")
+                for model in Model.objects.only("id", "file_name")
+                .order_by("-created")[:MODEL_SUGGESTION_LIMIT]
             ],
             "schemas": [(schema, schema) for schema in schemas],
             "entities": [(name, name) for name in sorted(entity_names)],

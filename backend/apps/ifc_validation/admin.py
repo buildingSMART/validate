@@ -675,6 +675,10 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
 class EntityCountHistogramAdmin(admin.ModelAdmin):
     readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
@@ -683,6 +687,10 @@ class EntityCountHistogramAdmin(admin.ModelAdmin):
 
 class PsetCountHistogramAdmin(admin.ModelAdmin):
     readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
@@ -691,6 +699,13 @@ class PsetCountHistogramAdmin(admin.ModelAdmin):
 
 class TemplateStatisticAdmin(admin.ModelAdmin):
     readonly_fields = ["model", "focus_instance"]
+
+    list_display = ["id", "model_id", "template_name", "focus_instance_id"]
+    list_filter = ["template_name"]
+    list_select_related = ["focus_instance"]  # __str__ reads focus_instance
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
 
 class CompanyAdmin(BaseAdmin):

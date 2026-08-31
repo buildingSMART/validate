@@ -10,7 +10,7 @@ from django.conf import settings
 from django.contrib import admin as django_admin
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.test import SimpleTestCase, TestCase
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
@@ -69,16 +69,15 @@ COLUMN_PROPERTY_PROJECTION_NAMES = Counter({
 
 
 class StatisticsValueTests(SimpleTestCase):
-    def test_celery_beat_uses_the_renamed_statistics_task_module(self):
-        schedule = settings.CELERY_BEAT_SCHEDULE[
-            "schedule-model-statistic-tasks-every-15min"
+    def test_statistics_tasks_are_not_scheduled_periodically(self):
+        """Scheduling is manual until the memory limits are in place."""
+        assert not [
+            name for name in settings.CELERY_BEAT_SCHEDULE if "statistic" in name
         ]
-
-        assert schedule["task"] == (
+        assert schedule_model_statistic_tasks.name == (
             "apps.ifc_validation.tasks.statistics_tasks."
             "schedule_model_statistic_tasks"
         )
-        assert schedule_model_statistic_tasks.name == schedule["task"]
 
     def test_clause_operations_use_expression_and_keep_source_separate(self):
         operations = dict(StatisticsQueryClauseForm.OPERATION_CHOICES)
@@ -752,7 +751,7 @@ class StatisticsQueryBuilderTests(TestCase):
         extract_psets.assert_called_once_with(archive)
         extract_templates.assert_called_once_with(archive, ("First.md",))
 
-    def test_statistic_tasks_skip_when_original_and_archive_are_deleted(self):
+    def test_statistic_tasks_mark_when_original_and_archive_are_deleted(self):
         model = Model.objects.create(
             file_name="deleted.ifc",
             file="deleted.ifc",
@@ -783,9 +782,50 @@ class StatisticsQueryBuilderTests(TestCase):
         extract_entities.assert_not_called()
         extract_psets.assert_not_called()
         extract_templates.assert_not_called()
-        assert not model.histogram_entries.exists()
-        assert not model.pset_count_entries.exists()
-        assert not model.template_statistics.exists()
+
+        # nothing is computed, but the model is marked so the scheduler moves on
+        assert model.histogram_entries.get().is_completion_marker
+        assert model.pset_count_entries.get().is_completion_marker
+        assert model.template_statistics.get().is_completion_marker
+
+    def test_models_without_a_file_leave_the_scheduler_batch(self):
+        """A missing file must not make the scheduler re-select the model forever."""
+        model = Model.objects.create(
+            file_name="gone.ifc",
+            file="gone.ifc",
+            size=1,
+            schema="IFC4",
+            status_syntax=Model.Status.VALID,
+            uploaded_by=self.user,
+        )
+        task_module = "apps.ifc_validation.tasks.statistics_tasks"
+        template_names = ("First.md", "Second.md")
+        for _ in range(2):  # idempotent: running twice keeps one marker each
+            with patch(
+                f"{task_module}.get_absolute_file_path",
+                side_effect=FileNotFoundError,
+            ):
+                assert populate_entity_count_histogram.run(model.pk) == 0
+                assert populate_pset_count_histogram.run(model.pk) == 0
+                assert populate_template_statistics.run(model.pk, template_names) == 0
+
+        assert model.histogram_entries.get().is_completion_marker
+        assert model.pset_count_entries.get().is_completion_marker
+        assert set(
+            model.template_statistics.filter(graph__isnull=True)
+            .values_list("template_name", flat=True)
+        ) == set(template_names)
+
+        with (
+            patch(f"{task_module}.psutil.cpu_percent", return_value=0),
+            patch(
+                f"{task_module}.available_template_names",
+                return_value=template_names,
+            ),
+            patch(f"{task_module}.group") as task_group,
+        ):
+            assert schedule_model_statistic_tasks.run(batch_size=10) == 0
+            task_group.assert_not_called()
 
     def test_histogram_data_rows_have_database_uniqueness_constraints(self):
         entity = self.first.histogram_entries.filter(
@@ -1512,7 +1552,8 @@ class StatisticsQueryBuilderTests(TestCase):
             [tool.pk, "Example CAD", "2026", "IfcPropertySingleValue", 2],
             [tool.pk, "Example CAD", "2026", "IfcPropertyEnumeratedValue", 1],
         ]
-        assert "->>" in result.sql or "#>>" in result.sql
+        if connection.vendor == "postgresql":
+            assert "->>" in result.sql or "#>>" in result.sql
 
     def test_template_graph_value_supports_a_single_model_basis_query(self):
         TemplateStatistic.objects.bulk_create([
@@ -1563,7 +1604,8 @@ class StatisticsQueryBuilderTests(TestCase):
 
         assert result.columns == ["Graph: Property.Type", "count"]
         assert result.rows == [["IfcPropertyListValue", 1]]
-        assert "#>>" in result.sql
+        if connection.vendor == "postgresql":
+            assert "#>>" in result.sql
 
     def test_incompatible_compositions_raise_from_query_builder(self):
         with self.assertRaisesRegex(ValueError, "not available"):
