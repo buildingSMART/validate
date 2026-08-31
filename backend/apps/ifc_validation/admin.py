@@ -790,13 +790,23 @@ class CompanyAdmin(BaseAdmin):
 class AuthoringToolAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests", "canonical_name", "language_code"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
-    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
-    list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
-    search_fields = ("name", "version", "company__name")
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "canonical_name", "language_code", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_requests", "canonical_name", "language_code", "created", "updated"]
+    list_filter = [
+        "company",
+        "language_code", 
+        ('created', AdvancedDateFilter), 
+        ('updated', AdvancedDateFilter)
+    ]
+    search_fields = (
+        "name", 
+        "version", 
+        "company__name",
+        "language_code"
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
