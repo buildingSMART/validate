@@ -295,7 +295,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
+          "unit": "bytes",
+          "min": 0
         },
         "overrides": []
       },
@@ -315,7 +316,7 @@
       ],
       "title": "Memory available (per node)",
       "type": "timeseries",
-      "description": "Memory the kernel can still hand out, per node. These VMs have no swap, so hitting zero freezes the node outright (as happened 28 Jul). Bands match the alert tile: orange below 4 GB, red below 2 GB."
+      "description": "Node has 62 GiB total. Dips are validation subtasks holding models in RAM; uploads themselves use disk, not memory."
     },
     {
       "datasource": {
@@ -429,7 +430,7 @@
       "targets": [
         {
           "expr": "celery_active_process_count",
-          "legendFormat": "{{hostname}}",
+          "legendFormat": "{{queue_name}}",
           "refId": "A"
         }
       ],
@@ -516,9 +517,9 @@
     },
     {
       "id": 13,
-      "type": "timeseries",
-      "title": "Inode usage % (per node, /)",
-      "description": "Percentage of inodes used on the root filesystem. A disk can run 'full' with gigabytes still free: every file costs an inode, and /srv/nfs (the NFS export with thousands of gherkin log files) lives on this filesystem.",
+      "type": "gauge",
+      "title": "Inode usage (/, worst node)",
+      "description": "Inodes are the filesystem's bookkeeping slots: every file or directory uses exactly one, regardless of size. A disk can run out of inodes (millions of tiny files) while df still shows free space — the error is the same \"No space left on device\". Only worth attention above ~80%.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -534,16 +535,6 @@
           "unit": "percent",
           "min": 0,
           "max": 100,
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 5,
-            "showPoints": "auto",
-            "spanNulls": true,
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -552,12 +543,12 @@
                 "value": null
               },
               {
-                "color": "orange",
-                "value": 85
+                "color": "yellow",
+                "value": 70
               },
               {
                 "color": "red",
-                "value": 95
+                "value": 85
               }
             ]
           }
@@ -565,21 +556,19 @@
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showThresholdMarkers": true
       },
       "targets": [
         {
-          "expr": "100 - (node_filesystem_files_free{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} / node_filesystem_files{mountpoint=\"/\",fstype!~\"tmpfs|overlay\"} * 100)",
-          "legendFormat": "{{instance}}",
-          "refId": "A"
+          "expr": "max(100 * (1 - node_filesystem_files_free{mountpoint=\"/\"} / node_filesystem_files{mountpoint=\"/\"}))",
+          "legendFormat": "inodes used",
+          "refId": "A",
+          "instant": true
         }
       ]
     },
@@ -632,7 +621,12 @@
       ],
       "title": "Swarm: replica deficit per service (0 = healthy)",
       "type": "timeseries",
-      "description": "Desired minus running replicas per Swarm service. Zero is healthy; anything above zero for more than a few minutes means Swarm is not delivering what was asked - the signature of the silent rollback of 3 Aug (CI reported success while the worker service had quietly reverted to the old image). Requires the swarm-state cron on the manager (docker/prometheus/swarm-state-textfile.sh) plus the textfile exporter. Alert candidate: deficit > 0 for 5 minutes."
+      "description": "Flatline at 0% means every service runs its desired replica count. A line only rises when a service loses replicas — this panel is supposed to look empty.",
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      }
     },
     {
       "datasource": {
@@ -642,7 +636,14 @@
       "fieldConfig": {
         "defaults": {
           "decimals": 0,
-          "unit": "short"
+          "unit": "short",
+          "custom": {
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 35,
+            "lineWidth": 1
+          }
         },
         "overrides": []
       },
@@ -660,24 +661,195 @@
           "refId": "A"
         }
       ],
-      "title": "Celery: busy slots per worker",
+      "title": "Celery: busy task slots (stacked, capacity 14)",
       "type": "timeseries",
-      "description": "Bezette pool-slots per celery-worker (celery_worker_tasks_active uit de celery-exporter). validate_worker heeft 4 slots per replica (CELERY_CONCURRENCY); een vlakke lijn op 4 = verzadigd, nieuwe checks wachten in de queue. Dit is de live-weergave van het slots-diagram uit de architectuurdocs."
+      "description": "Each band is one worker process (label = container id): 2 validation workers (4 slots each), scheduler (4), antivirus (2). Total height = tasks running right now; capacity is 14 slots."
+    },
+    {
+      "id": 16,
+      "type": "bargauge",
+      "title": "Peak RSS per subtask (max observed)",
+      "description": "Highest peak RSS seen per subtask process, harvested from worker logs (persistent across redeploys). Worker memory limit is 16 GB.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 45
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(peak_rss_subtask_max_kb)",
+          "instant": true,
+          "legendFormat": "{{subtask}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "deckbytes",
+          "max": 16777216,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 17,
+      "type": "bargauge",
+      "title": "Peak RSS per subtask (average)",
+      "description": "Average of all harvested peak-RSS samples per subtask type.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 45
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(peak_rss_subtask_avg_kb)",
+          "instant": true,
+          "legendFormat": "{{subtask}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "deckbytes",
+          "max": 16777216,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 18,
+      "type": "bargauge",
+      "title": "Peak RSS per subtask (latest run)",
+      "description": "Peak RSS of the most recent completed run per subtask type. Live per-process memory needs a process exporter; container totals are in the worker memory panel.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 45
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sort_desc(peak_rss_subtask_last_kb)",
+          "instant": true,
+          "legendFormat": "{{subtask}}"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "deckbytes",
+          "max": 16777216,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
     }
   ],
   "refresh": "30s",
   "tags": [
-    "observability",
-    "validation-service"
+    "Is something breaking right now?"
   ],
   "time": {
     "from": "now-3h",
     "to": "now"
   },
   "timezone": "browser",
-  "title": "Validation Service — System Health (DEV)",
+  "title": "Validation Service — System Health",
   "uid": "vs-system-health",
   "version": 2,
   "schemaVersion": 39,
-  "editable": true
+  "editable": true,
+  "description": "Is something breaking right now?"
 }

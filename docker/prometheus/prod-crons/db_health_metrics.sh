@@ -16,11 +16,11 @@
 set -uo pipefail
 
 GRAFANA_URL=${GRAFANA_URL:-http://127.0.0.1:3000}
-# Fallback-wachtwoord uit GRAFANA-CREDENTIALS.txt (sinds 31/7 is admin/admin uit;
-# de oude default hier brak de cron stilletjes — scrape_success stond op 0, fix 11/8).
-CRED_FILE=/home/geert/runbooks/observability/GRAFANA-CREDENTIALS.txt
-GRAFANA_AUTH=${GRAFANA_AUTH:-admin:$(sed -n 's/^Wachtwoord: //p' "$CRED_FILE" 2>/dev/null)}
-TEXTFILE_DIR=${TEXTFILE_DIR:-/home/geert/runbooks/observability/textfile}
+# No password fallback on purpose: a wrong default here once broke the cron
+# silently (scrape_success stayed 0). Pass GRAFANA_AUTH=user:password in the
+# cron line, or better an env file the cron sources.
+GRAFANA_AUTH=${GRAFANA_AUTH:?set GRAFANA_AUTH to user:password for the Grafana API}
+TEXTFILE_DIR=${TEXTFILE_DIR:?set TEXTFILE_DIR to the node_exporter textfile directory, e.g. TEXTFILE_DIR=/data/srv/textfile}
 OUT="$TEXTFILE_DIR/vs_db_health.prom"
 TMP="$OUT.$$.tmp"
 NOW=$(date +%s)

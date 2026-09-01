@@ -22,7 +22,17 @@
       ],
       "title": "Validation requests per day",
       "type": "timeseries",
-      "description": "Number of files submitted per day (fixed 30-day window, independent of the time range above). Includes requests that were soft-deleted later."
+      "description": "Number of files submitted per day (fixed 30-day window, independent of the time range above). Includes requests that were soft-deleted later.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "points",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          }
+        }
+      }
     },
     {
       "datasource": {
@@ -45,7 +55,12 @@
       ],
       "title": "Duration per task type: p50 / p95 (seconds)",
       "type": "table",
-      "description": "Median (p50) and slow-tail (p95) duration in seconds per validation step, over the selected time range. From ifc_validation_task.ended - started."
+      "description": "Median (p50) and slow-tail (p95) duration in seconds per validation step, over the selected time range. From ifc_validation_task.ended - started.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
     },
     {
       "datasource": {
@@ -68,7 +83,38 @@
       ],
       "title": "Queue wait time p95 per day (s)",
       "type": "timeseries",
-      "description": "Wait time between submission and the start of the first task. NOTE: on DEV, tasks are sometimes re-run manually on old requests, which inflates this to hours. Read it as a trend, not an absolute."
+      "description": "Daily p95 of time between upload and processing start. Green < 1 min, yellow > 1 min, red > 10 min (queue is backing up).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "points",
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false
+          },
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 60
+              },
+              {
+                "color": "red",
+                "value": 600
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        }
+      }
     },
     {
       "datasource": {
@@ -78,7 +124,8 @@
       "fieldConfig": {
         "defaults": {
           "max": 100,
-          "unit": "percent"
+          "unit": "percent",
+          "custom": {}
         },
         "overrides": []
       },
@@ -121,7 +168,12 @@
       ],
       "title": "Activity by hour of day",
       "type": "barchart",
-      "description": "Which hour of the day the platform is used (UTC), over the selected time range."
+      "description": "Which hour of the day the platform is used (UTC), over the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
     },
     {
       "datasource": {
@@ -142,7 +194,8 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "custom": {}
         },
         "overrides": []
       },
@@ -185,13 +238,18 @@
       ],
       "title": "Largest files (top 10)",
       "type": "table",
-      "description": "The ten largest files in the selected time range. Odd-looking file names are non-Latin names exactly as stored in the database."
+      "description": "The ten largest files in the selected time range. Odd-looking file names are non-Latin names exactly as stored in the database.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
     },
     {
       "id": 8,
       "type": "timeseries",
       "title": "Uploads per day by channel (API vs WEBUI)",
-      "description": "NOTE: all rows before 2025-07-24 were written as WEBUI during a migration, so API figures are only reliable from Aug 2025 onwards. Counts uploads only — status polling and other GET traffic exist solely in the nginx logs.",
+      "description": "Daily upload totals, stacked by channel. Each bar sits at the START of its day-bucket (midnight UTC = 02:00 local) and covers the whole day — a bar \"at 02:00\" is simply \"that day's total so far\".",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -207,7 +265,10 @@
           "custom": {
             "stacking": {
               "mode": "normal"
-            }
+            },
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 0
           }
         },
         "overrides": []
@@ -241,13 +302,18 @@
           "format": "table",
           "rawSql": "SELECT u.username, COUNT(*) AS uploads, ROUND(SUM(r.size)/1024.0/1024.0,1) AS total_mb, ROUND(AVG(r.size)/1024.0/1024.0,2) AS avg_mb, MAX(r.created)::date AS last_upload FROM ifc_validation_request r JOIN auth_user u ON u.id = r.created_by_id WHERE r.channel='API' AND $__timeFilter(r.created) GROUP BY 1 ORDER BY uploads DESC LIMIT 15"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
     },
     {
       "id": 10,
       "type": "table",
       "title": "Crash causes: why tasks FAIL (not validation errors)",
-      "description": "These are system failures, not 'the model is invalid'. The first line of status_reason is used as the category. Four recurring types: a duplicate-key race on concurrent requests, NUL bytes that PostgreSQL rejects, and two code bugs (TaskContext missing proc, NoneType has no id).",
+      "description": "Grouped technical task failures (not validation findings). latest_file/request_id/task_id point at the most recent example of each cause. Exit code -9 = killed by the kernel OOM killer (memory limit).",
       "gridPos": {
         "h": 9,
         "w": 24,
@@ -262,9 +328,14 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT CASE WHEN status_reason LIKE '%duplicate key%' THEN 'duplicate key (race on concurrent requests)' WHEN status_reason LIKE '%NUL (0x00)%' THEN 'NUL bytes in text (PostgreSQL rejects)' WHEN status_reason LIKE '%TaskContext%' THEN 'code bug: TaskContext missing proc' WHEN status_reason LIKE '%NoneType%' THEN 'code bug: NoneType has no id' WHEN status_reason IS NULL OR status_reason='' THEN '(no reason recorded)' ELSE split_part(status_reason, E'\\n', 1) END AS cause, COUNT(*) AS count, COUNT(DISTINCT type) AS task_types, MAX(created)::date AS last_seen FROM ifc_validation_task WHERE status='FAILED' AND $__timeFilter(created) GROUP BY 1 ORDER BY 2 DESC LIMIT 15"
+          "rawSql": "WITH failed AS (SELECT CASE WHEN t.status_reason LIKE '%duplicate key%' THEN 'duplicate key (race on concurrent requests)' WHEN t.status_reason LIKE '%NUL (0x00)%' THEN 'NUL bytes in text (PostgreSQL rejects)' WHEN t.status_reason LIKE '%TaskContext%' THEN 'code bug: TaskContext missing proc' WHEN t.status_reason LIKE '%NoneType%' THEN 'code bug: NoneType has no id' WHEN t.status_reason IS NULL OR t.status_reason='' THEN '(no reason recorded)' ELSE split_part(t.status_reason, E'\\n', 1) END AS cause, t.type, t.id AS task_id, t.request_id, t.created, r.file_name FROM ifc_validation_task t JOIN ifc_validation_request r ON r.id = t.request_id WHERE t.status='FAILED' AND $__timeFilter(t.created)) SELECT cause, COUNT(*) AS count, COUNT(DISTINCT type) AS task_types, MAX(created)::date AS last_seen, (ARRAY_AGG(file_name ORDER BY created DESC))[1] AS latest_file, (ARRAY_AGG(request_id ORDER BY created DESC))[1] AS request_id, (ARRAY_AGG(task_id ORDER BY created DESC))[1] AS task_id FROM failed GROUP BY cause ORDER BY count DESC LIMIT 15"
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {}
+        }
+      }
     },
     {
       "datasource": {
@@ -291,7 +362,16 @@
       ],
       "title": "API uploads per week",
       "type": "timeseries",
-      "description": "Weekly API-channel uploads and unique API users. Context: the external API user programme runs on DEV; on PROD this shows only internal usage until the API is opened up. Channel field is only reliable after Jul 2025 (migration wrote everything before that as WEBUI)."
+      "description": "Uploads bucketed per calendar week (bars). The rightmost bar is the current, incomplete week.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 0
+          }
+        }
+      }
     },
     {
       "datasource": {
@@ -308,7 +388,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (status) (rate(django_http_responses_total_by_status_total[5m]))",
+          "expr": "round(sum by (status) (increase(django_http_responses_total_by_status_total[$__interval])))",
           "legendFormat": "{{status}}",
           "datasource": {
             "type": "prometheus",
@@ -316,9 +396,174 @@
           }
         }
       ],
-      "title": "HTTP responses by status (incl. 429)",
+      "title": "HTTP responses by status (count per interval)",
       "type": "timeseries",
-      "description": "HTTP responses per status code straight from Django - including 429 rate-limit rejections, which never reach the database and were invisible until now."
+      "description": "Responses per time bucket, stacked by status. 200 = OK · 201 = upload accepted · 301/302 = redirect · 400 = bad request · 404 = not found · 429 = rate limited · 5xx = server error. Green/blue is healthy traffic; red (429) means the rate limiter refused requests; dark red (5xx) means the service itself failed.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "stacking": {
+              "mode": "normal"
+            },
+            "fillOpacity": 70,
+            "lineWidth": 0
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "200"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "201"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "semi-dark-green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "301"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "light-blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "302"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "400"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "404"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "429"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "500"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "502"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "503"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "dark-red"
+                }
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "datasource": {
@@ -336,31 +581,78 @@
         {
           "refId": "A",
           "expr": "histogram_quantile(0.95, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])))",
-          "legendFormat": "p95",
+          "legendFormat": "p95 (slow-but-real user)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           }
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])))",
+          "legendFormat": "p50 (median user)"
         }
       ],
-      "title": "HTTP p95 latency (django)",
+      "title": "HTTP latency (django): p50 vs p95",
       "type": "timeseries",
-      "description": "95th percentile response time of the Django backend, measured inside the app."
+      "description": "Green = median request, orange = 95th percentile. Diverging lines = outlier problem (a few slow requests); rising together = everything is slow.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": false
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95 (slow-but-real user)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p50 (median user)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "refresh": "5m",
   "tags": [
-    "observability",
-    "validation-service"
+    "Are users affected?"
   ],
   "time": {
     "from": "now-30d",
     "to": "now"
   },
-  "title": "Validation Service — Platform Usage (DB)",
+  "title": "Validation Service — Platform Usage",
   "uid": "vs-platform-usage",
   "version": 1,
   "schemaVersion": 39,
   "editable": true,
-  "timezone": "browser"
+  "timezone": "browser",
+  "description": "Are users affected?"
 }
