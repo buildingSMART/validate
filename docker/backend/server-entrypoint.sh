@@ -28,4 +28,9 @@ DJANGO_GUNICORN_THREADS_PER_WORKER=${DJANGO_GUNICORN_THREADS_PER_WORKER:-4} # de
 echo "Number of worker processes: $DJANGO_GUNICORN_WORKERS"
 echo "Number of threads per worker: $DJANGO_GUNICORN_THREADS_PER_WORKER"
 
-gunicorn core.wsgi --bind 0.0.0.0:8000 --workers $DJANGO_GUNICORN_WORKERS --threads $DJANGO_GUNICORN_THREADS_PER_WORKER --worker-class gevent --worker-tmp-dir /dev/shm --timeout 60 --keep-alive 60
+# prometheus_client multiprocess mode: one shared dir for all gunicorn workers.
+# Must be wiped on boot or counters from previous runs leak into the totals.
+export PROMETHEUS_MULTIPROC_DIR=/dev/shm/prometheus_metrics
+rm -rf "$PROMETHEUS_MULTIPROC_DIR" && mkdir -p "$PROMETHEUS_MULTIPROC_DIR"
+
+gunicorn core.wsgi -c /app/backend/gunicorn.conf.py --bind 0.0.0.0:8000 --workers $DJANGO_GUNICORN_WORKERS --threads $DJANGO_GUNICORN_THREADS_PER_WORKER --worker-class gevent --worker-tmp-dir /dev/shm --timeout 60 --keep-alive 60

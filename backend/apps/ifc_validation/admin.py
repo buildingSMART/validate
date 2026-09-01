@@ -86,21 +86,29 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
-    readonly_fields = ["id", "public_id", "model", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"] 
+    readonly_fields = ["id", "public_id", "model", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"]
     date_hierarchy = "created"
 
     list_filter = [
         "status", 
         "deleted",
         "file_removed", 
-        "model__produced_by",
         ModelProducedByAdvancedFilter,
         "channel", 
         CreatedByAdvancedFilter, 
         "created_by__useradditionalinfo__is_vendor", 
         "created_by__useradditionalinfo__is_vendor_self_declared", 
         ('created', AdvancedDateFilter)]
-    search_fields = ('file_name', 'status', 'model__produced_by__name', 'created_by__username', 'updated_by__username')
+
+    search_fields = (
+        'file_name', 
+        'status', 
+        'model__produced_by__name', 
+        'model__produced_by__version',
+        'model__produced_by__company__name',
+        'created_by__username', 
+        'updated_by__username'
+    )
 
     actions = ["soft_delete_action", "soft_restore_action", "mark_as_failed_action", "restart_processing_action", "hard_delete_action"]
     actions_on_top = True
@@ -463,7 +471,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
-    readonly_fields = ["id", "public_id", "created", "updated"]
+    readonly_fields = ["id", "public_id", "instance", "created", "updated"]
     
     list_filter = ['validation_task__type', 'severity_in_db', 'outcome_code', ('created', AdvancedDateFilter)]
     search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
@@ -657,6 +665,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "model", "stepfile_id", "ifc_type", "created", "updated"]
+    readonly_fields = ["model"]
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
     list_filter = ["ifc_type", "model_id", ('created', AdvancedDateFilter)]
 
@@ -665,7 +674,11 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
 
 class EntityCountHistogramAdmin(admin.ModelAdmin):
-    readonly_fields = ["entity_name"]
+    readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
@@ -673,11 +686,26 @@ class EntityCountHistogramAdmin(admin.ModelAdmin):
 
 
 class PsetCountHistogramAdmin(admin.ModelAdmin):
-    readonly_fields = ["entity_name"]
+    readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
         return obj.entity_name
+
+
+class TemplateStatisticAdmin(admin.ModelAdmin):
+    readonly_fields = ["model", "focus_instance"]
+
+    list_display = ["id", "model_id", "template_name", "focus_instance_id"]
+    list_filter = ["template_name"]
+    list_select_related = ["focus_instance"]  # __str__ reads focus_instance
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
 
 class CompanyAdmin(BaseAdmin):
@@ -782,13 +810,23 @@ class CompanyAdmin(BaseAdmin):
 class AuthoringToolAdmin(BaseAdmin):
 
     fieldsets = [
-        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests"]}),
+        ('General Information',  {"classes": ("wide"), "fields": ["id", "company", "name", "version", "nbr_of_requests", "canonical_name", "language_code"]}),
         ('Auditing Information', {"classes": ("wide"), "fields": [("created", "updated")]})
     ]
-    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "created", "updated"]
-    readonly_fields = ["id", "nbr_of_requests", "created", "updated"]
-    list_filter = ["company", ('created', AdvancedDateFilter), ('updated', AdvancedDateFilter)]
-    search_fields = ("name", "version", "company__name")
+    list_display = ["id", "company_link", "name", "version", "nbr_of_requests", "canonical_name", "language_code", "created", "updated"]
+    readonly_fields = ["id", "nbr_of_requests", "canonical_name", "language_code", "created", "updated"]
+    list_filter = [
+        "company",
+        "language_code", 
+        ('created', AdvancedDateFilter), 
+        ('updated', AdvancedDateFilter)
+    ]
+    search_fields = (
+        "name", 
+        "version", 
+        "company__name",
+        "language_code"
+    )
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -1046,7 +1084,7 @@ admin.site.register(ValidationOutcome, ValidationOutcomeAdmin)
 admin.site.register(Model, ModelAdmin)
 admin.site.register(EntityCountHistogram, EntityCountHistogramAdmin)
 admin.site.register(PsetCountHistogram, PsetCountHistogramAdmin)
-admin.site.register(TemplateStatistic)
+admin.site.register(TemplateStatistic, TemplateStatisticAdmin)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)

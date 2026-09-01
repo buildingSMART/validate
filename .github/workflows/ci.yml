@@ -121,4 +121,7 @@ jobs:
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_schema_validation_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures DJANGO_DB=sqlite python3 manage.py test apps.ifc_validation.tests_statistics_query apps.ifc_validation.tests.test_statistics_tasks --debug-mode --verbosity 3
+          python3 -m pytest apps/ifc_validation/checks/statistics/tests -v
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_view --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_step_lines --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3

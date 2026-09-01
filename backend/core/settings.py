@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "drf_spectacular",                   # OpenAPI/Swagger
     "drf_spectacular_sidecar",           # required for Django collectstatic discovery
     "explorer",                          # Django SQL Explorer
+    "django_prometheus",                 # HTTP metrics for Prometheus (/metrics, internal only)
     
     "django_celery_results",             # Celery result backend
     "django_celery_beat",                # Celery scheduled tasks
@@ -88,6 +89,8 @@ AUTHENTICATION_BACKENDS = (
 )
 
 MIDDLEWARE = [
+    # must be FIRST so the request timer starts before all other middleware
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     #"django.middleware.gzip.GZipMiddleware",  # WE DO THIS IN NGINX
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -97,6 +100,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # must be LAST so the response is timed after all other middleware
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 if DEVELOPMENT or PREVIEW:
@@ -264,6 +269,12 @@ DATABASES_ALL = {
 DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
 DJANGO_DB_BULK_CREATE_BATCH_SIZE = int(os.environ.get("DJANGO_DB_BULK_CREATE_BATCH_SIZE", 1000))
 
+# Source lines of IFC instances in the report - visible to members of this group
+# only (no is_staff or superuser bypass); files above the size limit are skipped
+STEP_LINE_VIEWER_GROUP = os.environ.get("STEP_LINE_VIEWER_GROUP", "step-line-viewers")
+STEP_LINE_MAX_FILE_SIZE_MB = int(os.environ.get("STEP_LINE_MAX_FILE_SIZE_MB", 50))
+STEP_LINE_MAX_CHARS = int(os.environ.get("STEP_LINE_MAX_CHARS", 500))
+
 # SQL Explorer configuration (default)
 EXPLORER_CONNECTIONS = { 'Default': 'default' }
 EXPLORER_DEFAULT_CONNECTION = 'default'
@@ -369,17 +380,9 @@ except Exception as err:
 
 ARCHIVE_FILES_LOOKBACK_PERIOD = os.environ.get("ARCHIVE_FILES_LOOKBACK_PERIOD", 90)
 REMOVE_FILES_LOOKBACK_PERIOD = os.environ.get("REMOVE_FILES_LOOKBACK_PERIOD", 180)
-MODEL_STATISTIC_BATCH_SIZE = int(os.environ.get("MODEL_STATISTIC_BATCH_SIZE", 100))
+MODEL_STATISTIC_BATCH_SIZE = int(os.environ.get("MODEL_STATISTIC_BATCH_SIZE", 2))
 MODEL_STATISTIC_CPU_THRESHOLD = float(os.environ.get("MODEL_STATISTIC_CPU_THRESHOLD", 50))
 CELERY_BEAT_SCHEDULE = {
-        'schedule-model-statistic-tasks-every-15min': {
-            'task': 'apps.ifc_validation.tasks.statistics_tasks.schedule_model_statistic_tasks',
-            'schedule': crontab(minute='5,20,35,50'),
-            'kwargs': {
-                'batch_size': MODEL_STATISTIC_BATCH_SIZE,
-                'cpu_threshold': MODEL_STATISTIC_CPU_THRESHOLD,
-            },
-        },
         'archive-files-90days-every-15min': {
             'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',
             'schedule': crontab(minute='15,30,45'),  # runs every 15 min, except at the hour

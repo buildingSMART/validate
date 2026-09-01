@@ -1,0 +1,73 @@
+# Alert rules as code. Loaded at Grafana startup (and via the admin reload API).
+#
+# No notification policy / contact point is provisioned yet: until the team picks
+# a channel and an owner, a firing rule is visible in Grafana under Alerting >
+# Alert rules only. Routing it is a ~10 minute follow-up once that decision lands.
+#
+# noDataState is OK on purpose: the underlying metrics come from cAdvisor, which
+# ships in the same release as this file — but on an environment where cAdvisor
+# is not (yet) running, the rule must stay green instead of flapping on NoData.
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: vs-capacity
+    folder: Validation Service
+    interval: 1m
+    rules:
+      - uid: worker-mem-80
+        title: Worker memory above 80% of its limit
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: max(container_memory_working_set_bytes{container_label_com_docker_swarm_service_name="validate_worker"} / container_spec_memory_limit_bytes{container_label_com_docker_swarm_service_name="validate_worker"})
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0.8
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        noDataState: OK
+        execErrState: OK
+        for: 5m
+        annotations:
+          summary: >-
+            A validate_worker replica is using more than 80% of its container
+            memory limit. The sum of concurrent checks is approaching the fence —
+            look at large uploads in flight before the kernel starts killing.
+        labels:
+          severity: warning
+        isPaused: false

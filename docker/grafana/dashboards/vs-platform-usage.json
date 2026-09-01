@@ -16,11 +16,11 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT created::date AS time, COUNT(*)::float AS validations FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT created::date AS time, COUNT(*)::float AS validations FROM ifc_validation_request WHERE $__timeFilter(created) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Validation requests per day (30d)",
+      "title": "Validation requests per day",
       "type": "timeseries",
       "description": "Number of files submitted per day (fixed 30-day window, independent of the time range above). Includes requests that were soft-deleted later."
     },
@@ -39,13 +39,13 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT type, COUNT(*) AS n, ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p50_s, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p95_s FROM ifc_validation_task WHERE ended IS NOT NULL AND started IS NOT NULL AND created > NOW() - INTERVAL '90 days' GROUP BY type ORDER BY p95_s DESC",
+          "rawSql": "SELECT type, COUNT(*) AS n, ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p50_s, ROUND(percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ended-started))::numeric,1) AS p95_s FROM ifc_validation_task WHERE ended IS NOT NULL AND started IS NOT NULL AND $__timeFilter(created) GROUP BY type ORDER BY p95_s DESC",
           "refId": "A"
         }
       ],
-      "title": "Duration per task type: p50 / p95 (90d, seconds)",
+      "title": "Duration per task type: p50 / p95 (seconds)",
       "type": "table",
-      "description": "Median (p50) and slow-tail (p95) duration in seconds per validation step, over 90 days. From ifc_validation_task.ended - started."
+      "description": "Median (p50) and slow-tail (p95) duration in seconds per validation step, over the selected time range. From ifc_validation_task.ended - started."
     },
     {
       "datasource": {
@@ -62,11 +62,11 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT DATE(r.created) AS time, percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ft.fs - r.created)) AS queue_wait_p95_s FROM ifc_validation_request r JOIN LATERAL (SELECT MIN(t.started) AS fs FROM ifc_validation_task t WHERE t.request_id = r.id) ft ON ft.fs IS NOT NULL WHERE r.created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT DATE(r.created) AS time, percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM ft.fs - r.created)) AS queue_wait_p95_s FROM ifc_validation_request r JOIN LATERAL (SELECT MIN(t.started) AS fs FROM ifc_validation_task t WHERE t.request_id = r.id) ft ON ft.fs IS NOT NULL WHERE $__timeFilter(r.created) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Queue wait time p95 per day (s, 30d)",
+      "title": "Queue wait time p95 per day (s)",
       "type": "timeseries",
       "description": "Wait time between submission and the start of the first task. NOTE: on DEV, tasks are sometimes re-run manually on old requests, which inflates this to hours. Read it as a trend, not an absolute."
     },
@@ -92,11 +92,11 @@
       "targets": [
         {
           "format": "time_series",
-          "rawSql": "SELECT created::date AS time, ROUND(100.0 * SUM((status='FAILED')::int) / COUNT(*), 1) AS failure_rate FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT created::date AS time, ROUND(100.0 * SUM((status='FAILED')::int) / COUNT(*), 1) AS failure_rate FROM ifc_validation_request WHERE $__timeFilter(created) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Failure rate per day (%, 30d)",
+      "title": "Failure rate per day (%)",
       "type": "timeseries",
       "description": "Percentage of requests per day that ended in status FAILED."
     },
@@ -115,13 +115,13 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT EXTRACT(HOUR FROM created)::int AS hour, COUNT(*) AS requests FROM ifc_validation_request WHERE created > NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT EXTRACT(HOUR FROM created)::int AS hour, COUNT(*) AS requests FROM ifc_validation_request WHERE $__timeFilter(created) GROUP BY 1 ORDER BY 1",
           "refId": "A"
         }
       ],
-      "title": "Activity by hour of day (90d)",
+      "title": "Activity by hour of day",
       "type": "barchart",
-      "description": "Which hour of the day the platform is used (UTC), over 90 days."
+      "description": "Which hour of the day the platform is used (UTC), over the selected time range."
     },
     {
       "datasource": {
@@ -162,7 +162,7 @@
       ],
       "title": "Stuck requests (>1h, not finished)",
       "type": "stat",
-      "description": "Requests older than one hour that are still not finished (not COMPLETED/FAILED). Should be 0."
+      "description": "Requests older than one hour that are still not finished (not COMPLETED/FAILED). Should be 0. Deliberately ignores the dashboard time range: it shows the current state."
     },
     {
       "datasource": {
@@ -179,13 +179,13 @@
       "targets": [
         {
           "format": "table",
-          "rawSql": "SELECT file_name, ROUND(size/1024.0/1024.0,1) AS mb, status, EXTRACT(EPOCH FROM completed-created)::int AS duration_s, created FROM ifc_validation_request WHERE created > NOW() - INTERVAL '30 days' ORDER BY size DESC NULLS LAST LIMIT 10",
+          "rawSql": "SELECT file_name, ROUND(size/1024.0/1024.0,1) AS mb, status, EXTRACT(EPOCH FROM completed-created)::int AS duration_s, created FROM ifc_validation_request WHERE $__timeFilter(created) ORDER BY size DESC NULLS LAST LIMIT 10",
           "refId": "A"
         }
       ],
-      "title": "Largest files in the last 30d (top 10)",
+      "title": "Largest files (top 10)",
       "type": "table",
-      "description": "The ten largest files of the last 30 days. Odd-looking file names are non-Latin names exactly as stored in the database."
+      "description": "The ten largest files in the selected time range. Odd-looking file names are non-Latin names exactly as stored in the database."
     },
     {
       "id": 8,
@@ -216,14 +216,14 @@
         {
           "refId": "A",
           "format": "time_series",
-          "rawSql": "SELECT created::date AS time, channel, COUNT(*)::float AS uploads FROM ifc_validation_request WHERE created > NOW() - INTERVAL '90 days' AND channel IS NOT NULL GROUP BY 1,2 ORDER BY 1"
+          "rawSql": "SELECT created::date AS time, channel, COUNT(*)::float AS uploads FROM ifc_validation_request WHERE $__timeFilter(created) AND channel IS NOT NULL GROUP BY 1,2 ORDER BY 1"
         }
       ]
     },
     {
       "id": 9,
       "type": "table",
-      "title": "Top API users (90d)",
+      "title": "Top API users",
       "description": "Per account: number of uploads, total and average size. Some accounts have no email filled in, hence grouping by username.",
       "gridPos": {
         "h": 8,
@@ -239,7 +239,7 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT u.username, COUNT(*) AS uploads, ROUND(SUM(r.size)/1024.0/1024.0,1) AS total_mb, ROUND(AVG(r.size)/1024.0/1024.0,2) AS avg_mb, MAX(r.created)::date AS last_upload FROM ifc_validation_request r JOIN auth_user u ON u.id = r.created_by_id WHERE r.channel='API' AND r.created > NOW() - INTERVAL '90 days' GROUP BY 1 ORDER BY uploads DESC LIMIT 15"
+          "rawSql": "SELECT u.username, COUNT(*) AS uploads, ROUND(SUM(r.size)/1024.0/1024.0,1) AS total_mb, ROUND(AVG(r.size)/1024.0/1024.0,2) AS avg_mb, MAX(r.created)::date AS last_upload FROM ifc_validation_request r JOIN auth_user u ON u.id = r.created_by_id WHERE r.channel='API' AND $__timeFilter(r.created) GROUP BY 1 ORDER BY uploads DESC LIMIT 15"
         }
       ]
     },
@@ -262,9 +262,90 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT CASE WHEN status_reason LIKE '%duplicate key%' THEN 'duplicate key (race on concurrent requests)' WHEN status_reason LIKE '%NUL (0x00)%' THEN 'NUL bytes in text (PostgreSQL rejects)' WHEN status_reason LIKE '%TaskContext%' THEN 'code bug: TaskContext missing proc' WHEN status_reason LIKE '%NoneType%' THEN 'code bug: NoneType has no id' WHEN status_reason IS NULL OR status_reason='' THEN '(no reason recorded)' ELSE split_part(status_reason, E'\\n', 1) END AS cause, COUNT(*) AS count, COUNT(DISTINCT type) AS task_types, MAX(created)::date AS last_seen FROM ifc_validation_task WHERE status='FAILED' GROUP BY 1 ORDER BY aantal DESC LIMIT 15"
+          "rawSql": "SELECT CASE WHEN status_reason LIKE '%duplicate key%' THEN 'duplicate key (race on concurrent requests)' WHEN status_reason LIKE '%NUL (0x00)%' THEN 'NUL bytes in text (PostgreSQL rejects)' WHEN status_reason LIKE '%TaskContext%' THEN 'code bug: TaskContext missing proc' WHEN status_reason LIKE '%NoneType%' THEN 'code bug: NoneType has no id' WHEN status_reason IS NULL OR status_reason='' THEN '(no reason recorded)' ELSE split_part(status_reason, E'\\n', 1) END AS cause, COUNT(*) AS count, COUNT(DISTINCT type) AS task_types, MAX(created)::date AS last_seen FROM ifc_validation_task WHERE status='FAILED' AND $__timeFilter(created) GROUP BY 1 ORDER BY 2 DESC LIMIT 15"
         }
       ]
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 39
+      },
+      "id": 11,
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT date_trunc('week', created) AS \"time\", COUNT(*) AS \"uploads\", COUNT(DISTINCT created_by_id) AS \"unique users\" FROM ifc_validation_request WHERE channel='API' AND $__timeFilter(created) GROUP BY 1 ORDER BY 1",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          }
+        }
+      ],
+      "title": "API uploads per week",
+      "type": "timeseries",
+      "description": "Weekly API-channel uploads and unique API users. Context: the external API user programme runs on DEV; on PROD this shows only internal usage until the API is opened up. Channel field is only reliable after Jul 2025 (migration wrote everything before that as WEBUI)."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 39
+      },
+      "id": 12,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (status) (rate(django_http_responses_total_by_status_total[5m]))",
+          "legendFormat": "{{status}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "title": "HTTP responses by status (incl. 429)",
+      "type": "timeseries",
+      "description": "HTTP responses per status code straight from Django - including 429 rate-limit rejections, which never reach the database and were invisible until now."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 39
+      },
+      "id": 13,
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(django_http_requests_latency_seconds_by_view_method_bucket[5m])))",
+          "legendFormat": "p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
+        }
+      ],
+      "title": "HTTP p95 latency (django)",
+      "type": "timeseries",
+      "description": "95th percentile response time of the Django backend, measured inside the app."
     }
   ],
   "refresh": "5m",
