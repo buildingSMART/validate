@@ -184,10 +184,10 @@
       "id": 11,
       "type": "stat",
       "title": "Alert candidate: stuck requests (>1h)",
-      "description": "Requests older than 1 hour that are neither finished nor FAILED — same definition as the panel on Platform Usage, but as a Prometheus metric so it can drive an alert later.",
+      "description": "Requests older than 1 hour that are neither finished nor FAILED — same definition as the panel on Platform Usage, but as a Prometheus metric so it can drive an alert later. (Source: direct SQL — no longer depends on the textfile exporter, so it works on PROD from day one.)",
       "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
       },
       "gridPos": {
         "h": 5,
@@ -231,9 +231,13 @@
       },
       "targets": [
         {
-          "expr": "max(vs_requests_stuck)",
           "refId": "A",
-          "legendFormat": "__auto"
+          "format": "table",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "rawSql": "SELECT COUNT(*) FROM ifc_validation_request WHERE completed IS NULL AND status NOT IN ('COMPLETED','FAILED') AND created < NOW() - INTERVAL '1 hour'"
         }
       ]
     },
@@ -460,7 +464,7 @@
       ],
       "title": "OTel collector: received metric points/s (empty until SDK instrumentation)",
       "type": "timeseries",
-      "description": "Stays empty until the application itself sends OpenTelemetry metrics. The collector is running but receives nothing yet — this is expected, see backlog item C1."
+      "description": "Stays empty until the application itself sends OpenTelemetry metrics. The collector is running but receives nothing yet — this is expected until the SDK instrumentation lands."
     },
     {
       "id": 12,
@@ -578,6 +582,87 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 85
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 14,
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "swarm_service_replicas_desired - swarm_service_replicas_running",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "title": "Swarm: replica deficit per service (0 = healthy)",
+      "type": "timeseries",
+      "description": "Desired minus running replicas per Swarm service. Zero is healthy; anything above zero for more than a few minutes means Swarm is not delivering what was asked - the signature of the silent rollback of 3 Aug (CI reported success while the worker service had quietly reverted to the old image). Requires the swarm-state cron on the manager (docker/prometheus/swarm-state-textfile.sh) plus the textfile exporter. Alert candidate: deficit > 0 for 5 minutes."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 0,
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "id": 15,
+      "targets": [
+        {
+          "expr": "celery_worker_tasks_active",
+          "legendFormat": "{{hostname}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Celery: busy slots per worker",
+      "type": "timeseries",
+      "description": "Bezette pool-slots per celery-worker (celery_worker_tasks_active uit de celery-exporter). validate_worker heeft 4 slots per replica (CELERY_CONCURRENCY); een vlakke lijn op 4 = verzadigd, nieuwe checks wachten in de queue. Dit is de live-weergave van het slots-diagram uit de architectuurdocs."
     }
   ],
   "refresh": "30s",

@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "drf_spectacular",                   # OpenAPI/Swagger
     "drf_spectacular_sidecar",           # required for Django collectstatic discovery
     "explorer",                          # Django SQL Explorer
+    "django_prometheus",                 # HTTP metrics for Prometheus (/metrics, internal only)
     
     "django_celery_results",             # Celery result backend
     "django_celery_beat",                # Celery scheduled tasks
@@ -88,6 +89,8 @@ AUTHENTICATION_BACKENDS = (
 )
 
 MIDDLEWARE = [
+    # must be FIRST so the request timer starts before all other middleware
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     #"django.middleware.gzip.GZipMiddleware",  # WE DO THIS IN NGINX
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -97,6 +100,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # must be LAST so the response is timed after all other middleware
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 if DEVELOPMENT or PREVIEW:

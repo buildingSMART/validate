@@ -362,8 +362,8 @@
     {
       "id": 6,
       "type": "table",
-      "title": "20 slowest requests (last 30 days)",
-      "description": "Fixed 30-day window, independent of the time range above. Sorted by processing time (sum of task durations). Lead time is shown alongside: a large gap between the two means waiting, not working.",
+      "title": "20 slowest requests",
+      "description": "Respects the dashboard time range. Sorted by processing time (sum of task durations). Lead time is shown alongside: a large gap between the two means waiting, not working.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "devpg"
@@ -465,7 +465,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  r.created                                                        AS submitted,\n  r.file_name                                                      AS file,\n  ROUND(r.size / 1048576.0, 1)                                     AS mb,\n  r.status,\n  ROUND(v.processing_time_s::numeric, 0)                                AS processing_time_s,\n  ROUND(EXTRACT(EPOCH FROM (r.completed - r.created))::numeric, 0)  AS lead_time_s,\n  v.langzaamste_taak\nFROM ifc_validation_request r\nJOIN (\n  SELECT t.request_id,\n         SUM(EXTRACT(EPOCH FROM (t.ended - t.started)))                    AS processing_time_s,\n         (ARRAY_AGG(t.type ORDER BY (t.ended - t.started) DESC))[1]        AS slowest_task\n  FROM ifc_validation_task t\n  WHERE t.started IS NOT NULL AND t.ended IS NOT NULL\n  GROUP BY t.request_id\n) v ON v.request_id = r.id\nWHERE r.created > NOW() - INTERVAL '30 days'\nORDER BY v.processing_time_s DESC NULLS LAST\nLIMIT 20"
+          "rawSql": "SELECT\n  r.created                                                        AS submitted,\n  r.file_name                                                      AS file,\n  ROUND(r.size / 1048576.0, 1)                                     AS mb,\n  r.status,\n  ROUND(v.processing_time_s::numeric, 0)                                AS processing_time_s,\n  ROUND(EXTRACT(EPOCH FROM (r.completed - r.created))::numeric, 0)  AS lead_time_s,\n  v.slowest_task\nFROM ifc_validation_request r\nJOIN (\n  SELECT t.request_id,\n         SUM(EXTRACT(EPOCH FROM (t.ended - t.started)))                    AS processing_time_s,\n         (ARRAY_AGG(t.type ORDER BY (t.ended - t.started) DESC))[1]        AS slowest_task\n  FROM ifc_validation_task t\n  WHERE t.started IS NOT NULL AND t.ended IS NOT NULL\n  GROUP BY t.request_id\n) v ON v.request_id = r.id\nWHERE $__timeFilter(r.created)\nORDER BY v.processing_time_s DESC NULLS LAST\nLIMIT 20"
         }
       ]
     },
@@ -473,7 +473,7 @@
       "id": 7,
       "type": "barchart",
       "title": "Most expensive gherkin rules (total CPU time, cumulative)",
-      "description": "TEMPORARILY EMPTY after the 3 Aug release: the nightly log-ingest (textfile exporter) is not part of the release stack yet — it returns via a small follow-up PR. The underlying data (201k measurements) is safe in the gherkin logs. From the gherkin logs on the NFS share (201k measurements since Dec 2025), ingested nightly by perf-metrics/gherkin_rule_timings.sh. NOTE: this is CPU time (time.process_time), not wall-clock time, so I/O wait is not included. Logged in PRODUCTION mode only.",
+      "description": "From the gherkin logs on the NFS share (201k measurements since Dec 2025), ingested nightly by perf-metrics/gherkin_rule_timings.sh. NOTE: this is CPU time (time.process_time), not wall-clock time, so I/O wait is not included. Logged in PRODUCTION mode only.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -507,7 +507,7 @@
       "id": 8,
       "type": "table",
       "title": "Rule cost: total, average and longest run",
-      "description": "TEMPORARILY EMPTY after the 3 Aug release: the nightly log-ingest (textfile exporter) is not part of the release stack yet — it returns via a small follow-up PR. The underlying data (201k measurements) is safe in the gherkin logs. Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
+      "description": "Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -596,7 +596,7 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  CASE WHEN regel ~ '^[A-Z]{2,5}[0-9]{2,3}$' THEN regel\n       ELSE '(SCHEMA check, not a gherkin rule)' END AS rule,\n  SUM(warnings)::bigint AS warnings,\n  SUM(errors)::bigint  AS errors,\n  SUM(totaal)::bigint  AS total\nFROM (\n  SELECT split_part(feature, ' ', 1) AS rule,\n         SUM((severity = 3)::int) AS warnings,\n         SUM((severity = 4)::int) AS errors,\n         COUNT(*) AS total\n  FROM ifc_validation_outcome\n  WHERE severity >= 3 AND feature IS NOT NULL\n  GROUP BY 1\n) sub\nGROUP BY 1\nORDER BY totaal DESC\nLIMIT 15"
+          "rawSql": "SELECT\n  CASE WHEN rule ~ '^[A-Z]{2,5}[0-9]{2,3}$' THEN rule\n       ELSE '(SCHEMA check, not a gherkin rule)' END AS rule,\n  SUM(warnings)::bigint AS warnings,\n  SUM(errors)::bigint  AS errors,\n  SUM(total)::bigint  AS total\nFROM (\n  SELECT split_part(feature, ' ', 1) AS rule,\n         SUM((severity = 3)::int) AS warnings,\n         SUM((severity = 4)::int) AS errors,\n         COUNT(*) AS total\n  FROM ifc_validation_outcome\n  WHERE severity >= 3 AND feature IS NOT NULL\n  GROUP BY 1\n) sub\nGROUP BY 1\nORDER BY total DESC\nLIMIT 15"
         }
       ]
     }
