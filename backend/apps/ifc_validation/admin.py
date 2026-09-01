@@ -86,7 +86,7 @@ class ValidationRequestAdmin(BaseAdmin, NonAdminAddable):
     ]
 
     list_display = ["id", "public_id", "file_name", "file_size_text", "authoring_tool_link", "model_link", "status", "progress", "queue_time_text", "duration_text", "is_vendor", "is_vendor_self_declared", "is_deleted", "channel_text", "created", "created_by_link", "updated", "updated_by"]
-    readonly_fields = ["id", "public_id", "model", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"] 
+    readonly_fields = ["id", "public_id", "model", "deleted", "file_name", "file", "file_size_text", "duration_text", "started", "completed", "channel", "created", "created_by", "updated", "updated_by", "file_removed"]
     date_hierarchy = "created"
 
     list_filter = [
@@ -471,7 +471,7 @@ class ValidationTaskAdmin(BaseAdmin, NonAdminAddable):
 class ValidationOutcomeAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "model_text", "instance_id", "type_text", "feature", "feature_version", "outcome_code", "severity", "is_whitelisted", "expected", "observed", "created", "updated"]
-    readonly_fields = ["id", "public_id", "created", "updated"]
+    readonly_fields = ["id", "public_id", "instance", "created", "updated"]
     
     list_filter = ['validation_task__type', 'severity_in_db', 'outcome_code', ('created', AdvancedDateFilter)]
     search_fields = ('validation_task__request__file_name', 'feature', 'feature_version', 'outcome_code', 'severity_in_db', 'expected', 'observed')
@@ -665,6 +665,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
 class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
     list_display = ["id", "public_id", "model", "stepfile_id", "ifc_type", "created", "updated"]
+    readonly_fields = ["model"]
     search_fields = ('stepfile_id', 'model__file_name', 'ifc_type')
     list_filter = ["ifc_type", "model_id", ('created', AdvancedDateFilter)]
 
@@ -673,7 +674,11 @@ class ModelInstanceAdmin(BaseAdmin, NonAdminAddable):
 
 
 class EntityCountHistogramAdmin(admin.ModelAdmin):
-    readonly_fields = ["entity_name"]
+    readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
@@ -681,11 +686,26 @@ class EntityCountHistogramAdmin(admin.ModelAdmin):
 
 
 class PsetCountHistogramAdmin(admin.ModelAdmin):
-    readonly_fields = ["entity_name"]
+    readonly_fields = ["model", "entity_name"]
+    list_select_related = ["model"]  # __str__ reads model.schema
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
     @admin.display(description="Entity name")
     def entity_name(self, obj):
         return obj.entity_name
+
+
+class TemplateStatisticAdmin(admin.ModelAdmin):
+    readonly_fields = ["model", "focus_instance"]
+
+    list_display = ["id", "model_id", "template_name", "focus_instance_id"]
+    list_filter = ["template_name"]
+    list_select_related = ["focus_instance"]  # __str__ reads focus_instance
+
+    paginator = utils.LargeTablePaginator
+    show_full_result_count = False # do not use COUNT(*) twice
 
 
 class CompanyAdmin(BaseAdmin):
@@ -1064,7 +1084,7 @@ admin.site.register(ValidationOutcome, ValidationOutcomeAdmin)
 admin.site.register(Model, ModelAdmin)
 admin.site.register(EntityCountHistogram, EntityCountHistogramAdmin)
 admin.site.register(PsetCountHistogram, PsetCountHistogramAdmin)
-admin.site.register(TemplateStatistic)
+admin.site.register(TemplateStatistic, TemplateStatisticAdmin)
 admin.site.register(ModelInstance, ModelInstanceAdmin)
 admin.site.register(Company, CompanyAdmin)
 admin.site.register(AuthoringTool, AuthoringToolAdmin)
