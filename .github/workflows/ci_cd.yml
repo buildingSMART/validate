@@ -101,6 +101,8 @@ jobs:
           wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip"
           mkdir -p venv/lib/python3.11/site-packages
           unzip -d venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+          rm /tmp/ifcopenshell_python.zip
+          make install-ifcopenshell-mvd IFCOPENSHELL_SITE_PACKAGES=venv/lib/python3.11/site-packages
 
       - name: Check Django config
         run: |
@@ -120,6 +122,12 @@ jobs:
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_status_combine --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_management_commands --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_view --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+
+      - name: Run tests (header policy)
+        run: |
+          cd backend
+          source venv/bin/activate
+          python3 ./apps/ifc_validation/checks/header_policy/test_header_validation.py
 
   deploy:
     

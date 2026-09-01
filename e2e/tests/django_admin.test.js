@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:8000/admin';
-const TEST_CREDENTIALS = 'root:root';
+const TEST_CREDENTIALS = process.env.DJANGO_ADMIN_CREDENTIALS || 'root:root';
 
 import { execFileSync } from 'child_process';
 import { resolve } from 'path';
@@ -141,7 +141,10 @@ test.describe('UI - Django Admin', () => {
     // navigate and check elements of the screen
     await page.goto(`${BASE_URL}/ifc_validation_models/`);
     await expect(page).toHaveURL(`${BASE_URL}/ifc_validation_models/`);
-    await expect(page.getByText('Statistics')).toBeVisible();
+    await expect(page.getByRole('heading', {
+      name: 'Metrics & Statistics',
+      exact: true,
+    })).toBeVisible();
     await expect(page.getByText('Choose a year')).toBeVisible();
 
     // check some stats
@@ -159,6 +162,35 @@ test.describe('UI - Django Admin', () => {
     // logout
     await logout(page);
   }); 
+
+  test('removed statistics query clauses stay removed after rerun', async ({ page }) => {
+
+    await login(page);
+    await page.goto(`${BASE_URL}/ifc_validation_models/model/statistics/`);
+
+    await page.locator('.statistics-examples > summary').click();
+    await page.locator('.statistics-example-pattern').nth(1).locator('summary').click();
+    await page.locator('.statistics-apply-example').nth(1).click();
+    const limitRows = page.locator('.statistics-clause-row').filter({
+      has: page.locator('select[name$="-operation"] option:checked', { hasText: 'Limit' }),
+    });
+    const totalForms = page.locator('#id_clauses-TOTAL_FORMS');
+
+    await expect(limitRows).toHaveCount(1);
+    const initialClauseCount = await page.locator('.statistics-clause-row').count();
+    await page.getByRole('button', { name: 'Run query' }).click();
+    await expect(limitRows).toHaveCount(1);
+
+    await limitRows.getByRole('button', { name: 'Remove' }).click();
+    await expect(limitRows).toHaveCount(0);
+    await expect(totalForms).toHaveValue(String(initialClauseCount - 1));
+    await page.getByRole('button', { name: 'Run query' }).click();
+
+    await expect(limitRows).toHaveCount(0);
+    await expect(totalForms).toHaveValue(String(initialClauseCount - 1));
+
+    await logout(page);
+  });
 
   test('top bar search for Validation Requests', async ({ page }) => {
 

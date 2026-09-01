@@ -30,6 +30,8 @@ RUN set -ex && \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+ARG PYTHON_MVDXML_REF=support-4.x-graphviz-format-2
+
 # copy code and install requirements
 ADD ./backend /app/backend
 RUN --mount=type=cache,target=/root/.cache \
@@ -40,6 +42,11 @@ RUN --mount=type=cache,target=/root/.cache \
     wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip" && \
     mkdir -p /opt/venv/lib/python3.11/site-packages  && \
     unzip -d /opt/venv/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip && \
+    wget -O /tmp/python-mvdxml.tar.gz "https://github.com/opensourceBIM/python-mvdxml/archive/refs/heads/${PYTHON_MVDXML_REF}.tar.gz" && \
+    rm -rf /opt/venv/lib/python3.11/site-packages/ifcopenshell/mvd && \
+    mkdir -p /opt/venv/lib/python3.11/site-packages/ifcopenshell/mvd && \
+    tar -xzf /tmp/python-mvdxml.tar.gz --strip-components=1 -C /opt/venv/lib/python3.11/site-packages/ifcopenshell/mvd && \
+    rm -f /tmp/ifcopenshell_python.zip /tmp/python-mvdxml.tar.gz && \
     # some cleanup
     find /         -type d -name setuptools   -prune -exec rm -rf {} \; && \
     find /         -type d -name pip          -prune -exec rm -rf {} \; && \

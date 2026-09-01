@@ -3,6 +3,8 @@
 VIRTUAL_ENV = .dev/venv
 PYTHON = $(VIRTUAL_ENV)/bin/python
 PIP = $(VIRTUAL_ENV)/bin/pip 
+IFCOPENSHELL_SITE_PACKAGES = $(VIRTUAL_ENV)/lib/python3.11/site-packages
+PYTHON_MVDXML_REF = master
 
 none:
 	@echo "MAKE: Enter at least one target (venv, install, install-dev, start-backend, start-worker, clean)"
@@ -15,25 +17,38 @@ install: venv
 	$(PIP) install --upgrade pip
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-linux64.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	mkdir -p $(IFCOPENSHELL_SITE_PACKAGES)
+	unzip -o -d $(IFCOPENSHELL_SITE_PACKAGES) /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
+	$(MAKE) install-ifcopenshell-mvd
 
 install-macos: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macos64.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	mkdir -p $(IFCOPENSHELL_SITE_PACKAGES)
+	unzip -o -d $(IFCOPENSHELL_SITE_PACKAGES) /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
+	$(MAKE) install-ifcopenshell-mvd
 
 install-macos-m1: venv
 	find . -name 'requirements.txt' -exec $(PIP) install -r {} \;
 	$(PIP) install -r requirements.txt
 	wget -O /tmp/ifcopenshell_python.zip "https://s3.amazonaws.com/ifcopenshell-builds/ifcopenshell-python-311-v0.8.6-8b5b400-macosm164.zip"
-	mkdir -p $(VIRTUAL_ENV)/lib/python3.11/site-packages
-	unzip -o -d $(VIRTUAL_ENV)/lib/python3.11/site-packages /tmp/ifcopenshell_python.zip
+	mkdir -p $(IFCOPENSHELL_SITE_PACKAGES)
+	unzip -o -d $(IFCOPENSHELL_SITE_PACKAGES) /tmp/ifcopenshell_python.zip
 	rm /tmp/ifcopenshell_python.zip
+	$(MAKE) install-ifcopenshell-mvd
+
+.PHONY: install-ifcopenshell-mvd
+install-ifcopenshell-mvd:
+	test -d "$(IFCOPENSHELL_SITE_PACKAGES)/ifcopenshell"
+	mvd_tmp=$$(mktemp -d)
+	trap 'rm -rf "$$mvd_tmp"' EXIT
+	wget -O "$$mvd_tmp/python-mvdxml.tar.gz" "https://github.com/opensourceBIM/python-mvdxml/archive/refs/heads/$(PYTHON_MVDXML_REF).tar.gz"
+	rm -rf "$(IFCOPENSHELL_SITE_PACKAGES)/ifcopenshell/mvd"
+	mkdir -p "$(IFCOPENSHELL_SITE_PACKAGES)/ifcopenshell/mvd"
+	tar -xzf "$$mvd_tmp/python-mvdxml.tar.gz" --strip-components=1 -C "$(IFCOPENSHELL_SITE_PACKAGES)/ifcopenshell/mvd"
 
 fetch-modules:
 	cd ./apps && git submodule update --init --recursive
