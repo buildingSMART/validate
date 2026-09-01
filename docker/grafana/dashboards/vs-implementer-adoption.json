@@ -1,0 +1,609 @@
+{
+  "uid": "vs-implementer-adoption",
+  "title": "Validation Service — Implementer Adoption",
+  "description": "Who uses the Validation Service, which IFC schemas and functional parts (alignment!) their tools actually produce, and which MVDs they declare. Built for the Implementers Assembly.",
+  "tags": [
+    "adoption",
+    "implementers"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "",
+  "time": {
+    "from": "now-12M",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1h",
+      "6h",
+      "1d"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Companies",
+      "description": "Companies detected from the authoring tool in uploaded files. 'in range' = with at least one upload in the dashboard time range.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (SELECT COUNT(DISTINCT at.company_id) FROM ifc_model m\n        JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(*) FROM ifc_company) AS \"all-time\""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 1
+    },
+    {
+      "type": "stat",
+      "title": "Tools",
+      "description": "Distinct authoring tools by name stem (name up to the first digit: 'Revit 26.4 (ENU)' -> 'Revit'). The raw name field carries version and language package, so raw distinct names over-count.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_model m\n        JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_authoring_tool at) AS \"all-time\""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 2
+    },
+    {
+      "type": "stat",
+      "title": "Tool versions",
+      "description": "Distinct authoring tool rows (name + version as written in the file header).",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (SELECT COUNT(DISTINCT m.produced_by_id) FROM ifc_model m WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(*) FROM ifc_authoring_tool) AS \"all-time\""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 3
+    },
+    {
+      "type": "stat",
+      "title": "Models validated",
+      "description": "Uploaded models.",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (SELECT COUNT(*) FROM ifc_model m WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(*) FROM ifc_model) AS \"all-time\""
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "id": 4
+    },
+    {
+      "type": "timeseries",
+      "title": "Schema adoption per month",
+      "description": "Uploaded models per month by schema family. The raw schema field is normalised (IFC4X3_ADD2, IFC4X3, 'IFC 4.3 ADD2' ... -> IFC4X3); '(empty)' = no schema in the header.",
+      "gridPos": {
+        "h": 9,
+        "w": 14,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH s AS (SELECT date_trunc('month', created) AS time, upper(replace(replace(COALESCE(schema, ''), ' ', ''), '_', '')) AS raw\n           FROM ifc_model WHERE $__timeFilter(created))\nSELECT time, CASE WHEN raw ~ 'IFC4X3|IFC4\\.3' THEN 'IFC4X3' WHEN raw ~ 'IFC4X[12]' THEN 'IFC4X1/4X2' WHEN raw ~ '^IFC4' THEN 'IFC4' WHEN raw ~ 'IFC2X3|^2X3' THEN 'IFC2X3' WHEN raw = '' THEN '(empty)' ELSE 'other' END AS metric, COUNT(*)::float AS value\nFROM s GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 5
+    },
+    {
+      "type": "timeseries",
+      "title": "Who produces IFC 4.3: distinct tools and companies per month",
+      "description": "Tools (name stem) and companies with at least one IFC4X3 upload in that month.",
+      "gridPos": {
+        "h": 9,
+        "w": 10,
+        "x": 14,
+        "y": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('month', m.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nUNION ALL\nSELECT date_trunc('month', m.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 6
+    },
+    {
+      "type": "table",
+      "title": "Capability: functional parts produced, by distinct tools and companies",
+      "description": "Which parts of IFC do tools actually produce. A functional part counts for a tool when at least one of its rules ACTIVATED (outcome severity other than N/A - a failed rule still proves the tool writes that part). Lower bound: a rule only activates when its precondition is met. Source: vs_adoption_capability, refreshed nightly by `manage.py refresh_adoption_metrics` (the outcomes table is too large to aggregate live over a year). Tools are name stems; model-months = a model counts once per month it was validated in.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 13
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT functional_part AS \"functional part\",\n       COUNT(DISTINCT tool_stem)  AS tools,\n       COUNT(DISTINCT company_id) AS companies,\n       SUM(models)                AS \"model-months\"\nFROM vs_adoption_capability\nWHERE $__timeFilter(month)\nGROUP BY 1 ORDER BY 2 DESC, 3 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tools"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "gauge",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "continuous-BlPu"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 7
+    },
+    {
+      "type": "timeseries",
+      "title": "Alignment (ALA/ALB/ALS) per month: distinct tools and companies",
+      "description": "Tools and companies whose uploads activated at least one alignment rule that month. Same source and caveats as the capability table.",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 13
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT month::timestamptz AS time, 'tools' AS metric, COUNT(DISTINCT tool_stem)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) GROUP BY 1\nUNION ALL\nSELECT month::timestamptz AS time, 'companies' AS metric, COUNT(DISTINCT company_id)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) GROUP BY 1\nORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 8
+    },
+    {
+      "type": "table",
+      "title": "MVD declared per tool (top 20)",
+      "description": "Model View Definition as declared in the file header, per tool name stem.",
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COALESCE(NULLIF(m.mvd, ''), '(none)') AS mvd, COUNT(*) AS models\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created)\nGROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 9
+    },
+    {
+      "type": "table",
+      "title": "Capability, last 2 months - LIVE (slow, ~15 s; ignores time picker)",
+      "description": "Same as the capability table above but computed live from the outcomes table over the last 2 months. Works without the nightly job; expect 10-20 s cold.",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH w AS (SELECT min(id) AS tid FROM ifc_validation_task WHERE created >= now() - interval '2 months')\nSELECT left(vo.feature, 3)          AS \"functional part\",\n       COUNT(DISTINCT m.id)         AS models,\n       COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))       AS tools,\n       COUNT(DISTINCT at.company_id) AS companies\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.validation_task_id >= (SELECT tid FROM w)\n  AND vo.severity > 0 AND vo.feature ~ '^[A-Z]{3}[0-9]{3}'\nGROUP BY 1 ORDER BY 3 DESC, 4 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 10
+    },
+    {
+      "type": "timeseries",
+      "title": "Alignment per month - LIVE (slow, ~10 s)",
+      "description": "Tools and companies with an activated ALA/ALB rule per month, computed live. Uses a prefix range on the feature index; fine for a couple of years.",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('month', vo.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nUNION ALL\nSELECT date_trunc('month', vo.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 11
+    }
+  ]
+}
