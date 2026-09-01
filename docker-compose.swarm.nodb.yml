@@ -275,6 +275,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 128M
             placement:
                 constraints: [node.role == manager]
             restart_policy:
