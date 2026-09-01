@@ -10,7 +10,7 @@
 set -uo pipefail
 
 LOG_DIR=${LOG_DIR:-/srv/nfs/gherkin_logs}
-TEXTFILE_DIR=${TEXTFILE_DIR:-/home/geert/runbooks/observability/textfile}
+TEXTFILE_DIR=${TEXTFILE_DIR:?set TEXTFILE_DIR to the node_exporter textfile directory, e.g. TEXTFILE_DIR=/data/srv/textfile}
 OUT="$TEXTFILE_DIR/gherkin_rules.prom"
 TMP="$OUT.$$.tmp"
 
@@ -60,6 +60,45 @@ mkdir -p "$TEXTFILE_DIR"
             }
           }
         }'
+
+  # --- Per-maand serie (conferentie/trend: "did our efforts help?") ---------
+  # De tijdas kan niet als echte historie de TSDB in (de textfile collector
+  # weigert client-side timestamps), dus de maand zit als label. Maand = mtime
+  # van het logbestand: het moment van de run, niet van de codewijziging.
+  # Cardinaliteit: ~150 regels x aantal maanden; alleen maanden met runs
+  # krijgen een serie. Let op bij interpretatie: _avg is de eerlijke maat voor
+  # trends, _cpu_seconds volgt vooral het uploadvolume.
+  echo "# HELP gherkin_rule_monthly_cpu_seconds Total CPU seconds per rule per calendar month (month = log file mtime)."
+  echo "# TYPE gherkin_rule_monthly_cpu_seconds gauge"
+  echo "# HELP gherkin_rule_monthly_runs Number of runs per rule per calendar month."
+  echo "# TYPE gherkin_rule_monthly_runs gauge"
+  echo "# HELP gherkin_rule_monthly_cpu_seconds_avg Average CPU seconds per run, per rule per calendar month."
+  echo "# TYPE gherkin_rule_monthly_cpu_seconds_avg gauge"
+
+  MONTHMAP=$(mktemp)
+  find "$LOG_DIR" -maxdepth 1 -name '*.log' -printf '%p\t%TY-%Tm\n' 2>/dev/null > "$MONTHMAP"
+  find "$LOG_DIR" -maxdepth 1 -name '*.log' -print0 2>/dev/null \
+    | xargs -0 -r grep -H "Elapsed process time" \
+    | sed -E "s/^([^:]+):.*Feature '([^']+)'.*time: ([0-9.]+) seconds\..*/\1\t\2\t\3/" \
+    | awk -F'\t' -v monthmap="$MONTHMAP" '
+        BEGIN { while ((getline line < monthmap) > 0) { split(line, a, "\t"); mm[a[1]] = a[2] } }
+        {
+          split($2, parts, " ");
+          rule = parts[1];
+          gsub(/[^A-Za-z0-9_]/, "", rule);
+          if (rule == "" || !($1 in mm)) next;
+          key = rule SUBSEP mm[$1];
+          sum[key] += $3; n[key]++;
+        }
+        END {
+          for (k in sum) {
+            split(k, p, SUBSEP);
+            printf "gherkin_rule_monthly_cpu_seconds{rule=\"%s\",month=\"%s\"} %.2f\n", p[1], p[2], sum[k];
+            printf "gherkin_rule_monthly_runs{rule=\"%s\",month=\"%s\"} %d\n", p[1], p[2], n[k];
+            printf "gherkin_rule_monthly_cpu_seconds_avg{rule=\"%s\",month=\"%s\"} %.3f\n", p[1], p[2], sum[k]/n[k];
+          }
+        }'
+  rm -f "$MONTHMAP"
 
   echo "# HELP gherkin_rule_timings_logfiles Aantal logbestanden dat is ingelezen."
   echo "# TYPE gherkin_rule_timings_logfiles gauge"

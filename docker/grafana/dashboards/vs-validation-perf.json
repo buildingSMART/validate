@@ -3,9 +3,7 @@
   "uid": "vs-validation-perf",
   "title": "Validation Service — Performance & Load",
   "tags": [
-    "observability",
-    "performance",
-    "postgres"
+    "Why was this slow?"
   ],
   "editable": true,
   "schemaVersion": 39,
@@ -16,7 +14,7 @@
     "to": "now"
   },
   "timezone": "browser",
-  "description": "Prestaties en belasting van de Validation Service, rechtstreeks uit de applicatiedatabase (datasource: DEV Postgres, uid devpg). Doorlooptijd = klok van aanmelden tot klaar (inclusief wachten in de wachtrij). Verwerkingstijd = som van de taakduren (alleen echt rekenwerk).",
+  "description": "Why was this slow?",
   "panels": [
     {
       "id": 1,
@@ -38,15 +36,63 @@
           "unit": "s",
           "min": 0,
           "custom": {
-            "drawStyle": "line",
+            "drawStyle": "points",
             "lineWidth": 2,
-            "showPoints": "auto",
-            "pointSize": 5,
-            "spanNulls": true,
+            "showPoints": "always",
+            "pointSize": 6,
+            "spanNulls": false,
             "fillOpacity": 0
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "validations that day"
+            },
+            "properties": [
+              {
+                "id": "custom.drawStyle",
+                "value": "bars"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 10
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#888888"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "validations/day"
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -69,6 +115,15 @@
           "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT\n  $__timeGroupAlias(t.started, '1d'),\n  t.type AS metric,\n  ROUND(AVG(EXTRACT(EPOCH FROM (t.ended - t.started)))::numeric, 1) AS duration_s\nFROM ifc_validation_task t\nWHERE $__timeFilter(t.started)\n  AND t.started IS NOT NULL\n  AND t.ended IS NOT NULL\nGROUP BY 1, 2\nORDER BY 1"
+        },
+        {
+          "refId": "N",
+          "format": "time_series",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "rawSql": "SELECT $__timeGroupAlias(t.started, '1d'), 'validations that day' AS metric, COUNT(DISTINCT t.request_id) AS n FROM ifc_validation_task t WHERE $__timeFilter(t.started) AND t.started IS NOT NULL GROUP BY 1, 2 ORDER BY 1"
         }
       ]
     },
@@ -76,7 +131,7 @@
       "id": 2,
       "type": "timeseries",
       "title": "Validation requests per day (by final status)",
-      "description": "Volume: how many files are submitted per day, and how they ended (COMPLETED / FAILED / PENDING / INITIATED). Source: ifc_validation_request.created.",
+      "description": "Daily validations stacked by final status — bar height = total that day, red band = FAILED share.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "devpg"
@@ -93,12 +148,11 @@
           "min": 0,
           "custom": {
             "drawStyle": "bars",
-            "fillOpacity": 80,
-            "lineWidth": 1,
+            "fillOpacity": 70,
+            "lineWidth": 0,
             "barAlignment": 0,
             "stacking": {
-              "mode": "normal",
-              "group": "A"
+              "mode": "normal"
             }
           }
         },
@@ -506,8 +560,8 @@
     {
       "id": 8,
       "type": "table",
-      "title": "Rule cost: total, average and longest run",
-      "description": "Average versus longest run shows the skew: a few large models dominate. A rule with a low average but an extreme maximum is a tail risk.",
+      "title": "Rule cost: CPU and memory per rule",
+      "description": "CPU columns from 17 months of logs; RSS columns from the per-rule VmHWM measurement (since Aug 5). peak RSS = total process high-water during the rule (includes the model itself); avg RSS delta = memory growth attributable to the rule.",
       "gridPos": {
         "h": 9,
         "w": 12,
@@ -524,6 +578,37 @@
           "options": {
             "byField": "rule",
             "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(rule|Value #[A-E])$"
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value #A": "total CPU time",
+              "Value #B": "average per run",
+              "Value #C": "longest single run",
+              "Value #D": "peak RSS (worst run)",
+              "Value #E": "avg RSS delta"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "total CPU time",
+                "desc": true
+              }
+            ]
           }
         }
       ],
@@ -551,12 +636,69 @@
         },
         {
           "refId": "D",
-          "expr": "gherkin_rule_runs_total",
+          "expr": "gherkin_rule_peak_rss_mb_max",
           "format": "table",
-          "instant": true,
-          "legendFormat": "runs"
+          "instant": true
+        },
+        {
+          "refId": "E",
+          "expr": "gherkin_rule_rss_delta_mb_avg",
+          "format": "table",
+          "instant": true
         }
-      ]
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 1
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rule"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "peak RSS (worst run)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "mbytes"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg RSS delta"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "mbytes"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "id": 9,
@@ -599,6 +741,243 @@
           "rawSql": "SELECT\n  CASE WHEN rule ~ '^[A-Z]{2,5}[0-9]{2,3}$' THEN rule\n       ELSE '(SCHEMA check, not a gherkin rule)' END AS rule,\n  SUM(warnings)::bigint AS warnings,\n  SUM(errors)::bigint  AS errors,\n  SUM(total)::bigint  AS total\nFROM (\n  SELECT split_part(feature, ' ', 1) AS rule,\n         SUM((severity = 3)::int) AS warnings,\n         SUM((severity = 4)::int) AS errors,\n         COUNT(*) AS total\n  FROM ifc_validation_outcome\n  WHERE severity >= 3 AND feature IS NOT NULL\n  GROUP BY 1\n) sub\nGROUP BY 1\nORDER BY total DESC\nLIMIT 15"
         }
       ]
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Peak RSS per subtask (validation subprocesses)",
+      "description": "Subprocess high-water memory per subtask type, harvested every 10 min from the validate_worker logs by prod-crons/harvest_peak_rss.sh and aggregated into the textfile exporter. Container logs are lost on redeploy, the harvested file is not, so this keeps accumulating. NOTE: the high peaks cluster per FILE, not per subtask -- one heavy model pulls all of its subtasks up at the same time, and the worst value happens to land on whichever subtask ran then. Read 'worst run' as the highest single subprocess, not as a property of that subtask type.",
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "subtask",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(subtask|Value #[A-D])$"
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value #A": "peak RSS (worst run)",
+              "Value #B": "average peak RSS",
+              "Value #C": "most recent run",
+              "Value #D": "samples"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "peak RSS (worst run)",
+                "desc": true
+              }
+            ]
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "peak_rss_subtask_max_kb",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "peak_rss_subtask_avg_kb",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "expr": "peak_rss_subtask_last_kb",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "expr": "peak_rss_subtask_samples",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kbytes",
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "subtask"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "string"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "samples"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Rule cost per month — did our efforts help? ($rule)",
+      "description": "Average CPU seconds per run of the selected gherkin rule, per calendar month, over the full log history (Mar 2025 onward). Month = log file mtime (the moment the rule RAN, not when its code changed), encoded as a label because the textfile collector cannot backfill real timestamps. Use the average, not the total: the total mostly tracks upload volume. CPU time, PRODUCTION mode only. Months with few runs are noisy - check the runs series before claiming a trend.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "gherkin_rule_monthly_cpu_seconds_avg{rule=\"$rule\"}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "gherkin_rule_monthly_runs{rule=\"$rule\"}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "month",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterFieldsByName",
+          "options": {
+            "include": {
+              "pattern": "^(month|Value #[AB])$"
+            }
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "renameByName": {
+              "Value #A": "avg CPU s per run",
+              "Value #B": "runs"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "sort": [
+              {
+                "field": "month",
+                "desc": false
+              }
+            ]
+          }
+        }
+      ],
+      "options": {
+        "orientation": "vertical",
+        "xField": "month"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "runs"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      }
     }
-  ]
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "rule",
+        "label": "gherkin rule",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "query": {
+          "query": "label_values(gherkin_rule_monthly_cpu_seconds_avg, rule)",
+          "refId": "rule_var"
+        },
+        "refresh": 2,
+        "sort": 1,
+        "includeAll": false,
+        "multi": false,
+        "current": {
+          "text": "OJP001",
+          "value": "OJP001"
+        }
+      }
+    ]
+  }
 }
