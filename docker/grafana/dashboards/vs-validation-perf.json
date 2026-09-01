@@ -746,7 +746,7 @@
       "id": 10,
       "type": "table",
       "title": "Peak RSS per subtask (validation subprocesses)",
-      "description": "Subprocess high-water memory per subtask type, harvested every 10 min from the validate_worker logs by prod-crons/harvest_peak_rss.sh and aggregated into the textfile exporter. Container logs are lost on redeploy, the harvested file is not, so this keeps accumulating. NOTE: the high peaks cluster per FILE, not per subtask -- one heavy model pulls all of its subtasks up at the same time, and the worst value happens to land on whichever subtask ran then. Read 'worst run' as the highest single subprocess, not as a property of that subtask type.",
+      "description": "How much memory does each validation subprocess peak at, and is anything near the worker limit? Peaks cluster per file, not per subtask type - read 'worst run' as one heavy model.",
       "gridPos": {
         "h": 10,
         "w": 12,
@@ -859,7 +859,7 @@
       "id": 11,
       "type": "barchart",
       "title": "Rule cost per month — did our efforts help? ($rule)",
-      "description": "Average CPU seconds per run of the selected gherkin rule, per calendar month, over the full log history (Mar 2025 onward). Month = log file mtime (the moment the rule RAN, not when its code changed), encoded as a label because the textfile collector cannot backfill real timestamps. Use the average, not the total: the total mostly tracks upload volume. CPU time, PRODUCTION mode only. Months with few runs are noisy - check the runs series before claiming a trend.",
+      "description": "Did our optimisations make a rule cheaper over time? Pick a rule and compare average CPU per run with the number of runs, so volume noise is visible.",
       "gridPos": {
         "h": 9,
         "w": 24,

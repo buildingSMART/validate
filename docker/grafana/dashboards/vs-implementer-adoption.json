@@ -32,7 +32,7 @@
     {
       "type": "stat",
       "title": "Companies",
-      "description": "Companies detected from the authoring tool in uploaded files. 'in range' = with at least one upload in the dashboard time range.",
+      "description": "How many companies use the service? Derived from the authoring tool named in the file header; 'in range' = at least one upload in the selected period.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -90,7 +90,7 @@
     {
       "type": "stat",
       "title": "Tools",
-      "description": "Distinct authoring tools by name stem (name up to the first digit: 'Revit 26.4 (ENU)' -> 'Revit'). The raw name field carries version and language package, so raw distinct names over-count.",
+      "description": "How many distinct authoring tools upload here? Counted by name stem: canonical_name (language package stripped, IVS-884) cut at the first digit, so all versions of 'Revit' count once.",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -110,7 +110,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_model m\n        JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_authoring_tool at) AS \"all-time\""
+          "rawSql": "SELECT (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_model m\n        JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) FROM ifc_authoring_tool at) AS \"all-time\""
         }
       ],
       "options": {
@@ -148,7 +148,7 @@
     {
       "type": "stat",
       "title": "Tool versions",
-      "description": "Distinct authoring tool rows (name + version as written in the file header).",
+      "description": "How many distinct tool versions do we see? A version is name + version as written in the header; language packages of the same version count once (canonical_name, IVS-884).",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -168,7 +168,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT (SELECT COUNT(DISTINCT m.produced_by_id) FROM ifc_model m WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(*) FROM ifc_authoring_tool) AS \"all-time\""
+          "rawSql": "SELECT (SELECT COUNT(DISTINCT (COALESCE(NULLIF(at.canonical_name, ''), at.name), at.version)) FROM ifc_model m\n        JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created)) AS \"in range\",\n       (SELECT COUNT(DISTINCT (COALESCE(NULLIF(canonical_name, ''), name), version)) FROM ifc_authoring_tool) AS \"all-time\""
         }
       ],
       "options": {
@@ -206,7 +206,7 @@
     {
       "type": "stat",
       "title": "Models validated",
-      "description": "Uploaded models.",
+      "description": "How many models were validated?",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -264,7 +264,7 @@
     {
       "type": "timeseries",
       "title": "Schema adoption per month",
-      "description": "Uploaded models per month by schema family. The raw schema field is normalised (IFC4X3_ADD2, IFC4X3, 'IFC 4.3 ADD2' ... -> IFC4X3); '(empty)' = no schema in the header.",
+      "description": "Is IFC 4.3 taking over from IFC4 and IFC2X3? Uploads per month by schema family; '(empty)' = no schema in the header.",
       "gridPos": {
         "h": 9,
         "w": 14,
@@ -316,7 +316,7 @@
     {
       "type": "timeseries",
       "title": "Who produces IFC 4.3: distinct tools and companies per month",
-      "description": "Tools (name stem) and companies with at least one IFC4X3 upload in that month.",
+      "description": "How many tools and companies actually ship IFC 4.3 files each month?",
       "gridPos": {
         "h": 9,
         "w": 10,
@@ -336,7 +336,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('month', m.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nUNION ALL\nSELECT date_trunc('month', m.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nORDER BY 1, 2"
+          "rawSql": "SELECT date_trunc('month', m.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nUNION ALL\nSELECT date_trunc('month', m.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -364,7 +364,7 @@
     {
       "type": "table",
       "title": "Capability: functional parts produced, by distinct tools and companies",
-      "description": "Which parts of IFC do tools actually produce. A functional part counts for a tool when at least one of its rules ACTIVATED (outcome severity other than N/A - a failed rule still proves the tool writes that part). Lower bound: a rule only activates when its precondition is met. Source: vs_adoption_capability, refreshed nightly by `manage.py refresh_adoption_metrics` (the outcomes table is too large to aggregate live over a year). Tools are name stems; model-months = a model counts once per month it was validated in.",
+      "description": "Which parts of IFC do tools really produce, and by how many tools and companies? A part counts when one of its rules activated (any result other than N/A). Lower bound; refreshed nightly.",
       "gridPos": {
         "h": 12,
         "w": 12,
@@ -430,7 +430,7 @@
     {
       "type": "timeseries",
       "title": "Alignment (ALA/ALB/ALS) per month: distinct tools and companies",
-      "description": "Tools and companies whose uploads activated at least one alignment rule that month. Same source and caveats as the capability table.",
+      "description": "How many tools and companies produce alignment each month?",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -478,7 +478,7 @@
     {
       "type": "table",
       "title": "MVD declared per tool (top 20)",
-      "description": "Model View Definition as declared in the file header, per tool name stem.",
+      "description": "Which Model View Definitions do tools declare - and who declares Alignment-basedView?",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -498,7 +498,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COALESCE(NULLIF(m.mvd, ''), '(none)') AS mvd, COUNT(*) AS models\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created)\nGROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20"
+          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COALESCE(NULLIF(m.mvd, ''), '(none)') AS mvd, COUNT(*) AS models\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created)\nGROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20"
         }
       ],
       "fieldConfig": {
@@ -519,7 +519,7 @@
     {
       "type": "table",
       "title": "Capability, last 2 months - LIVE (slow, ~15 s; ignores time picker)",
-      "description": "Same as the capability table above but computed live from the outcomes table over the last 2 months. Works without the nightly job; expect 10-20 s cold.",
+      "description": "Same question as the capability table, computed live for the last 2 months. Works before the nightly job has ever run; slow.",
       "gridPos": {
         "h": 10,
         "w": 12,
@@ -539,7 +539,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH w AS (SELECT min(id) AS tid FROM ifc_validation_task WHERE created >= now() - interval '2 months')\nSELECT left(vo.feature, 3)          AS \"functional part\",\n       COUNT(DISTINCT m.id)         AS models,\n       COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))       AS tools,\n       COUNT(DISTINCT at.company_id) AS companies\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.validation_task_id >= (SELECT tid FROM w)\n  AND vo.severity > 0 AND vo.feature ~ '^[A-Z]{3}[0-9]{3}'\nGROUP BY 1 ORDER BY 3 DESC, 4 DESC"
+          "rawSql": "WITH w AS (SELECT min(id) AS tid FROM ifc_validation_task WHERE created >= now() - interval '2 months')\nSELECT left(vo.feature, 3)          AS \"functional part\",\n       COUNT(DISTINCT m.id)         AS models,\n       COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))       AS tools,\n       COUNT(DISTINCT at.company_id) AS companies\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.validation_task_id >= (SELECT tid FROM w)\n  AND vo.severity > 0 AND vo.feature ~ '^[A-Z]{3}[0-9]{3}'\nGROUP BY 1 ORDER BY 3 DESC, 4 DESC"
         }
       ],
       "fieldConfig": {
@@ -560,7 +560,7 @@
     {
       "type": "timeseries",
       "title": "Alignment per month - LIVE (slow, ~10 s)",
-      "description": "Tools and companies with an activated ALA/ALB rule per month, computed live. Uses a prefix range on the feature index; fine for a couple of years.",
+      "description": "Same question as the alignment chart, computed live; slow.",
       "gridPos": {
         "h": 10,
         "w": 12,
@@ -580,7 +580,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('month', vo.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(at.name, '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nUNION ALL\nSELECT date_trunc('month', vo.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nORDER BY 1, 2"
+          "rawSql": "SELECT date_trunc('month', vo.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nUNION ALL\nSELECT date_trunc('month', vo.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nORDER BY 1, 2"
         }
       ],
       "fieldConfig": {

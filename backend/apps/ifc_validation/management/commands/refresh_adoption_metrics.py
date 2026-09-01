@@ -18,9 +18,9 @@ warning or error): a failed alignment rule still proves the tool writes
 alignment. This is a lower bound - a rule only activates when its precondition
 is met.
 
-tool_stem is the authoring tool name up to the first digit ("Revit 26.4 (ENU)"
--> "Revit"), because the name field carries version and language package.
-Replace with canonical_name once migration 0035 (IVS-884) is on PROD.
+tool_stem is the language-neutral tool name (canonical_name, IVS-884 migration
+0035; falls back to name when empty) cut at the first digit: "Revit 26.4 (ENU)"
+-> "Revit". So every version and language package of a tool counts once.
 
 Each month runs in its own transaction, so a timeout on one month does not
 lose the others. Safe to re-run; months are deleted and re-inserted.
@@ -58,7 +58,8 @@ GROUP BY 1
 ORDER BY 1
 """
 
-TOOL_STEM = r"COALESCE(NULLIF(regexp_replace(at.name, '\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')"
+TOOL_STEM = (r"COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), "
+             r"'\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')")
 
 SQL_FACTS = f"""
 SELECT %s::date                     AS month,
