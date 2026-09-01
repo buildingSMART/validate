@@ -17,25 +17,25 @@ TMP="$OUT.$$.tmp"
 mkdir -p "$TEXTFILE_DIR"
 
 {
-  echo "# HELP gherkin_rule_cpu_seconds_total Totale CPU-tijd per gherkin-regel (uit de logs, cumulatief over alle runs)."
+  echo "# HELP gherkin_rule_cpu_seconds_total Total CPU time per gherkin rule (from the logs, cumulative over all runs)."
   echo "# TYPE gherkin_rule_cpu_seconds_total counter"
-  echo "# HELP gherkin_rule_runs_total Aantal keren dat de regel is uitgevoerd."
+  echo "# HELP gherkin_rule_runs_total Number of times the rule was executed."
   echo "# TYPE gherkin_rule_runs_total counter"
-  echo "# HELP gherkin_rule_cpu_seconds_max Langste enkele run van deze regel (CPU-seconden)."
+  echo "# HELP gherkin_rule_cpu_seconds_max Longest single run of this rule (CPU seconds)."
   echo "# TYPE gherkin_rule_cpu_seconds_max gauge"
-  echo "# HELP gherkin_rule_cpu_seconds_avg Gemiddelde CPU-tijd per run."
+  echo "# HELP gherkin_rule_cpu_seconds_avg Average CPU time per run."
   echo "# TYPE gherkin_rule_cpu_seconds_avg gauge"
 
-  # B1-uitbreiding (2/8): de logregel kan sinds de per-regel-geheugenmeting eindigen op
-  # " Peak RSS: <n> MB (delta <+/-n> MB)." — veld 3/4 zijn dan gevuld, anders leeg.
-  # find|xargs i.p.v. glob: bij ~100k logbestanden overschrijdt "$LOG_DIR"/*.log
-  # de ARG_MAX-limiet (~2 MB) en faalt grep met "Argument list too long".
+  # Since the per-rule memory measurement (B1, Aug 2) a log line may end with
+  # " Peak RSS: <n> MB (delta <+/-n> MB)." - fields 3/4 are then filled, else empty.
+  # find|xargs instead of a glob: with ~100k log files "$LOG_DIR"/*.log exceeds
+  # the ARG_MAX limit (~2 MB) and grep fails with "Argument list too long".
   find "$LOG_DIR" -maxdepth 1 -name '*.log' -print0 2>/dev/null \
     | xargs -0 -r grep -h "Elapsed process time" \
     | sed -E "s/.*Feature '([^']+)'.*time: ([0-9.]+) seconds\.( Peak RSS: ([0-9]+) MB \(delta ([+-][0-9]+) MB\)\.)?.*/\2\t\1\t\4\t\5/" \
     | awk -F'\t' '
         {
-          # regelcode = eerste woord vóór de spatie-streepje-spatie (bv. "CTX000 - ...")
+          # rule code = first word before the " - " separator (e.g. "CTX000 - ...")
           split($2, parts, " ");
           rule = parts[1];
           gsub(/[^A-Za-z0-9_]/, "", rule);
@@ -61,13 +61,13 @@ mkdir -p "$TEXTFILE_DIR"
           }
         }'
 
-  # --- Per-maand serie (conferentie/trend: "did our efforts help?") ---------
-  # De tijdas kan niet als echte historie de TSDB in (de textfile collector
-  # weigert client-side timestamps), dus de maand zit als label. Maand = mtime
-  # van het logbestand: het moment van de run, niet van de codewijziging.
-  # Cardinaliteit: ~150 regels x aantal maanden; alleen maanden met runs
-  # krijgen een serie. Let op bij interpretatie: _avg is de eerlijke maat voor
-  # trends, _cpu_seconds volgt vooral het uploadvolume.
+  # --- Per-month series (trend: "did our efforts help?") -------------------
+  # The time axis cannot go into the TSDB as real history (the textfile
+  # collector rejects client-side timestamps), so the month is a label.
+  # Month = mtime of the log file: the moment of the run, not of the code
+  # change. Cardinality: ~150 rules x number of months; only months with runs
+  # get a series. When reading: _avg is the honest measure for trends,
+  # _cpu_seconds mostly follows upload volume.
   echo "# HELP gherkin_rule_monthly_cpu_seconds Total CPU seconds per rule per calendar month (month = log file mtime)."
   echo "# TYPE gherkin_rule_monthly_cpu_seconds gauge"
   echo "# HELP gherkin_rule_monthly_runs Number of runs per rule per calendar month."
@@ -100,11 +100,11 @@ mkdir -p "$TEXTFILE_DIR"
         }'
   rm -f "$MONTHMAP"
 
-  echo "# HELP gherkin_rule_timings_logfiles Aantal logbestanden dat is ingelezen."
+  echo "# HELP gherkin_rule_timings_logfiles Number of log files read."
   echo "# TYPE gherkin_rule_timings_logfiles gauge"
   echo "gherkin_rule_timings_logfiles $(find "$LOG_DIR" -maxdepth 1 -name '*.log' 2>/dev/null | wc -l)"
 } > "$TMP"
 
-# atomisch vervangen, zodat node_exporter nooit een half bestand leest
+# replace atomically, so node_exporter never reads a half-written file
 mv "$TMP" "$OUT"
 chmod 644 "$OUT"
