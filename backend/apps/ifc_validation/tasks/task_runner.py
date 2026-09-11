@@ -59,10 +59,24 @@ def kill_subprocesses_on_timeout(task_func):
 
 
 def with_user_task_lock(task_name: str):
-    
+    """
+    Serialize one task type per user through a redis lock, keyed
+    ``lock:celery:user:<id>:task:<task_name>``.
+
+    Skipped entirely in IMMEDIATE_STATS_AND_CLEANUP mode. That mode is meant for
+    bulk/batch ingestion, where every request normally belongs to the same user,
+    so the "per user" lock degenerates into a global lock: only one task of each
+    type can run at a time regardless of worker concurrency, and the slowest task
+    sets the pace for the whole corpus (measured ~25-30 files/hour, with
+    NORMATIVE_IA at ~275s per file dominating the critical path).
+    """
+
     def decorator(task_func):
         @functools.wraps(task_func)
         def wrapper(self, *args, **kwargs):
+
+            if getattr(settings, "IMMEDIATE_STATS_AND_CLEANUP", False):
+                return task_func(self, *args, **kwargs)
 
             id = kwargs.get('id')
             request = ValidationRequest.objects.get(pk=id)
