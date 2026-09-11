@@ -7,7 +7,7 @@ import textwrap
 from pathlib import Path
 
 import psutil
-from celery import group, shared_task
+from celery import shared_task
 from celery.utils.log import get_task_logger
 from django.conf import settings
 from django.db.models import Count, Q
@@ -446,10 +446,9 @@ def populate_model_statistics(self, *args, **kwargs):
 
     Used by the foreground validation workflow when
     ``settings.IMMEDIATE_STATS_AND_CLEANUP`` is enabled. The request's ``Model``
-    is created during the serial stage, so it is resolved here at runtime and
-    the statistics are scheduled as a parallel group. Replacing this task with
-    the group turns it into a chord, so the rest of the workflow (instance
-    completion, file removal) runs only after every statistic has completed.
+    is created during the serial stage, so it is resolved here at runtime.
+    The statistics are then run inline, in order: the rest of the workflow
+    (instance completion, file removal) only runs once they have all finished.
 
     ``*args`` is load-bearing: this task is the first element of ``final_tasks``,
     which becomes the body of the parallel chord. Celery invokes a chord body
@@ -471,23 +470,32 @@ def populate_model_statistics(self, *args, **kwargs):
         )
         return 0
 
-    signatures = [
-        populate_entity_count_histogram.s(model.pk),
-        populate_pset_count_histogram.s(model.pk),
-    ]
-    missing_templates = missing_template_names(model)
-    if missing_templates:
-        signatures.append(
-            populate_template_statistics.s(model.pk, missing_templates)
-        )
-
+    # Run the statistics directly rather than via `self.replace(group(...))`.
+    # That idiom relies on Celery uplifting the group into a chord, and it does
+    # not work when this task is already the body of a chord: `Task.on_replace`
+    # raises `Ignore`, Celery reports it as a task failure, the workflow's error
+    # callback fires and the request is marked FAILED, so instance completion and
+    # file removal never ran. Plain calls keep the ordering obvious, and each
+    # statistics task already swallows its own errors and records completion
+    # markers, so one bad file cannot abort the workflow.
     logger.info(
-        "Scheduling %d immediate statistic task(s) for model %s (request %s)",
-        len(signatures),
+        "Populating immediate statistics for model %s (request %s)",
         model.pk,
         id,
     )
-    raise self.replace(group(signatures))
+
+    results = [
+        populate_entity_count_histogram(model.pk),
+        populate_pset_count_histogram(model.pk),
+    ]
+
+    missing_templates = missing_template_names(model)
+    if missing_templates:
+        results.append(
+            populate_template_statistics(model.pk, missing_templates)
+        )
+
+    return sum(r for r in results if isinstance(r, int))
 
 
 @shared_task

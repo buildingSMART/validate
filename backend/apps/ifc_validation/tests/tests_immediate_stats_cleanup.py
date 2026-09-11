@@ -38,3 +38,28 @@ class ImmediateStatsChordBodyTestCase(SimpleTestCase):
     def test_missing_id_is_reported(self):
         result = statistics_tasks.populate_model_statistics.apply(kwargs={})
         self.assertRaises(ValueError, result.get)
+
+    def test_runs_statistics_without_canvas_replacement(self):
+        """The statistics must be run with plain calls, not
+        `self.replace(group(...))`. Replacing a task that is already a chord body
+        makes `Task.on_replace` raise `Ignore`, which Celery reports as a failure
+        and the workflow's error callback turns into a FAILED request -- so
+        instance completion and file removal never ran.
+        """
+        model = mock.Mock(pk=7)
+        with mock.patch.object(statistics_tasks, "ValidationRequest") as request_cls, \
+             mock.patch.object(statistics_tasks, "missing_template_names", return_value=[]), \
+             mock.patch.object(statistics_tasks, "populate_entity_count_histogram") as entity, \
+             mock.patch.object(statistics_tasks, "populate_pset_count_histogram") as pset:
+            request_cls.objects.get.return_value = mock.Mock(model=model)
+            entity.return_value = 3
+            pset.return_value = 5
+
+            result = statistics_tasks.populate_model_statistics.apply(
+                args=([{"status": "ok"}],),
+                kwargs={"id": 1, "file_name": "valid_file.ifc"},
+            )
+
+        self.assertEqual(result.get(), 8)
+        entity.assert_called_once_with(7)
+        pset.assert_called_once_with(7)
