@@ -441,7 +441,7 @@ def populate_template_statistics(model_id, template_names):
 
 
 @shared_task(bind=True)
-def populate_model_statistics(self, id, *args, **kwargs):
+def populate_model_statistics(self, *args, **kwargs):
     """Populate all pending statistics for a validation request's model.
 
     Used by the foreground validation workflow when
@@ -450,7 +450,19 @@ def populate_model_statistics(self, id, *args, **kwargs):
     the statistics are scheduled as a parallel group. Replacing this task with
     the group turns it into a chord, so the rest of the workflow (instance
     completion, file removal) runs only after every statistic has completed.
+
+    ``*args`` is load-bearing: this task is the first element of ``final_tasks``,
+    which becomes the body of the parallel chord. Celery invokes a chord body
+    with the chord's result list as a positional argument, so declaring ``id`` as
+    a normal parameter raised
+    ``TypeError: populate_model_statistics() got multiple values for argument 'id'``.
+    That aborted the workflow right after the parallel stage, which meant no
+    request ever reached COMPLETED and ``remove_validated_file`` never ran.
     """
+    id = kwargs.get("id")
+    if id is None:
+        raise ValueError("Argument 'id' is required.")
+
     request = ValidationRequest.objects.get(pk=id)
     model = request.model
     if model is None:
