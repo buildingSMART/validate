@@ -382,6 +382,14 @@ ARCHIVE_FILES_LOOKBACK_PERIOD = os.environ.get("ARCHIVE_FILES_LOOKBACK_PERIOD", 
 REMOVE_FILES_LOOKBACK_PERIOD = os.environ.get("REMOVE_FILES_LOOKBACK_PERIOD", 180)
 MODEL_STATISTIC_BATCH_SIZE = int(os.environ.get("MODEL_STATISTIC_BATCH_SIZE", 2))
 MODEL_STATISTIC_CPU_THRESHOLD = float(os.environ.get("MODEL_STATISTIC_CPU_THRESHOLD", 50))
+
+# When enabled, model statistics are populated inside the foreground validation
+# workflow (after the parallel checks and before instance completion) and the
+# uploaded file is deleted from disk once the whole workflow has finished.
+IMMEDIATE_STATS_AND_CLEANUP = ast.literal_eval(
+    os.environ.get("IMMEDIATE_STATS_AND_CLEANUP", "False")
+)
+
 CELERY_BEAT_SCHEDULE = {
         'archive-files-90days-every-15min': {
             'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',

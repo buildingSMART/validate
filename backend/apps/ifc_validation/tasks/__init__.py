@@ -20,8 +20,10 @@ from .statistics_tasks import (
     populate_entity_count_histogram,
     populate_pset_count_histogram,
     populate_template_statistics,
+    populate_model_statistics,
     schedule_model_statistic_tasks,
 )
+from .file_retention_tasks import remove_validated_file
 
 __all__ = [
     "ifc_file_validation_task",
@@ -39,5 +41,7 @@ __all__ = [
     "populate_entity_count_histogram",
     "populate_pset_count_histogram",
     "populate_template_statistics",
+    "populate_model_statistics",
     "schedule_model_statistic_tasks",
+    "remove_validated_file",
 ]

@@ -5,6 +5,7 @@ import random
 from celery import shared_task, chain, chord, group
 from celery.exceptions import SoftTimeLimitExceeded
 
+from django.conf import settings
 from django.db.models import F, Value
 from django.db.models.functions import Least
 
@@ -19,6 +20,7 @@ from .utils import get_absolute_file_path
 from .logger import logger
 from .email_tasks import *
 from .file_retention_tasks import *
+from .statistics_tasks import populate_model_statistics
 
 
 def terminate_subprocesses():
@@ -280,9 +282,15 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         industry_practices_subtask.s(id=id, file_name=file_name)
     ])
 
-    final_tasks = chain(
-        instance_completion_subtask.s(id=id, file_name=file_name)
+    immediate_stats_and_cleanup = getattr(
+        settings, "IMMEDIATE_STATS_AND_CLEANUP", False
     )
+
+    final_tasks = chain([
+        *([populate_model_statistics.s(id=id, file_name=file_name)] if immediate_stats_and_cleanup else []),
+        instance_completion_subtask.s(id=id, file_name=file_name),
+        *([remove_validated_file.s(id=id, file_name=file_name)] if immediate_stats_and_cleanup else []),
+    ])
 
     workflow = (
         workflow_started |
@@ -317,4 +325,14 @@ bsdd_validation_subtask = task_factory(ValidationTask.Type.BSDD)
 
 industry_practices_subtask = task_factory(ValidationTask.Type.INDUSTRY_PRACTICES)
 
-magic_clamav_subtask = task_factory(ValidationTask.Type.MAGIC_AND_CLAMAV, queue='antivirus')
+# In IMMEDIATE_STATS_AND_CLEANUP mode the AV check runs on the default worker
+# queue (locally) instead of the dedicated antivirus queue; check_magic_and_clamav
+# already falls back to a warning when no local scanner is installed.
+magic_clamav_subtask = task_factory(
+    ValidationTask.Type.MAGIC_AND_CLAMAV,
+    queue=(
+        'celery'
+        if getattr(settings, 'IMMEDIATE_STATS_AND_CLEANUP', False)
+        else 'antivirus'
+    ),
+)

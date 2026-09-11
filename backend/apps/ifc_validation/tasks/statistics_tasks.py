@@ -21,6 +21,7 @@ from apps.ifc_validation_models.models import (
     ModelInstance,
     PsetCountHistogram,
     TemplateStatistic,
+    ValidationRequest,
 )
 
 from .utils import get_absolute_file_path
@@ -437,6 +438,44 @@ def populate_template_statistics(model_id, template_names):
         for template_name in template_names
     ])
     return len(matches)
+
+
+@shared_task(bind=True)
+def populate_model_statistics(self, id, *args, **kwargs):
+    """Populate all pending statistics for a validation request's model.
+
+    Used by the foreground validation workflow when
+    ``settings.IMMEDIATE_STATS_AND_CLEANUP`` is enabled. The request's ``Model``
+    is created during the serial stage, so it is resolved here at runtime and
+    the statistics are scheduled as a parallel group. Replacing this task with
+    the group turns it into a chord, so the rest of the workflow (instance
+    completion, file removal) runs only after every statistic has completed.
+    """
+    request = ValidationRequest.objects.get(pk=id)
+    model = request.model
+    if model is None:
+        logger.warning(
+            "Request %s has no model; skipping immediate statistics", id,
+        )
+        return 0
+
+    signatures = [
+        populate_entity_count_histogram.s(model.pk),
+        populate_pset_count_histogram.s(model.pk),
+    ]
+    missing_templates = missing_template_names(model)
+    if missing_templates:
+        signatures.append(
+            populate_template_statistics.s(model.pk, missing_templates)
+        )
+
+    logger.info(
+        "Scheduling %d immediate statistic task(s) for model %s (request %s)",
+        len(signatures),
+        model.pk,
+        id,
+    )
+    raise self.replace(group(signatures))
 
 
 @shared_task
