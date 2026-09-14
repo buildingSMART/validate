@@ -107,13 +107,10 @@ _PSET_HISTOGRAM_SCRIPT = _IFC_LOADER_SCRIPT + textwrap.dedent(
             yield value
 
     def pset_name(pset):
-        is_predefined = False
-        try:
-            # ifc4 and higher
+        if pset.file.schema == 'IFC2X3':
+            is_predefined = not pset.is_a("IfcPropertySet") and not pset.is_a("IfcElementQuantity")
+        else:
             is_predefined = pset.is_a("IfcPreDefinedPropertySet")
-        except:
-            # ifc2x3
-            is_predefined = not pset.is_a("IfcPropertySet")
         return pset.is_a() if is_predefined else (pset.Name or "")
 
     for pset in ifc_file.by_type("IfcPropertySetDefinition"):
