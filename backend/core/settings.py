@@ -390,6 +390,18 @@ IMMEDIATE_STATS_AND_CLEANUP = ast.literal_eval(
     os.environ.get("IMMEDIATE_STATS_AND_CLEANUP", "False")
 )
 
+# When enabled, the parallel validation checks (schema, digital signatures,
+# normative rules IA/IP, industry practices) are not queued at all: the serial
+# stage runs as usual and the final tasks (statistics, instance completion,
+# cleanup) chain straight onto it. Meant for bulk ingestion, where the rule
+# checks dominate the runtime and only the serial checks plus model conversion
+# matter. Consequences: no ValidationTask rows exist for the skipped checks, so
+# their `status_*_calculated` properties report NOT_VALIDATED, and the request's
+# progress jumps from the serial total straight to 100 on completion.
+SKIP_VALIDATION_TASKS = ast.literal_eval(
+    os.environ.get("SKIP_VALIDATION_TASKS", "False")
+)
+
 CELERY_BEAT_SCHEDULE = {
         'archive-files-90days-every-15min': {
             'task': 'apps.ifc_validation.tasks.file_retention_tasks.apply_file_retention',

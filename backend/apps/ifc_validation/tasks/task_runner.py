@@ -266,12 +266,12 @@ def task_factory(task_type, queue='celery'):
     return validation_subtask_runner
 
 
-@shared_task(bind=True)
-@log_execution
-def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
+def build_validation_workflow(id, file_name):
+    """Assemble the Celery canvas for one validation request.
 
-    if id is None or file_name is None:
-        raise ValueError("Arguments 'id' and/or 'file_name' are required.")
+    Kept separate from the task body so the wiring - which needs neither a
+    broker nor the database - can be asserted on in tests.
+    """
 
     error_task = error_handler.s(id, file_name)
     chord_error_task = chord_error_handler.s(id, file_name)
@@ -287,14 +287,22 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
         prerequisites_subtask.s(id=id, file_name=file_name),
     )
 
-    parallel_tasks = group([
-        digital_signatures_subtask.s(id=id, file_name=file_name),
-        schema_validation_subtask.s(id=id, file_name=file_name),
-        #bsdd_validation_subtask.s(id=id, file_name=file_name), # disabled
-        normative_rules_ia_validation_subtask.s(id=id, file_name=file_name),
-        normative_rules_ip_validation_subtask.s(id=id, file_name=file_name),
-        industry_practices_subtask.s(id=id, file_name=file_name)
-    ])
+    # SKIP_VALIDATION_TASKS drops the whole parallel stage. The empty group is
+    # deliberate: Celery invokes a chord's body as soon as its header group is
+    # empty (celery.canvas._chord.run), so `final_tasks` still chains onto the
+    # serial stage and the canvas keeps its shape - and with it the error
+    # callbacks wired up below.
+    if getattr(settings, "SKIP_VALIDATION_TASKS", False):
+        parallel_tasks = group([])
+    else:
+        parallel_tasks = group([
+            digital_signatures_subtask.s(id=id, file_name=file_name),
+            schema_validation_subtask.s(id=id, file_name=file_name),
+            #bsdd_validation_subtask.s(id=id, file_name=file_name), # disabled
+            normative_rules_ia_validation_subtask.s(id=id, file_name=file_name),
+            normative_rules_ip_validation_subtask.s(id=id, file_name=file_name),
+            industry_practices_subtask.s(id=id, file_name=file_name)
+        ])
 
     immediate_stats_and_cleanup = getattr(
         settings, "IMMEDIATE_STATS_AND_CLEANUP", False
@@ -314,7 +322,17 @@ def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
             workflow_completed
         ).on_error(chord_error_task))
     workflow.set(link_error=[error_task])
-    workflow.apply_async()
+    return workflow
+
+
+@shared_task(bind=True)
+@log_execution
+def ifc_file_validation_task(self, id, file_name, *args, **kwargs):
+
+    if id is None or file_name is None:
+        raise ValueError("Arguments 'id' and/or 'file_name' are required.")
+
+    build_validation_workflow(id, file_name).apply_async()
 
 
 instance_completion_subtask = task_factory(ValidationTask.Type.INSTANCE_COMPLETION)
