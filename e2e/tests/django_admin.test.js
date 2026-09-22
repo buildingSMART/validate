@@ -53,6 +53,15 @@ test.describe('UI - Django Admin', () => {
     await logout(page);
   });
 
+  test('shows an SSO link on login page', async ({ page }) => {
+
+    // navigate to the Django Admin login page
+    await page.goto(BASE_URL);
+
+    // check if SSO link is present
+    await expect(page.getByRole('link', { name: 'Sign in with SSO' })).toBeVisible();
+  });
+
   test('navigate to Companies', async ({ page }) => {
 
     // login

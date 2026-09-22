@@ -115,6 +115,9 @@ server {
     location /callback {
         try_files $uri @proxy_api;
     }
+    location /auth/callback {
+        try_files $uri @proxy_api;
+    }
 
     # Django backend (API + BFF + Admin)
     location @proxy_api {

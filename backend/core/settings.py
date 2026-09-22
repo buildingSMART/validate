@@ -484,7 +484,9 @@ B2C_USER_FLOW = os.environ.get("B2C_USER_FLOW", None)
 LOGIN_URL = os.environ.get("LOGIN_URL", f"{PUBLIC_URL}/login")
 LOGOUT_URL = os.environ.get("LOGOUT_URL", f"{PUBLIC_URL}/logout")
 LOGIN_CALLBACK_URL = os.environ.get("CALLBACK_URL", f"{PUBLIC_URL}/callback")
+ADMIN_CALLBACK_URL = os.environ.get("ADMIN_CALLBACK_URL", f"{PUBLIC_URL}/auth/callback")
 POST_LOGIN_REDIRECT_URL = os.environ.get("POST_LOGIN_REDIRECT_URL", f"{PUBLIC_URL}/dashboard")
+POST_ADMIN_LOGIN_REDIRECT_URL = os.environ.get("POST_ADMIN_LOGIN_REDIRECT_URL", f"{PUBLIC_URL}/admin")
 
 # whitelisting of users
 USE_WHITELIST = ast.literal_eval(os.environ.get("USE_WHITELIST", 'False'))
