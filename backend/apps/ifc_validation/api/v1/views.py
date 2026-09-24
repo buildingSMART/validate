@@ -354,8 +354,12 @@ class ValidationOutcomeListAPIView(ListAPIView):
             .order_by("-created", "-id"))
 
         def priv_ids(param, prefix, to_priv):
+            # Returns None when the parameter is absent (no narrowing), or a list
+            # of decoded private ids when it is present. A present-but-invalid
+            # value yields an empty list, which narrows the queryset to nothing
+            # rather than silently returning every outcome of the caller.
             raw = (self.request.query_params.get(param, "") or "").lower()
-            if not raw: return []
+            if not raw: return None
             pat = re.compile(rf"^{prefix}\d+$")
             out = []
             for p in map(str.strip, raw.split(",")):
@@ -367,8 +371,8 @@ class ValidationOutcomeListAPIView(ListAPIView):
         req_ids  = priv_ids("request_public_id", "r", ValidationRequest.to_private_id)
         task_ids = priv_ids("validation_task_public_id", "t", ValidationTask.to_private_id)
 
-        if req_ids:  qs = qs.filter(validation_task__request__id__in=req_ids)
-        if task_ids: qs = qs.filter(validation_task__id__in=task_ids)
+        if req_ids  is not None: qs = qs.filter(validation_task__request__id__in=req_ids)
+        if task_ids is not None: qs = qs.filter(validation_task__id__in=task_ids)
         return qs
 
 
