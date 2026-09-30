@@ -528,6 +528,7 @@ class StatisticsQueryResult:
     columns: list[str]
     rows: list[list]
     sql: str
+    models_considered: int | None = None
 
     @property
     def display_rows(self):
@@ -535,6 +536,16 @@ class StatisticsQueryResult:
             [format_statistics_value(value) for value in row]
             for row in self.rows
         ]
+
+
+def result_payload(result):
+    """Machine-readable result for the JSON output option and CLI export."""
+    return {
+        "columns": list(result.columns),
+        "rows": [list(row) for row in result.rows],
+        "models_considered": result.models_considered,
+        "sql": result.sql,
+    }
 
 
 def format_statistics_value(value):
@@ -629,7 +640,8 @@ class StatisticsQueryBuilder:
                 query, clause.operator, clause.value, "model__",
             )
         return self.apply_lookup_filter(
-            query, concept.lookup, clause.operator, clause.value,
+            query, concept.lookup, clause.operator,
+            concept.scale(clause.value),
         )
 
     def filter_condition(self, clause):
@@ -684,7 +696,7 @@ class StatisticsQueryBuilder:
                 f"Operator {clause.operator!r} requires an entity concept.",
             )
         condition = Q(**{
-            f"{concept.lookup}{operation.suffix}": clause.value,
+            f"{concept.lookup}{operation.suffix}": concept.scale(clause.value),
         })
         return ~condition if operation.negated else condition
 
@@ -752,14 +764,17 @@ class StatisticsQueryBuilder:
                 models = self.apply_vendor_filter(
                     models, clause.operator, clause.value, "",
                 )
-            elif clause.concept in {"model", "schema", "is_staff"}:
+            elif clause.concept in {"model", "schema", "is_staff", "size_mb"}:
+                concept = CONCEPT[clause.concept]
                 lookup = {
                     "model": "pk",
                     "schema": "schema",
                     "is_staff": "uploaded_by__is_staff",
+                    "size_mb": "size",
                 }[clause.concept]
                 models = self.apply_lookup_filter(
-                    models, lookup, clause.operator, clause.value,
+                    models, lookup, clause.operator,
+                    concept.scale(clause.value),
                 )
         if self.source.name == "entity":
             models = models.filter(
@@ -992,10 +1007,9 @@ class StatisticsQueryBuilder:
             base.aggregate(total=count_expression)["total"] or 0
             if "total_count" in formula_names else None
         )
-        computed_models = (
-            self.computed_model_count()
-            if "computed_models" in formula_names else None
-        )
+        # Always resolved: the model count is reported alongside the result and
+        # the formula reuses it whenever computed_models is referenced.
+        computed_models = self.computed_model_count()
         query_fields = list(fields)
         if not query_fields:
             grouped_base = grouped_base.annotate(statistics_scalar=Value(1))
@@ -1041,6 +1055,7 @@ class StatisticsQueryBuilder:
             labels + [expression.source],
             rows,
             format_sql(str(query.query)),
+            computed_models,
         )
 
     def average_expression_result(self, base, fields, labels, count_expression, expression):
@@ -1118,4 +1133,5 @@ class StatisticsQueryBuilder:
             labels + [expression.source],
             rows,
             format_sql(str(per_model.query)),
+            denominator,
         )

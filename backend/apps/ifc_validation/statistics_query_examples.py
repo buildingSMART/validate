@@ -76,4 +76,8 @@ EXAMPLES = (
             (QueryFilter("model", "eq", 123),
              QueryFilter("template", "eq", "Usage_of_transition_curves_geometry.md")),
             StatisticsExpression("sum"), limit=None),
+    example("Average top 10 element subtypes used in IFC4 files larger than 5 MB", "entity", ("entity",),
+            (QueryFilter("schema", "eq", "IFC4"), QueryFilter("size_mb", "gt", 5),
+             QueryFilter("entity", "subtype_of", "IfcElement"),
+             QueryFilter("entity_kind", "eq", False)), StatisticsExpression("average")),
 )

@@ -1,4 +1,5 @@
 import gzip
+import json
 from collections import Counter
 from decimal import Decimal
 from io import StringIO
@@ -17,6 +18,7 @@ from django.utils import timezone
 
 from apps.ifc_validation.checks.statistics.apply_mvd import available_template_names
 from apps.ifc_validation.statistics_query import (
+    CONCEPT,
     CONCEPTS,
     SOURCES,
     QueryFilter,
@@ -67,8 +69,19 @@ COLUMN_PROPERTY_PROJECTION_NAMES = Counter({
     "PSet_2": 1,
 })
 
+MEGABYTE = 1024 * 1024
+
 
 class StatisticsValueTests(SimpleTestCase):
+    def test_size_concept_filters_all_sources_and_stores_megabytes(self):
+        concept = CONCEPT["size_mb"]
+
+        assert set(concept.valid_sources) == {"entity", "pset", "template"}
+        assert concept.operators == ("gt", "gte", "lt", "lte")
+        assert concept.lookup == "model__size"
+        assert concept.value_scale == 1024 * 1024
+        assert concept.parse("5") == 5
+
     def test_statistics_tasks_are_not_scheduled_periodically(self):
         """Scheduling is manual until the memory limits are in place."""
         assert not [
@@ -585,7 +598,7 @@ class StatisticsQueryBuilderTests(TestCase):
             "operand_b": operand_b,
         }
 
-    def post_query(self, clauses, source="entity"):
+    def post_query(self, clauses, source="entity", **extra):
         self.client.force_login(self.user)
         data = {
             "source": source,
@@ -597,6 +610,7 @@ class StatisticsQueryBuilderTests(TestCase):
         for index, clause in enumerate(clauses):
             for field, value in clause.items():
                 data[f"clauses-{index}-{field}"] = value
+        data.update(extra)
         return self.client.post(
             reverse("admin:ifc_validation_models_model_statistics"),
             data,
@@ -1723,7 +1737,7 @@ class StatisticsQueryBuilderTests(TestCase):
         assert b"statistics-example-clause" in response.content
         assert b"Top 10 element subtypes used in one file" in response.content
         assert b"Average proxy ratio in files of an IFC version" in response.content
-        assert response.content.count(b"data-example-index=") == 13
+        assert response.content.count(b"data-example-index=") == 14
         assert b'id="statistics-query-examples"' in response.content
 
     def test_source_controls_available_filter_and_group_choices(self):
@@ -1770,6 +1784,7 @@ class StatisticsQueryBuilderTests(TestCase):
             "Property type counts for a single model",
             "Basis counts grouped by AuthoringTool",
             "Basis type counts for a single model",
+            "Average top 10 element subtypes used in IFC4 files larger than 5 MB",
         ]
         for index, example in enumerate(examples):
             operations = [clause["operation"] for clause in example["clauses"]]
@@ -1868,6 +1883,8 @@ class StatisticsQueryBuilderTests(TestCase):
                 graph={"ParentCurve": "IfcClothoid"},
             ),
         ])
+        # The size example only matches models larger than 5 MB.
+        Model.objects.update(size=10 * MEGABYTE)
         examples = statistics_query_ui_context()["statistics_query_examples"]
 
         for example in examples:
@@ -2143,3 +2160,150 @@ class StatisticsQueryBuilderTests(TestCase):
                             for row in result.rows
                             for value in row[:-1]
                         )
+
+    def test_size_filter_restricts_entity_results_and_models_considered(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        result = self.execute(
+            limit=10,
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+                self.clause("size_mb", "gt", 5),
+                self.clause("entity_kind", "eq", "concrete", False),
+            ],
+        )
+
+        assert {row[1]: row[2] for row in result.rows} == {
+            "IfcWall": 30,
+            "IfcDoor": 5,
+        }
+        assert result.models_considered == 1
+        assert '"ifc_model"."size"' in result.sql
+        assert str(5 * MEGABYTE) in result.sql
+
+    def test_size_filter_restricts_pset_results_and_models_considered(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        result = self.execute(
+            source="pset",
+            group_by="pset",
+            limit=10,
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+                self.clause("size_mb", "gt", 5),
+                self.clause("pset_scope", "eq", "definitions", True),
+            ],
+        )
+
+        assert dict(result.rows) == {"Custom_Second": 8, "Pset_WallCommon": 2}
+        assert result.models_considered == 1
+
+    def test_size_filter_restricts_template_results_and_models_considered(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        result = self.execute(
+            source="template",
+            group_by=(),
+            limit=None,
+            filters=[
+                self.clause("size_mb", "gt", 5),
+                self.clause("template", "eq", "Template_A.md"),
+            ],
+        )
+
+        assert result.rows == [[1]]
+        assert result.models_considered == 1
+
+    def test_size_filter_applies_to_average_denominator(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        result = self.execute(
+            expression="avg(count)",
+            limit=10,
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+                self.clause("size_mb", "gt", 5),
+                self.clause("entity_kind", "eq", "concrete", False),
+            ],
+        )
+        unfiltered = self.execute(
+            expression="avg(count)",
+            limit=10,
+            filters=[
+                self.clause("schema", "eq", "IFC4"),
+                self.clause("entity_kind", "eq", "concrete", False),
+            ],
+        )
+
+        assert {row[1]: row[2] for row in result.rows} == {
+            "IfcWall": 30,
+            "IfcDoor": 5,
+        }
+        assert result.models_considered == 1
+        assert unfiltered.models_considered == 2
+        assert {row[1]: row[2] for row in unfiltered.rows}["IfcWall"] == 20
+
+    def test_admin_json_output_returns_rows_and_models_considered(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        response = self.post_query(
+            [
+                {"operation": "group", "target": "group:entity"},
+                self.expression(function="sum"),
+                {
+                    "operation": "filter",
+                    "target": "filter:size_mb",
+                    "operator": "gt",
+                    "value": 5,
+                },
+                {
+                    "operation": "filter",
+                    "target": "filter:entity_kind",
+                    "operator": "eq",
+                    "value": "concrete",
+                },
+            ],
+            output="json",
+        )
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "application/json"
+        payload = response.json()
+        assert payload["columns"] == ["Schema", "Entity", "count"]
+        assert payload["rows"] == [
+            ["IFC4", "IfcWall", 30],
+            ["IFC4", "IfcDoor", 5],
+        ]
+        assert payload["models_considered"] == 1
+        assert "SELECT" in payload["sql"]
+
+    def test_admin_page_reports_models_considered(self):
+        response = self.post_query([
+            {"operation": "group", "target": "group:entity"},
+            self.expression(),
+        ])
+
+        assert response.status_code == 200
+        assert response.context["models_considered"] == 2
+        assert b"Models considered" in response.content
+
+    def test_statistics_query_command_exports_json_from_a_spec_file(self):
+        Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
+        spec = {
+            "source": "entity",
+            "groups": ["entity"],
+            "expression": {"function": "sum", "operand_a": "count"},
+            "limit": 10,
+            "filters": [
+                {"concept": "schema", "operator": "eq", "value": "IFC4"},
+                {"concept": "size_mb", "operator": "gt", "value": "5"},
+                {"concept": "entity_kind", "operator": "eq", "value": "concrete"},
+            ],
+        }
+        with TemporaryDirectory() as temp_dir:
+            spec_path = Path(temp_dir) / "spec.json"
+            spec_path.write_text(json.dumps(spec))
+            stdout = StringIO()
+            call_command("statistics_query", str(spec_path), stdout=stdout)
+
+        payload = json.loads(stdout.getvalue())
+        assert payload["rows"] == [
+            ["IFC4", "IfcWall", 30],
+            ["IFC4", "IfcDoor", 5],
+        ]
+        assert payload["models_considered"] == 1

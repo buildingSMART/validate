@@ -59,6 +59,7 @@ to the model.
 |----------------|-------------------------------|------------------|------------------------|------------------|
 | model          | Model ID                      | filter, group    | entity, pset, template | eq, ne |
 | schema         | IFC schema                    | filter, group    | entity, pset, template | eq, ne, contains, not_contains |
+| size_mb        | Model size (MB)               | filter           | entity, pset, template | gt, gte, lt, lte |
 | entity         | Entity                        | filter, group    | entity, pset, template | eq, ne, subtype_of, not_subtype_of |
 | count          | Count                         | filter           | entity, pset           | eq, ne, gt, gte, lt, lte |
 | entity_kind    | Entity row type               | filter           | entity                 | eq, ne |
@@ -126,6 +127,7 @@ class Concept(NamedChoice):
     lookup: str | None = None
     values: tuple = ()
     value_type: str = "text"
+    value_scale: int = 1
     group_fields: tuple = ()
     result_labels: tuple = ()
 
@@ -144,6 +146,10 @@ class Concept(NamedChoice):
                 raise ValueError
             return parsed
         return value
+
+    def scale(self, value):
+        """Convert the parsed value into the unit stored by the database."""
+        return value * self.value_scale if self.value_scale != 1 else value
 
     def serialize(self, value):
         for name, parsed in self.values:
@@ -358,6 +364,9 @@ CONCEPTS = (
             result_labels=("Model ID", "Model")),
     Concept("schema", "IFC schema", _BOTH, operators=("eq", "ne", "contains", "not_contains"),
             lookup="model__schema", group_fields=("model__schema",), result_labels=("Schema",)),
+    Concept("size_mb", "Model size (MB)", _FILTER,
+            operators=("gt", "gte", "lt", "lte"), lookup="model__size",
+            value_type="non_negative_integer", value_scale=1024 * 1024),
     Concept("entity", "Entity", _BOTH, operators=("eq", "ne", "subtype_of", "not_subtype_of")),
     Concept("count", "Count", _FILTER, _ENTITY_PSET,
             ("eq", "ne", "gt", "gte", "lt", "lte"), "count",

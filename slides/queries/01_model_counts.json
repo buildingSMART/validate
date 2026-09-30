@@ -1,0 +1,8 @@
+{
+  "source": "entity",
+  "groups": ["schema"],
+  "expression": {"function": "count_distinct", "operand_a": "model"},
+  "ordering": "descending",
+  "limit": null,
+  "filters": []
+}

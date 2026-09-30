@@ -1,0 +1,10 @@
+{
+  "source": "entity",
+  "groups": ["schema", "entity"],
+  "expression": {"function": "sum", "operand_a": "count"},
+  "ordering": "descending",
+  "limit": 300,
+  "filters": [
+    {"concept": "entity_kind", "operator": "eq", "value": "concrete"}
+  ]
+}

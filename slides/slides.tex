@@ -1,0 +1,28 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usepackage{graphicx}
+
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{IFC validation corpus statistics}
+\subtitle{Model structure and property sets across IFC schemas}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+% Frames are generated from the query JSON exports by render_slides.py.
+\IfFileExists{generated_frames.tex}{%
+  \input{generated_frames.tex}%
+}{%
+  \begin{frame}{No figures yet}
+    Run \texttt{make fetch} to pull JSON exports, then \texttt{make figures}.
+  \end{frame}
+}
+
+\end{document}

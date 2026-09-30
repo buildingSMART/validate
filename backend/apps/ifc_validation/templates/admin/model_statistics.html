@@ -115,10 +115,17 @@
       </fieldset>
       <div class="submit-row">
         <input type="submit" value="Run query" class="default">
+        <label class="statistics-json-toggle">
+          <input type="checkbox" name="output" value="json">
+          Return JSON instead of the table
+        </label>
       </div>
     </form>
 
     {% if columns %}
+      <p class="statistics-models-considered">
+        Models considered: <strong>{{ models_considered }}</strong>
+      </p>
       <p class="statistics-result-actions">
         <button type="button" class="button" id="statistics-copy-results">
           Copy results for Excel
@@ -342,6 +349,7 @@
       const placeholders = {
         "filter:model": "Database model ID",
         "filter:schema": "For example IFC4",
+        "filter:size_mb": "Size in megabytes, e.g. 5",
         "filter:entity": "For example IfcWall",
         "filter:count": "Non-negative integer",
         "filter:entity_kind": "concrete or inherited",

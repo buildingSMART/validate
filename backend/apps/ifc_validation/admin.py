@@ -8,7 +8,7 @@ from django.contrib.auth import get_permission_codename
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.core.exceptions import FieldError, PermissionDenied
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import ngettext
@@ -50,6 +50,7 @@ from .statistics_query import (
     bind_statistics_query_form_data,
     format_sql,
     model_histogram_query,
+    result_payload,
     statistics_query_ui_context,
 )
 
@@ -604,6 +605,14 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
             except (DatabaseError, FieldError, RuntimeError, ValueError) as error:
                 query_error = str(error)
 
+        output = (
+            request.POST.get("output")
+            or request.GET.get("output")
+            or ""
+        ).lower()
+        if result is not None and output == "json":
+            return JsonResponse(result_payload(result))
+
         context = {
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
@@ -614,6 +623,7 @@ class ModelAdmin(BaseAdmin, NonAdminAddable):
             "columns": result.columns if result else [],
             "rows": result.rows if result else [],
             "display_rows": result.display_rows if result else [],
+            "models_considered": result.models_considered if result else None,
             "sql": result.sql if result else "",
             **statistics_query_ui_context(),
         }
