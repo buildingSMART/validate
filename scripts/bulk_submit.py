@@ -41,6 +41,9 @@ Examples
 
     # dry run: show what would be submitted
     ./bulk_submit.py --dry-run --limit 50
+
+    # only members whose uploaded size is at least 5 MB
+    ./bulk_submit.py --min-size 5 --state run1.jsonl
 """
 
 from __future__ import annotations
@@ -250,6 +253,9 @@ def main() -> int:
     ap.add_argument("--state", default=None, help="JSONL file recording completed members")
     ap.add_argument("--log", default=None, help="JSONL file recording every attempt")
     ap.add_argument("--max-mb", type=int, default=256, help="API per-file limit (default 256)")
+    ap.add_argument("--min-size", type=float, default=0.0, metavar="MB",
+                    help="skip members whose uploaded size is below N megabytes "
+                         "(default 0; .ifc.gz members are sized after decompression)")
     ap.add_argument("--timeout", type=float, default=900.0, help="HTTP timeout seconds")
     ap.add_argument("--limit", type=int, default=0, help="stop after N successful submits")
     ap.add_argument("--start-index", type=int, default=0, help="skip members before this index")
@@ -265,6 +271,9 @@ def main() -> int:
         ap.error("--token (or BSI_API_TOKEN) is required unless --dry-run")
 
     max_bytes = args.max_mb * 1024 * 1024
+    min_bytes = int(args.min_size * 1024 * 1024)
+    if min_bytes > max_bytes:
+        ap.error("--min-size cannot exceed --max-mb")
     os.makedirs(args.tmpdir, exist_ok=True)
     scratch = os.path.join(args.tmpdir, "current.ifc")
 
@@ -303,7 +312,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, _sigint)
 
     counters = dict(seen=0, candidates=0, submitted=0, skipped_done=0, skipped_big=0,
-                    skipped_other=0, failed=0, bytes_up=0, throttled=0)
+                    skipped_small=0, skipped_other=0, failed=0, bytes_up=0, throttled=0)
     started = time.time()
 
     def emit(rec: dict):
@@ -339,6 +348,15 @@ def main() -> int:
                 continue
 
             counters["candidates"] += 1
+
+            # pre-check the size when the tar header gives it to us (plain members);
+            # .ifc.gz members are decompressed first, so only the post-write check is exact
+            if kind == "plain" and member.size < min_bytes:
+                counters["skipped_small"] += 1
+                log(f"SKIP too small ({member.size/1048576:.2f} MB) {member.name}", verbose=True)
+                emit({"ts": iso_now(), "key": key, "name": member.name, "index": index,
+                      "ok": False, "reason": "too_small", "size": member.size})
+                continue
 
             # pre-check the size when the tar header gives it to us (plain members)
             if kind == "plain" and member.size > max_bytes:
@@ -392,6 +410,14 @@ def main() -> int:
                 log(f"SKIP {reason} {member.name}", verbose=True)
                 emit({"ts": iso_now(), "key": key, "name": member.name, "index": index,
                       "ok": False, "reason": reason, "size": written})
+                continue
+
+            if written < min_bytes:
+                os.unlink(scratch)
+                counters["skipped_small"] += 1
+                log(f"SKIP too small ({written/1048576:.2f} MB) {member.name}", verbose=True)
+                emit({"ts": iso_now(), "key": key, "name": member.name, "index": index,
+                      "ok": False, "reason": "too_small", "size": written})
                 continue
 
             if args.dry_run:
@@ -482,6 +508,7 @@ def main() -> int:
     log(f"submitted             {counters['submitted']} ({counters['bytes_up']/1073741824:.2f} GiB)")
     log(f"already done / skipped {counters['skipped_done']}")
     log(f"skipped too large     {counters['skipped_big']}")
+    log(f"skipped too small     {counters['skipped_small']}")
     log(f"skipped other         {counters['skipped_other']}")
     log(f"failed                {counters['failed']}")
     log(f"throttled (429) hits  {counters['throttled']}")
