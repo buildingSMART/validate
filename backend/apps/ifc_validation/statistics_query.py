@@ -968,10 +968,12 @@ class StatisticsQueryBuilder:
         )
         for index, field in enumerate(fields):
             if field == "entity_index":
-                displayed[index] = (
-                    EntityCountHistogram.string_from_index(schema, values[index])
-                    if values[index] is not None else "Property definitions"
-                )
+                if values[index] is None:
+                    displayed[index] = "Property definitions"
+                elif schema:
+                    displayed[index] = EntityCountHistogram.string_from_index(schema, values[index])
+                else:
+                    displayed[index] = "Unknown entity"
             elif field == "is_standardized":
                 displayed[index] = "Standard" if values[index] else "Custom"
             elif field == "pset_name" and not values[index]:

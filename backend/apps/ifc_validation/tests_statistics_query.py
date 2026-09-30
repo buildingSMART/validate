@@ -2282,6 +2282,28 @@ class StatisticsQueryBuilderTests(TestCase):
         assert response.context["models_considered"] == 2
         assert b"Models considered" in response.content
 
+    def test_entity_names_fall_back_when_model_has_no_schema(self):
+        model = Model.objects.create(
+            file_name="no-schema.ifc",
+            file="no-schema.ifc",
+            size=1,
+            schema=None,
+            uploaded_by=self.user,
+        )
+        EntityCountHistogram.objects.create(
+            model=model,
+            entity_index=0,
+            count=3,
+            is_supertype=False,
+        )
+
+        result = self.execute(
+            limit=100,
+            filters=[self.clause("entity_kind", "eq", "concrete", False)],
+        )
+
+        assert [None, "Unknown entity", 3] in result.rows
+
     def test_statistics_query_command_exports_json_from_a_spec_file(self):
         Model.objects.filter(pk=self.second.pk).update(size=10 * MEGABYTE)
         spec = {
