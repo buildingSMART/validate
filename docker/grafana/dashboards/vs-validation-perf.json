@@ -7,7 +7,7 @@
   ],
   "editable": true,
   "schemaVersion": 39,
-  "version": 2,
+  "version": 6,
   "refresh": "5m",
   "time": {
     "from": "now-90d",
@@ -858,8 +858,8 @@
     {
       "id": 11,
       "type": "barchart",
-      "title": "Rule cost per month — did our efforts help? ($rule)",
-      "description": "Did our optimisations make a rule cheaper over time? Pick a rule and compare average CPU per run with the number of runs, so volume noise is visible.",
+      "title": "Rule cost per ${bucket:text} — did our efforts help? ($rule)",
+      "description": "Per-rule CPU cost over time, bucketed by the month/quarter dropdown. avg = sum(CPU)/sum(runs) per bucket, so heavy months weigh correctly in quarters. Month/quarter = log file mtime; the running bucket is shown (an average is not distorted by a partial bucket). Source: gherkin logs, aggregated nightly by prod-crons/gherkin_rule_timings.sh.",
       "gridPos": {
         "h": 9,
         "w": 24,
@@ -873,22 +873,30 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "gherkin_rule_monthly_cpu_seconds_avg{rule=\"$rule\"}",
+          "expr": "gherkin_rule_period_cpu_seconds_avg{rule=\"$rule\",bucket=\"$bucket\"}",
           "format": "table",
-          "instant": true
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         },
         {
           "refId": "B",
-          "expr": "gherkin_rule_monthly_runs{rule=\"$rule\"}",
+          "expr": "gherkin_rule_period_runs{rule=\"$rule\",bucket=\"$bucket\"}",
           "format": "table",
-          "instant": true
+          "instant": true,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          }
         }
       ],
       "transformations": [
         {
           "id": "joinByField",
           "options": {
-            "byField": "month",
+            "byField": "period",
             "mode": "outer"
           }
         },
@@ -896,7 +904,7 @@
           "id": "filterFieldsByName",
           "options": {
             "include": {
-              "pattern": "^(month|Value #[AB])$"
+              "pattern": "^(period|Value #[AB])$"
             }
           }
         },
@@ -914,7 +922,7 @@
           "options": {
             "sort": [
               {
-                "field": "month",
+                "field": "period",
                 "desc": false
               }
             ]
@@ -923,7 +931,7 @@
       ],
       "options": {
         "orientation": "vertical",
-        "xField": "month"
+        "xField": "period"
       },
       "fieldConfig": {
         "defaults": {
@@ -977,6 +985,32 @@
           "text": "OJP001",
           "value": "OJP001"
         }
+      },
+      {
+        "name": "bucket",
+        "label": "Granularity",
+        "type": "custom",
+        "query": "month : monthly, quarter : quarterly",
+        "current": {
+          "text": "quarter",
+          "value": "quarterly",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "month",
+            "value": "monthly",
+            "selected": false
+          },
+          {
+            "text": "quarter",
+            "value": "quarterly",
+            "selected": true
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "description": "Bucket for the rule-cost chart."
       }
     ]
   }

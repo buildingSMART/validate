@@ -8,7 +8,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 23,
   "editable": true,
   "refresh": "",
   "time": {
@@ -23,7 +23,87 @@
     ]
   },
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "company",
+        "label": "Company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "devpg"
+        },
+        "query": "SELECT name AS __text, id::text AS __value FROM ifc_company ORDER BY name",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "All",
+        "multi": false,
+        "current": {
+          "text": "All",
+          "value": "All",
+          "selected": true
+        },
+        "options": [],
+        "sort": 0,
+        "description": "Filter the content panels to one implementer; 'All' = everyone. Stat tiles stay global."
+      },
+      {
+        "name": "bucket",
+        "label": "Granularity",
+        "type": "custom",
+        "query": "quarter,month",
+        "current": {
+          "text": "quarter",
+          "value": "quarter",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "quarter",
+            "value": "quarter",
+            "selected": true
+          },
+          {
+            "text": "month",
+            "value": "month",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "description": "Time bucket for the trend panels. Distinct counts are per bucket: 'active at least once in that quarter/month'. The running (incomplete) bucket is excluded."
+      },
+      {
+        "name": "uploader",
+        "label": "Uploader",
+        "type": "custom",
+        "query": "all : all, vendor staff : vendor, other : other",
+        "current": {
+          "text": "all",
+          "value": "all",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "all",
+            "value": "all",
+            "selected": true
+          },
+          {
+            "text": "vendor staff",
+            "value": "vendor",
+            "selected": false
+          },
+          {
+            "text": "other",
+            "value": "other",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "description": "Filter the header-quality panels by uploader. 'vendor staff' = users whose email address matches a known vendor company's domain pattern (the is_vendor flag, set automatically at login and via an admin action) - effectively people at the tool makers. 'other' includes hand-made and scripted files."
+      }
+    ]
   },
   "annotations": {
     "list": []
@@ -34,10 +114,10 @@
       "title": "Companies",
       "description": "How many companies use the service? Derived from the authoring tool named in the file header; 'in range' = at least one upload in the selected period.",
       "gridPos": {
-        "h": 4,
-        "w": 6,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -92,10 +172,10 @@
       "title": "Tools",
       "description": "How many distinct authoring tools upload here? Counted by name stem: canonical_name (language package stripped, IVS-884) cut at the first digit, so all versions of 'Revit' count once.",
       "gridPos": {
-        "h": 4,
-        "w": 6,
         "x": 6,
-        "y": 0
+        "y": 0,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -150,10 +230,10 @@
       "title": "Tool versions",
       "description": "How many distinct tool versions do we see? A version is name + version as written in the header; language packages of the same version count once (canonical_name, IVS-884).",
       "gridPos": {
-        "h": 4,
-        "w": 6,
         "x": 12,
-        "y": 0
+        "y": 0,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -208,10 +288,10 @@
       "title": "Models validated",
       "description": "How many models were validated?",
       "gridPos": {
-        "h": 4,
-        "w": 6,
         "x": 18,
-        "y": 0
+        "y": 0,
+        "w": 6,
+        "h": 4
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -263,13 +343,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Schema adoption per month",
-      "description": "Is IFC 4.3 taking over from IFC4 and IFC2X3? Uploads per month by schema family; '(empty)' = no schema in the header.",
+      "title": "Schema adoption",
+      "description": "Is IFC 4.3 taking over from IFC4 and IFC2X3? Uploads per month by schema family; Respects the Company filter. Bucketed by $bucket; the running (incomplete) bucket is excluded. The tiny 'other' family and headerless '(empty)' uploads are hidden for legibility.",
       "gridPos": {
-        "h": 9,
-        "w": 14,
         "x": 0,
-        "y": 4
+        "y": 4,
+        "w": 14,
+        "h": 9
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -284,7 +364,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "WITH s AS (SELECT date_trunc('month', created) AS time, upper(replace(replace(COALESCE(schema, ''), ' ', ''), '_', '')) AS raw\n           FROM ifc_model WHERE $__timeFilter(created))\nSELECT time, CASE WHEN raw ~ 'IFC4X3|IFC4\\.3' THEN 'IFC4X3' WHEN raw ~ 'IFC4X[12]' THEN 'IFC4X1/4X2' WHEN raw ~ '^IFC4' THEN 'IFC4' WHEN raw ~ 'IFC2X3|^2X3' THEN 'IFC2X3' WHEN raw = '' THEN '(empty)' ELSE 'other' END AS metric, COUNT(*)::float AS value\nFROM s GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT * FROM (\nWITH s AS (SELECT date_trunc('$bucket', m.created) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END)/2 AS time, upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) AS raw\n           FROM ifc_model m LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id WHERE $__timeFilter(m.created) AND m.created < date_trunc('$bucket', now()) AND ('$company' = 'All' OR at.company_id::text = '$company'))\nSELECT time, CASE WHEN raw ~ 'IFC4X3|IFC4\\.3' THEN 'IFC4X3' WHEN raw ~ 'IFC4X[12]' THEN 'IFC4X1/4X2' WHEN raw ~ '^IFC4' THEN 'IFC4' WHEN raw ~ 'IFC2X3|^2X3' THEN 'IFC2X3' WHEN raw = '' THEN '(empty)' ELSE 'other' END AS metric, COUNT(*)::float AS value\nFROM s GROUP BY 1, 2 \n) q WHERE metric NOT IN ('other','(empty)') ORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -315,13 +395,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Who produces IFC 4.3: distinct tools and companies per month",
-      "description": "How many tools and companies actually ship IFC 4.3 files each month?",
+      "title": "Who produces IFC 4.3: distinct tools and companies",
+      "description": "How many tools and companies actually ship IFC 4.3 files each month? Respects the Company filter. Bucketed by $bucket; the running (incomplete) bucket is excluded.",
       "gridPos": {
-        "h": 9,
-        "w": 10,
         "x": 14,
-        "y": 4
+        "y": 4,
+        "w": 10,
+        "h": 9
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -336,7 +416,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('month', m.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nUNION ALL\nSELECT date_trunc('month', m.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' GROUP BY 1\nORDER BY 1, 2"
+          "rawSql": "SELECT (date_trunc('$bucket', m.created) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) - interval '1 hour') AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND m.created < date_trunc('$bucket', now()) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' AND ('$company' = 'All' OR at.company_id::text = '$company') GROUP BY 1\nUNION ALL\nSELECT (date_trunc('$bucket', m.created) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) - interval '1 hour') AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND m.created < date_trunc('$bucket', now()) AND upper(replace(replace(COALESCE(m.schema, ''), ' ', ''), '_', '')) ~ 'IFC4X3|IFC4\\.3' AND ('$company' = 'All' OR at.company_id::text = '$company') GROUP BY 1\nORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -345,8 +425,11 @@
           "decimals": 0,
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 10
-          }
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          },
+          "min": 0
         },
         "overrides": []
       },
@@ -364,12 +447,12 @@
     {
       "type": "table",
       "title": "Capability: functional parts produced, by distinct tools and companies",
-      "description": "Which parts of IFC do tools really produce, and by how many tools and companies? A part counts when one of its rules activated (any result other than N/A). Lower bound; refreshed nightly.",
+      "description": "Which parts of IFC do tools really produce, and by how many tools and companies? A part counts when one of its rules activated (any result other than N/A). Lower bound; refreshed nightly. Respects the Company filter.",
       "gridPos": {
-        "h": 12,
-        "w": 12,
         "x": 0,
-        "y": 13
+        "y": 13,
+        "w": 12,
+        "h": 12
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -384,7 +467,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT functional_part AS \"functional part\",\n       COUNT(DISTINCT tool_stem)  AS tools,\n       COUNT(DISTINCT company_id) AS companies,\n       SUM(models)                AS \"model-months\"\nFROM vs_adoption_capability\nWHERE $__timeFilter(month)\nGROUP BY 1 ORDER BY 2 DESC, 3 DESC"
+          "rawSql": "SELECT functional_part AS part, CASE functional_part WHEN 'PJS' THEN 'Project definition' WHEN 'GRF' THEN 'Georeferencing' WHEN 'BLT' THEN 'Built elements' WHEN 'ASM' THEN 'Assemblies' WHEN 'SPA' THEN 'Spaces' WHEN 'VRT' THEN 'Virtual elements' WHEN 'GEM' THEN 'Geometry representation' WHEN 'OJP' THEN 'Object placement' WHEN 'POS' THEN 'Positioning elements' WHEN 'OJT' THEN 'Object typing' WHEN 'GRP' THEN 'Groups' WHEN 'SPS' THEN 'Spatial breakdown' WHEN 'MAT' THEN 'Materials' WHEN 'PSE' THEN 'Properties' WHEN 'QTY' THEN 'Quantities' WHEN 'CLS' THEN 'Classification' WHEN 'ANN' THEN 'Annotations' WHEN 'LAY' THEN 'Presentation layers' WHEN 'CTX' THEN 'Colours & textures' WHEN 'POR' THEN 'Ports' WHEN 'STR' THEN 'Structural' WHEN 'CST' THEN 'Costing' WHEN 'SDL' THEN 'Scheduling' WHEN 'LIB' THEN 'Library references' WHEN 'DOC' THEN 'Documentation references' WHEN 'CTR' THEN 'Constraints' WHEN 'VER' THEN 'Versioning' WHEN 'AXG' THEN 'Axis geometry' WHEN 'ALS' THEN 'Alignment geometry' WHEN 'ALA' THEN 'Alignment' WHEN 'ALB' THEN 'Alignment' WHEN 'PBG' THEN 'Point-based geometry' WHEN 'TAS' THEN 'Tessellated meshes' WHEN 'BRP' THEN 'BREP geometry' WHEN 'CSG' THEN 'CSG geometry' WHEN 'SWE' THEN 'Swept geometry' WHEN 'TFM' THEN 'Transformations' WHEN 'BBX' THEN 'Bounding box' WHEN 'IFC' THEN 'Schema & file structure' WHEN 'LOP' THEN 'Local placement' WHEN 'MPD' THEN 'Mapped geometry' WHEN 'LIP' THEN 'Linear placement' WHEN 'RFT' THEN 'Referents' ELSE functional_part END AS \"functional part\",\n       COUNT(DISTINCT tool_stem)  AS tools,\n       COUNT(DISTINCT company_id) AS companies,\n       SUM(models)                AS \"volume (model-months)\"\nFROM vs_adoption_capability\nWHERE $__timeFilter(month) AND ('$company' = 'All' OR company_id::text = '$company')\nGROUP BY 1, 2 ORDER BY 3 DESC, 4 DESC"
         }
       ],
       "fieldConfig": {
@@ -395,29 +478,7 @@
             "align": "auto"
           }
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "tools"
-            },
-            "properties": [
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "gauge",
-                  "mode": "basic"
-                }
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "continuous-BlPu"
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {
         "showHeader": true,
@@ -429,13 +490,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Alignment (ALA/ALB/ALS) per month: distinct tools and companies",
-      "description": "How many tools and companies produce alignment each month?",
+      "title": "Alignment (ALA/ALB/ALS): distinct tools and companies",
+      "description": "How many tools and companies produce alignment each month? Respects the Company filter. Bucketed by $bucket; the running (incomplete) bucket is excluded.",
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 12,
-        "y": 13
+        "y": 13,
+        "w": 12,
+        "h": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -450,7 +511,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT month::timestamptz AS time, 'tools' AS metric, COUNT(DISTINCT tool_stem)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) GROUP BY 1\nUNION ALL\nSELECT month::timestamptz AS time, 'companies' AS metric, COUNT(DISTINCT company_id)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) GROUP BY 1\nORDER BY 1, 2"
+          "rawSql": "SELECT (date_trunc('$bucket', month) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) - interval '1 hour')::timestamptz AS time, 'tools' AS metric, COUNT(DISTINCT tool_stem)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) AND month < date_trunc('$bucket', now()) AND ('$company' = 'All' OR company_id::text = '$company') GROUP BY 1\nUNION ALL\nSELECT (date_trunc('$bucket', month) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) - interval '1 hour')::timestamptz AS time, 'companies' AS metric, COUNT(DISTINCT company_id)::float AS value\nFROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month) AND month < date_trunc('$bucket', now()) AND ('$company' = 'All' OR company_id::text = '$company') GROUP BY 1\nORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -459,8 +520,11 @@
           "decimals": 0,
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 10
-          }
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          },
+          "min": 0
         },
         "overrides": []
       },
@@ -478,12 +542,12 @@
     {
       "type": "table",
       "title": "MVD declared per tool (top 20)",
-      "description": "Which Model View Definitions do tools declare - and who declares Alignment-basedView?",
+      "description": "Which Model View Definitions do tools declare - and who declares Alignment-basedView? Respects the Company filter.",
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 12,
-        "y": 19
+        "y": 19,
+        "w": 12,
+        "h": 6
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -498,7 +562,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COALESCE(NULLIF(m.mvd, ''), '(none)') AS mvd, COUNT(*) AS models\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created)\nGROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20"
+          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COALESCE(NULLIF(m.mvd, ''), '(none)') AS mvd, COUNT(*) AS models\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND ('$company' = 'All' OR at.company_id::text = '$company')\nGROUP BY 1, 2 ORDER BY 3 DESC LIMIT 20"
         }
       ],
       "fieldConfig": {
@@ -521,10 +585,10 @@
       "title": "Capability, last 2 months - LIVE (slow, ~15 s; ignores time picker)",
       "description": "Same question as the capability table, computed live for the last 2 months. Works before the nightly job has ever run; slow.",
       "gridPos": {
-        "h": 10,
-        "w": 12,
         "x": 0,
-        "y": 25
+        "y": 71,
+        "w": 24,
+        "h": 10
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -559,13 +623,13 @@
     },
     {
       "type": "timeseries",
-      "title": "Alignment per month - LIVE (slow, ~10 s)",
-      "description": "Same question as the alignment chart, computed live; slow.",
+      "title": "Alignment capability, cumulative",
+      "description": "Tools and companies that have EVER demonstrated alignment (an activated ALA/ALB rule) - capability once shown stays shown. Live on the outcomes table, ~15 s; ignores the time picker; running bucket excluded. Respects the Company filter.",
       "gridPos": {
-        "h": 10,
-        "w": 12,
         "x": 12,
-        "y": 25
+        "y": 33,
+        "w": 12,
+        "h": 8
       },
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -580,7 +644,7 @@
           },
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT date_trunc('month', vo.created) AS time, 'tools' AS metric, COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)'))::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nUNION ALL\nSELECT date_trunc('month', vo.created) AS time, 'companies' AS metric, COUNT(DISTINCT at.company_id)::float AS value\nFROM ifc_validation_outcome vo\nJOIN ifc_validation_task    vt ON vt.id = vo.validation_task_id\nJOIN ifc_validation_request vr ON vr.id = vt.request_id\nJOIN ifc_model              m  ON m.id  = vr.model_id\nLEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND $__timeFilter(vo.created)\nGROUP BY 1\nORDER BY 1, 2"
+          "rawSql": "WITH acts AS (\n  SELECT date_trunc('$bucket', vo.created) AS b, COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool_stem, at.company_id\n  FROM ifc_validation_outcome vo\n  JOIN ifc_validation_task vt ON vt.id = vo.validation_task_id\n  JOIN ifc_validation_request vr ON vr.id = vt.request_id\n  JOIN ifc_model m ON m.id = vr.model_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE vo.feature >= 'ALA' AND vo.feature < 'ALC' AND vo.severity > 0 AND ('$company' = 'All' OR at.company_id::text = '$company')),\nbuckets AS (SELECT DISTINCT b FROM acts WHERE b IS NOT NULL AND b >= '2024-01-01' AND b < date_trunc('$bucket', now())),\nft AS (SELECT tool_stem, min(b) AS fb FROM acts GROUP BY 1),\nfc AS (SELECT company_id, min(b) AS fb FROM acts WHERE company_id IS NOT NULL GROUP BY 1)\nSELECT b + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) AS time, 'tools (cumulative)' AS metric,\n       (SELECT COUNT(*) FROM ft WHERE ft.fb <= buckets.b)::float AS value FROM buckets\nUNION ALL\nSELECT b + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END), 'companies (cumulative)', (SELECT COUNT(*) FROM fc WHERE fc.fb <= buckets.b)::float FROM buckets\nORDER BY 1, 2"
         }
       ],
       "fieldConfig": {
@@ -589,8 +653,11 @@
           "decimals": 0,
           "custom": {
             "lineWidth": 2,
-            "fillOpacity": 10
-          }
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          },
+          "min": 0
         },
         "overrides": []
       },
@@ -604,6 +671,367 @@
         }
       },
       "id": 11
+    },
+    {
+      "id": 12,
+      "type": "barchart",
+      "title": "Header quality: which FILE_NAME fields fail",
+      "description": "Which of the four FILE_NAME fields that determine header validity (and thus vendor attribution) fail, as share of models with a stored header. originating_system, company_name and application_name derive from one string and fail together in 99% of cases - one exporter fix clears all three. Other header fields (description, author, time_stamp, ...) are recorded but do not affect validity. Respects the Company and Uploader filters.",
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH src AS (\n  SELECT m.header_validation AS hv FROM ifc_model m\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE $__timeFilter(m.created) AND jsonb_typeof(m.header_validation->'validation_errors')='array' AND ('$uploader' = 'all' OR EXISTS (SELECT 1 FROM ifc_validation_request vr LEFT JOIN ifc_user_additional_info uai ON uai.user_id = vr.created_by_id WHERE vr.model_id = m.id AND CASE WHEN '$uploader' = 'vendor' THEN COALESCE(uai.is_vendor, FALSE) ELSE NOT COALESCE(uai.is_vendor, FALSE) END)) AND ('$company' = 'All' OR at.company_id::text = '$company'))\nSELECT e AS field, ROUND(100.0*COUNT(*)/(SELECT COUNT(*) FROM src),1) AS \"% of models\"\nFROM src, jsonb_array_elements_text(hv->'validation_errors') e\nWHERE e IN ('originating_system','company_name','application_name','version') GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Clean headers over time",
+      "description": "Share of uploads whose FILE_NAME header passes the IFC 101 policy with zero field errors. Bucketed by $bucket; the running (incomplete) bucket is excluded. Respects the Company filter. Respects the Uploader filter.",
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('$bucket', m.created) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) AS time, 'clean headers' AS metric,\n       ROUND(100.0*COUNT(*) FILTER (WHERE jsonb_array_length(m.header_validation->'validation_errors')=0)\n             /NULLIF(COUNT(*) FILTER (WHERE m.header_validation IS NOT NULL),0))::float AS value\nFROM ifc_model m LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND m.created < date_trunc('$bucket', now()) AND ('$uploader' = 'all' OR EXISTS (SELECT 1 FROM ifc_validation_request vr LEFT JOIN ifc_user_additional_info uai ON uai.user_id = vr.created_by_id WHERE vr.model_id = m.id AND CASE WHEN '$uploader' = 'vendor' THEN COALESCE(uai.is_vendor, FALSE) ELSE NOT COALESCE(uai.is_vendor, FALSE) END)) AND ('$company' = 'All' OR at.company_id::text = '$company')\nGROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "IFC 4.3 capability, cumulative",
+      "description": "Tools and companies that have EVER uploaded an IFC 4.3 file - capability once shown stays shown. Ignores the time picker; running bucket excluded. Respects the Company filter.",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH acts AS (\n  SELECT date_trunc('$bucket', m.created) AS b, COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool_stem, at.company_id\n  FROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE upper(replace(COALESCE(m.schema,''),' ','')) ~ 'IFC4X3|IFC4\\.3' AND ('$company' = 'All' OR at.company_id::text = '$company')),\nbuckets AS (SELECT DISTINCT b FROM acts WHERE b IS NOT NULL AND b >= '2023-01-01' AND b < date_trunc('$bucket', now())),\nft AS (SELECT tool_stem, min(b) AS fb FROM acts GROUP BY 1),\nfc AS (SELECT company_id, min(b) AS fb FROM acts WHERE company_id IS NOT NULL GROUP BY 1)\nSELECT b + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) AS time, 'tools (cumulative)' AS metric, (SELECT COUNT(*) FROM ft WHERE ft.fb <= buckets.b)::float AS value FROM buckets\nUNION ALL\nSELECT b + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END), 'companies (cumulative)', (SELECT COUNT(*) FROM fc WHERE fc.fb <= buckets.b)::float FROM buckets\nORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Models per declared MVD",
+      "description": "How much each Model View Definition is used, among ATTRIBUTED uploads only (a parsed tool in the header) - so tools/companies counts are real. '(none)' = attributed vendors without a declared MVD: only ~3% - vendors almost always declare one. Unattributed uploads are excluded. Respects the Company filter.",
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(NULLIF(m.mvd,''),'(none)') AS mvd, COUNT(*) AS models,\n       COUNT(DISTINCT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)')) AS tools, COUNT(DISTINCT at.company_id) AS companies\nFROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\nWHERE $__timeFilter(m.created) AND ('$company' = 'All' OR at.company_id::text = '$company')\nGROUP BY 1 ORDER BY 2 DESC LIMIT 15"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "table",
+      "title": "Export toolkit landscape",
+      "description": "Which IFC export libraries sit behind the market's tools, from the header's preprocessor_version (stored for 91% of uploads since 2025 - including files whose vendor identity failed to parse). One toolkit bug reaches every vendor built on it. Toolkit = leading name, version stripped.",
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(NULLIF(regexp_replace(m.header_validation->>'preprocessor_version', '\\s*[-0-9v(][0-9.].*$', ''), ''), '(empty)') AS toolkit,\n       COUNT(*) AS models, COUNT(DISTINCT m.produced_by_id) AS tool_versions\nFROM ifc_model m\nWHERE $__timeFilter(m.created) AND m.header_validation IS NOT NULL\nGROUP BY 1 ORDER BY 2 DESC LIMIT 12"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "table",
+      "title": "Alignment-basedView: declared vs demonstrated",
+      "description": "Tools declaring Alignment-basedView in the header, and whether we ever saw an alignment rule activate on their files in the window. 'not observed' means no alignment content passed through validation - not proof the tool cannot do it. Attributed uploads only. Respects the Company filter.",
+      "gridPos": {
+        "x": 12,
+        "y": 41,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH decl AS (\n  SELECT COALESCE(NULLIF(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[0-9][0-9.]*.*$', ''), ''), '(unknown)') AS tool, COUNT(*) AS models\n  FROM ifc_model m JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE $__timeFilter(m.created) AND m.mvd ILIKE '%alignment%' AND ('$company' = 'All' OR at.company_id::text = '$company')\n  GROUP BY 1),\nact AS (SELECT DISTINCT tool_stem FROM vs_adoption_capability WHERE functional_part LIKE 'AL_' AND $__timeFilter(month))\nSELECT d.tool, d.models AS \"models declaring ABV\",\n       CASE WHEN d.tool IN (SELECT tool_stem FROM act) THEN 'yes' ELSE 'not observed' END AS \"alignment demonstrated\"\nFROM decl d ORDER BY 2 DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Header gaps over time: vendor identity and MVD",
+      "description": "The two practical header gaps, as share of uploads with a stored header (since Jan 2025). 'no vendor identity' = the originating_system cluster failed (company/application/version derive from that one string and fail together in 99% of cases). 'no MVD derivable' = no ViewDefinition could be extracted at all. Deliberately NOT shown: the strict description-policy failure rate (~55%) - 75-84% of those files still yield a usable MVD, so that line measures formatting strictness, not practice. Running bucket excluded. Respects the Company and Uploader filters.",
+      "gridPos": {
+        "x": 12,
+        "y": 49,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH base AS (\n  SELECT date_trunc('$bucket', m.created) + (CASE WHEN '$bucket'='quarter' THEN interval '3 months' ELSE interval '1 month' END) AS t,\n         (m.header_validation->'validation_errors' ? 'originating_system') AS os_err,\n         (COALESCE(m.mvd,'') = '') AS mvd_missing\n  FROM ifc_model m\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE $__timeFilter(m.created) AND m.header_validation IS NOT NULL AND m.created < date_trunc('$bucket', now())\n    AND ('$company' = 'All' OR at.company_id::text = '$company') AND ('$uploader' = 'all' OR EXISTS (SELECT 1 FROM ifc_validation_request vr LEFT JOIN ifc_user_additional_info uai ON uai.user_id = vr.created_by_id WHERE vr.model_id = m.id AND CASE WHEN '$uploader' = 'vendor' THEN COALESCE(uai.is_vendor, FALSE) ELSE NOT COALESCE(uai.is_vendor, FALSE) END)))\nSELECT t AS time, 'no vendor identity (originating_system cluster)' AS metric,\n       ROUND(100.0*COUNT(*) FILTER (WHERE os_err)/COUNT(*))::float AS value FROM base GROUP BY 1\nUNION ALL\nSELECT t, 'no MVD derivable', ROUND(100.0*COUNT(*) FILTER (WHERE mvd_missing)/COUNT(*))::float FROM base GROUP BY 1\nORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "barchart",
+      "title": "Tools per functional part",
+      "description": "Presentation view of the capability table: how many distinct tools demonstrably produced each functional part in the window (a rule of that part activated). Same source and caveats as the table above.",
+      "gridPos": {
+        "x": 0,
+        "y": 57,
+        "w": 24,
+        "h": 14
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE functional_part WHEN 'PJS' THEN 'Project definition' WHEN 'GRF' THEN 'Georeferencing' WHEN 'BLT' THEN 'Built elements' WHEN 'ASM' THEN 'Assemblies' WHEN 'SPA' THEN 'Spaces' WHEN 'VRT' THEN 'Virtual elements' WHEN 'GEM' THEN 'Geometry representation' WHEN 'OJP' THEN 'Object placement' WHEN 'POS' THEN 'Positioning elements' WHEN 'OJT' THEN 'Object typing' WHEN 'GRP' THEN 'Groups' WHEN 'SPS' THEN 'Spatial breakdown' WHEN 'MAT' THEN 'Materials' WHEN 'PSE' THEN 'Properties' WHEN 'QTY' THEN 'Quantities' WHEN 'CLS' THEN 'Classification' WHEN 'ANN' THEN 'Annotations' WHEN 'LAY' THEN 'Presentation layers' WHEN 'CTX' THEN 'Colours & textures' WHEN 'POR' THEN 'Ports' WHEN 'STR' THEN 'Structural' WHEN 'CST' THEN 'Costing' WHEN 'SDL' THEN 'Scheduling' WHEN 'LIB' THEN 'Library references' WHEN 'DOC' THEN 'Documentation references' WHEN 'CTR' THEN 'Constraints' WHEN 'VER' THEN 'Versioning' WHEN 'AXG' THEN 'Axis geometry' WHEN 'ALS' THEN 'Alignment geometry' WHEN 'ALA' THEN 'Alignment' WHEN 'ALB' THEN 'Alignment' WHEN 'PBG' THEN 'Point-based geometry' WHEN 'TAS' THEN 'Tessellated meshes' WHEN 'BRP' THEN 'BREP geometry' WHEN 'CSG' THEN 'CSG geometry' WHEN 'SWE' THEN 'Swept geometry' WHEN 'TFM' THEN 'Transformations' WHEN 'BBX' THEN 'Bounding box' WHEN 'IFC' THEN 'Schema & file structure' WHEN 'LOP' THEN 'Local placement' WHEN 'MPD' THEN 'Mapped geometry' WHEN 'LIP' THEN 'Linear placement' WHEN 'RFT' THEN 'Referents' ELSE functional_part END || ' (' || functional_part || ')' AS \"functional part\",\n       COUNT(DISTINCT tool_stem) AS tools\nFROM vs_adoption_capability\nWHERE $__timeFilter(month) AND ('$company' = 'All' OR company_id::text = '$company')\nGROUP BY functional_part ORDER BY 2 DESC"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "xField": "functional part"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": []
+      }
     }
   ]
 }

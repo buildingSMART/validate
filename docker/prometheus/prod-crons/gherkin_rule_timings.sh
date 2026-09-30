@@ -74,6 +74,12 @@ mkdir -p "$TEXTFILE_DIR"
   echo "# TYPE gherkin_rule_monthly_runs gauge"
   echo "# HELP gherkin_rule_monthly_cpu_seconds_avg Average CPU seconds per run, per rule per calendar month."
   echo "# TYPE gherkin_rule_monthly_cpu_seconds_avg gauge"
+  echo "# HELP gherkin_rule_period_cpu_seconds Total CPU seconds per rule per period; bucket=monthly|quarterly, period=YYYY-MM or YYYY-Qn."
+  echo "# TYPE gherkin_rule_period_cpu_seconds gauge"
+  echo "# HELP gherkin_rule_period_runs Number of runs per rule per period."
+  echo "# TYPE gherkin_rule_period_runs gauge"
+  echo "# HELP gherkin_rule_period_cpu_seconds_avg Average CPU seconds per run, per rule per period (sum/sum, so heavy months weigh correctly in quarters)."
+  echo "# TYPE gherkin_rule_period_cpu_seconds_avg gauge"
 
   MONTHMAP=$(mktemp)
   find "$LOG_DIR" -maxdepth 1 -name '*.log' -printf '%p\t%TY-%Tm\n' 2>/dev/null > "$MONTHMAP"
@@ -96,6 +102,18 @@ mkdir -p "$TEXTFILE_DIR"
             printf "gherkin_rule_monthly_cpu_seconds{rule=\"%s\",month=\"%s\"} %.2f\n", p[1], p[2], sum[k];
             printf "gherkin_rule_monthly_runs{rule=\"%s\",month=\"%s\"} %d\n", p[1], p[2], n[k];
             printf "gherkin_rule_monthly_cpu_seconds_avg{rule=\"%s\",month=\"%s\"} %.3f\n", p[1], p[2], sum[k]/n[k];
+            printf "gherkin_rule_period_cpu_seconds{rule=\"%s\",bucket=\"monthly\",period=\"%s\"} %.2f\n", p[1], p[2], sum[k];
+            printf "gherkin_rule_period_runs{rule=\"%s\",bucket=\"monthly\",period=\"%s\"} %d\n", p[1], p[2], n[k];
+            printf "gherkin_rule_period_cpu_seconds_avg{rule=\"%s\",bucket=\"monthly\",period=\"%s\"} %.3f\n", p[1], p[2], sum[k]/n[k];
+            q = substr(p[2], 1, 4) "-Q" int((substr(p[2], 6, 2) + 2) / 3);
+            qk = p[1] SUBSEP q;
+            qsum[qk] += sum[k]; qn[qk] += n[k];
+          }
+          for (k in qsum) {
+            split(k, p, SUBSEP);
+            printf "gherkin_rule_period_cpu_seconds{rule=\"%s\",bucket=\"quarterly\",period=\"%s\"} %.2f\n", p[1], p[2], qsum[k];
+            printf "gherkin_rule_period_runs{rule=\"%s\",bucket=\"quarterly\",period=\"%s\"} %d\n", p[1], p[2], qn[k];
+            printf "gherkin_rule_period_cpu_seconds_avg{rule=\"%s\",bucket=\"quarterly\",period=\"%s\"} %.3f\n", p[1], p[2], qsum[k]/qn[k];
           }
         }'
   rm -f "$MONTHMAP"

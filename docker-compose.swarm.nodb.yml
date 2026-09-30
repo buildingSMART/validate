@@ -242,6 +242,23 @@ services:
                 condition: on-failure
                 delay: 5s
 
+    # Remote image renderer for Grafana (PNG export of panels via /render/...).
+    # Grafana finds it via GF_RENDERING_SERVER_URL/GF_RENDERING_CALLBACK_URL in the env file.
+    image_renderer:
+        image: grafana/grafana-image-renderer:3.12.9
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            resources:
+                limits:
+                    memory: 1G
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
     node_exporter:
         image: prom/node-exporter:v1.12.1
         command:
