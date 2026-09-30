@@ -25,7 +25,7 @@ TOP_ENTITY_BARS = 50
 
 FRAME_TEMPLATE = """\
 \\begin{{frame}}{{{title}}}
-  \\includegraphics[width=\\textwidth]{{figures/{figure}.pdf}}
+  \\includegraphics[width=\\textwidth,height=0.82\\textheight,keepaspectratio]{{figures/{figure}.pdf}}
 {note}\\end{{frame}}
 """
 

@@ -14,7 +14,8 @@ figures/   rendered PDF/PNG charts (gitignored build output)
 - Python 3 with `matplotlib` (in the WSL dev env:
   `~/miniconda3/envs/validate/bin/python`).
 - A LaTeX distribution with `beamer` for `make pdf`
-  (e.g. `sudo apt install texlive-latex-recommended texlive-latex-extra`).
+  (e.g. `sudo apt install texlive-latex-recommended texlive-latex-extra`,
+  or the self-contained `tectonic slides.tex`).
 
 ## Getting the JSON
 
