@@ -1,0 +1,10 @@
+{
+  "source": "pset",
+  "groups": ["schema", "pset_name"],
+  "expression": {"function": "sum", "operand_a": "count"},
+  "ordering": "descending",
+  "limit": null,
+  "filters": [
+    {"concept": "pset_scope", "operator": "eq", "value": "definitions"}
+  ]
+}
