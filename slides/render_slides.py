@@ -38,6 +38,11 @@ def load_payload(data_dir, name):
     return json.loads(path.read_text())
 
 
+def normalize_schema(schema):
+    """Fold casing variants such as IFC4x3_ADD2 into the canonical spelling."""
+    return schema.strip().upper() if isinstance(schema, str) else schema
+
+
 def format_integer(value):
     return f"{round(value):,}"
 
@@ -72,7 +77,11 @@ def save_figure(figure, figures_dir, name):
 
 
 def schema_bar_figure(payload, title):
-    counts = {row[0]: row[1] for row in payload["rows"]}
+    counts = {}
+    for schema, count in payload["rows"]:
+        schema = normalize_schema(schema)
+        if schema in SCHEMAS:
+            counts[schema] = counts.get(schema, 0) + count
     schemas = [schema for schema in SCHEMAS if schema in counts]
     values = [counts[schema] for schema in schemas]
 
@@ -89,6 +98,7 @@ def schema_bar_figure(payload, title):
 def entity_bars_figure(payload):
     by_schema = {schema: [] for schema in SCHEMAS}
     for schema, entity, count in payload["rows"]:
+        schema = normalize_schema(schema)
         if schema in by_schema:
             by_schema[schema].append((entity, count))
     schemas = [schema for schema in SCHEMAS if by_schema[schema]]
@@ -113,6 +123,9 @@ def entity_bars_figure(payload):
 def pset_mix_figure(payload):
     totals = {}
     for schema, standardized, count in payload["rows"]:
+        schema = normalize_schema(schema)
+        if schema not in SCHEMAS:
+            continue
         label = (
             "Predefined"
             if str(standardized).casefold() in {"standard", "standardized", "true"}

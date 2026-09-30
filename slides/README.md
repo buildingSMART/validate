@@ -24,7 +24,7 @@ Two equivalent ways to obtain a result document (`columns`, `rows`,
 1. Django admin -> Model statistics query builder -> check
    "Return JSON instead of the table" and run the query.
 2. On the deployed host:
-   `docker compose exec -T backend python manage.py statistics_query < spec.json`
+   `docker compose exec -T backend sh -c 'cd /app/backend && python manage.py statistics_query' < spec.json`
 
 `make fetch` does option 2 for every file in `queries/` over SSH (see
 `fetch.sh` for `HOST` / `SSHUSER` / `KEY` / `REMOTE_DIR` overrides) and stores

@@ -1,0 +1,10 @@
+data/
+figures/
+generated_frames.tex
+slides.pdf
+slides.aux
+slides.log
+slides.nav
+slides.out
+slides.snm
+slides.toc

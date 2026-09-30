@@ -23,7 +23,7 @@ for spec in "$QUERY_DIR"/*.json; do
     name="$(basename "$spec")"
     echo "== $name"
     # The management command prints only the JSON document on stdout.
-    $SSH "cd $REMOTE_DIR && sudo docker compose exec -T backend python manage.py statistics_query -" \
+    $SSH "cd $REMOTE_DIR && sudo docker compose exec -T backend sh -c 'cd /app/backend && python manage.py statistics_query -'" \
         < "$spec" > "$DATA_DIR/$name"
 done
 
