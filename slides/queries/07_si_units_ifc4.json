@@ -1,0 +1,12 @@
+{
+  "source": "entity",
+  "groups": ["model"],
+  "expression": {"function": "sum", "operand_a": "count"},
+  "ordering": "descending",
+  "limit": null,
+  "filters": [
+    {"concept": "schema", "operator": "eq", "value": "IFC4"},
+    {"concept": "entity", "operator": "eq", "value": "IfcSIUnit"},
+    {"concept": "entity_kind", "operator": "eq", "value": "concrete"}
+  ]
+}

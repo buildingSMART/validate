@@ -54,6 +54,13 @@ NAMES_COLUMNS = 2
 NAMES_PER_COLUMN = 29
 NAMES_PER_FRAME = NAMES_COLUMNS * NAMES_PER_COLUMN
 
+# per-model IfcSIUnit counts (one spec per schema: entity filters need one schema)
+SI_UNIT_QUERIES = (
+    ("IFC2X3", "06_si_units_ifc2x3"),
+    ("IFC4", "07_si_units_ifc4"),
+    ("IFC4X3_ADD2", "08_si_units_ifc4x3"),
+)
+
 CHARTER_FAMILY_CANDIDATES = ("XCharter", "Charter", "Bitstream Charter")
 CHARTER_TEX_FONT_FILES = (
     "XCharter-Roman.otf",
@@ -69,7 +76,7 @@ WINDOWS_FONT_GLOBS = (
 
 FRAME_TEMPLATE = """\
 \\begin{{frame}}{{{title}}}
-  \\includegraphics[width=\\textwidth,height=0.82\\textheight,keepaspectratio]{{figures/{figure}.pdf}}
+  \\includegraphics[width=\\textwidth,height={height}\\textheight,keepaspectratio]{{figures/{figure}.pdf}}
 {note}\\end{{frame}}
 """
 
@@ -341,6 +348,40 @@ def coverage_bar_figure(stats, ylabel):
     return figure
 
 
+def si_unit_violin_figure(samples):
+    """Horizontal violins: x = IfcSIUnit instances per model, thickness = models."""
+    schemas = [
+        schema for schema in SCHEMAS
+        if len(samples.get(schema, ())) > 1
+    ]
+    log_samples = [
+        [math.log10(value) for value in samples[schema]]
+        for schema in schemas
+    ]
+
+    figure, axis = plt.subplots(figsize=(9, 4.6))
+    parts = axis.violinplot(
+        log_samples, vert=False, showmedians=True, showextrema=False,
+    )
+    for body, schema in zip(parts["bodies"], schemas):
+        body.set_facecolor(SCHEMA_COLORS[schema])
+        body.set_edgecolor(SCHEMA_COLORS[schema])
+        body.set_alpha(0.55)
+    if "cmedians" in parts:
+        parts["cmedians"].set_color("black")
+
+    axis.set_yticks(range(1, len(schemas) + 1))
+    axis.set_yticklabels(schemas)
+    low = math.floor(min(min(values) for values in log_samples))
+    high = math.floor(max(max(values) for values in log_samples))
+    ticks = list(range(low, high + 1))
+    axis.set_xticks(ticks)
+    axis.set_xticklabels([format_integer(10 ** tick) for tick in ticks])
+    axis.set_xlabel("IfcSIUnit instances per model (log scale)")
+    axis.spines[["top", "right"]].set_visible(False)
+    return figure
+
+
 def names_frames(title, names, note):
     """Text frames listing names in columns, paginated to fit the slide."""
     frames = []
@@ -373,10 +414,14 @@ def names_frames(title, names, note):
 
 
 def figure_frame(title, figure, note):
+    # every extra caption line costs roughly this much of the frame height
+    lines = max(1, note.count("\n"))
+    height = max(0.50, 0.82 - 0.07 * (lines - 1))
     return FRAME_TEMPLATE.format(
         title=latex_escape(title),
         figure=figure,
         note=note,
+        height=f"{height:.2f}",
     )
 
 
@@ -431,6 +476,29 @@ def main():
             f"Top {TOP_ENTITY_BARS} entity counts per IFC schema",
             "03_entity_counts",
             dataset_note(entity_payload),
+        ))
+
+    si_unit_payloads = {}
+    for schema, name in SI_UNIT_QUERIES:
+        payload = load_payload(args.data_dir, name)
+        if payload:
+            si_unit_payloads[schema] = payload
+    if si_unit_payloads:
+        save_figure(
+            si_unit_violin_figure({
+                schema: [row[2] for row in payload["rows"]]
+                for schema, payload in si_unit_payloads.items()
+            }),
+            args.figures_dir, "07_si_units",
+        )
+        frames.append(figure_frame(
+            "Number of IfcSIUnit per model",
+            "07_si_units",
+            note_lines(*[
+                f"{latex_escape(schema)}: {format_integer(len(payload['rows']))} of "
+                f"{format_integer(payload['models_considered'])} models contain IfcSIUnit"
+                for schema, payload in si_unit_payloads.items()
+            ]),
         ))
 
     payload = load_payload(args.data_dir, "04_pset_counts")
