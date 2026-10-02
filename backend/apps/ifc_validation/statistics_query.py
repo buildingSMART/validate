@@ -447,13 +447,12 @@ def statistics_query_ui_context():
             entity_names.update(EntityCountHistogram.entity_names(schema))
         except RuntimeError:
             continue
-    template_names = {
-        path.name for path in TEMPLATES_DIR.glob("*.md")
-    } | set(
-        TemplateStatistic.objects.filter(graph__isnull=False)
-        .values_list("template_name", flat=True)
-        .distinct()
-    )
+    # Template suggestions come from the markdown templates on disk only.
+    # TemplateStatistic holds hundreds of millions of rows on the production
+    # corpus, so deriving the list from it as well requires a DISTINCT scan
+    # that takes minutes and blows the proxy timeout for this page. The
+    # on-disk templates are the canonical source used to populate the table.
+    template_names = {path.name for path in TEMPLATES_DIR.glob("*.md")}
 
     return {
         "statistics_query_examples": STATISTICS_QUERY_EXAMPLES,

@@ -13,6 +13,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import IntegrityError, connection, transaction
 from django.test import SimpleTestCase, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 
@@ -1766,6 +1767,21 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "group:template" in template_groups
         assert "group:authoring_tool" in template_groups
         assert "group:graph_value" in template_groups
+
+    def test_ui_context_does_not_scan_the_template_statistic_table(self):
+        # Regression: the builder page derived template suggestions from a
+        # DISTINCT over TemplateStatistic. That table holds hundreds of millions
+        # of rows on the production corpus, so the scan stalled the page past
+        # the proxy timeout. The on-disk templates are sufficient.
+        with CaptureQueriesContext(connection) as captured:
+            context = statistics_query_ui_context()
+
+        assert context["filter_suggestions"]["templates"]
+        assert [
+            query["sql"]
+            for query in captured.captured_queries
+            if "templatestatistic" in query["sql"].lower()
+        ] == []
 
     def test_all_requested_example_query_patterns_are_available(self):
         examples = statistics_query_ui_context()["statistics_query_examples"]
