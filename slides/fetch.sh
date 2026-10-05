@@ -3,11 +3,11 @@
 # Fetch JSON query results from the deployed validation service into data/.
 #
 # Override the connection defaults via the environment:
-#   HOST=18.117.72.200 SSHUSER=ubuntu KEY=~/spectre.pem REMOTE_DIR=~/validate ./fetch.sh
+#   HOST=3.148.210.253 SSHUSER=ubuntu KEY=~/spectre.pem REMOTE_DIR=~/validate ./fetch.sh
 #
 set -eu
 
-HOST="${HOST:-18.117.72.200}"
+HOST="${HOST:-3.148.210.253}"
 SSHUSER="${SSHUSER:-ubuntu}"
 KEY="${KEY:-$HOME/spectre.pem}"
 REMOTE_DIR="${REMOTE_DIR:-~/validate}"
