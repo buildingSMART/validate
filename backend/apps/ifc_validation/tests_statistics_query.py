@@ -1735,6 +1735,7 @@ class StatisticsQueryBuilderTests(TestCase):
         ):
             assert f'name="clauses-__prefix__-{field}"'.encode() in response.content
         assert b"statistics-expression-values" not in response.content
+        assert b"statistics-template-values" not in response.content
         assert b"statistics-example-clause" in response.content
         assert b"Top 10 element subtypes used in one file" in response.content
         assert b"Average proxy ratio in files of an IFC version" in response.content
@@ -1768,15 +1769,15 @@ class StatisticsQueryBuilderTests(TestCase):
         assert "group:authoring_tool" in template_groups
         assert "group:graph_value" in template_groups
 
-    def test_ui_context_does_not_scan_the_template_statistic_table(self):
+    def test_ui_context_has_no_template_suggestions(self):
         # Regression: the builder page derived template suggestions from a
-        # DISTINCT over TemplateStatistic. That table holds hundreds of millions
+        # DISTINCT over TemplateStatistic; that table holds hundreds of millions
         # of rows on the production corpus, so the scan stalled the page past
-        # the proxy timeout. The on-disk templates are sufficient.
+        # the proxy timeout. The template filter accepts free text instead.
         with CaptureQueriesContext(connection) as captured:
             context = statistics_query_ui_context()
 
-        assert context["filter_suggestions"]["templates"]
+        assert "templates" not in context["filter_suggestions"]
         assert [
             query["sql"]
             for query in captured.captured_queries

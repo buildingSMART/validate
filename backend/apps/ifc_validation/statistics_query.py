@@ -21,7 +21,6 @@ from django.db.models.functions import Cast
 from django.db.models.fields.json import KeyTextTransform
 from django.template.defaultfilters import floatformat
 
-from apps.ifc_validation.checks.statistics.apply_mvd import TEMPLATES_DIR
 from apps.ifc_validation_models.models import (
     EntityCountHistogram,
     Model,
@@ -447,12 +446,6 @@ def statistics_query_ui_context():
             entity_names.update(EntityCountHistogram.entity_names(schema))
         except RuntimeError:
             continue
-    # Template suggestions come from the markdown templates on disk only.
-    # TemplateStatistic holds hundreds of millions of rows on the production
-    # corpus, so deriving the list from it as well requires a DISTINCT scan
-    # that takes minutes and blows the proxy timeout for this page. The
-    # on-disk templates are the canonical source used to populate the table.
-    template_names = {path.name for path in TEMPLATES_DIR.glob("*.md")}
 
     return {
         "statistics_query_examples": STATISTICS_QUERY_EXAMPLES,
@@ -514,10 +507,6 @@ def statistics_query_ui_context():
             ],
             "schemas": [(schema, schema) for schema in schemas],
             "entities": [(name, name) for name in sorted(entity_names)],
-            "templates": [
-                (name, name.removesuffix(".md").replace("_", " "))
-                for name in sorted(template_names)
-            ],
         },
     }
 

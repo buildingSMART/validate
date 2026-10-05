@@ -189,9 +189,6 @@
   <datalist id="statistics-entity-values">
     {% for value, label in filter_suggestions.entities %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
   </datalist>
-  <datalist id="statistics-template-values">
-    {% for value, label in filter_suggestions.templates %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-  </datalist>
   <datalist id="statistics-entity-kind-values">
     <option value="concrete"><option value="inherited">
   </datalist>
@@ -343,7 +340,6 @@
         "filter:standardized": "statistics-standardized-values",
         "filter:is_vendor": "statistics-boolean-values",
         "filter:is_staff": "statistics-boolean-values",
-        "filter:template": "statistics-template-values",
         "group:graph_value": "statistics-graph-path-values",
       };
       const placeholders = {
