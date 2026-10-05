@@ -1,0 +1,10 @@
+{
+  "source": "template",
+  "groups": ["authoring_tool", "graph_value:PropertyType"],
+  "expression": {"function": "sum", "operand_a": "count"},
+  "ordering": "descending",
+  "limit": null,
+  "filters": [
+    {"concept": "template", "operator": "eq", "value": "Use_of_property_types.md"}
+  ]
+}

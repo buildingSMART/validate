@@ -19,6 +19,7 @@ import csv
 import glob
 import json
 import math
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -32,6 +33,16 @@ import matplotlib.pyplot as plt
 SCHEMAS = ("IFC2X3", "IFC4", "IFC4X3_ADD2")
 SCHEMA_COLORS = {"IFC2X3": "#4C72B0", "IFC4": "#DD8452", "IFC4X3_ADD2": "#55A868"}
 TOP_ENTITY_BARS = 50
+TOOL_GRID = (2, 5)  # rows x columns: 10 tools, wide layout for a 16:9 slide
+TOOL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+PROPERTY_KINDS = (
+    "IfcPropertySingleValue",
+    "IfcPropertyBoundedValue",
+    "IfcPropertyEnumeratedValue",
+    "IfcPropertyListValue",
+    "IfcPropertyReferenceValue",
+    "IfcPropertyTableValue",
+)
 
 RESOURCE_ROOT = (
     Path(__file__).resolve().parent.parent
@@ -221,18 +232,24 @@ def schema_bar_figure(payload):
 
 
 def entity_bars_figure(payload):
-    by_schema = {schema: [] for schema in SCHEMAS}
+    # Case-variant schema spellings (e.g. IFC4x3_ADD2) fold into one bucket here,
+    # so the same entity can arrive on several rows. Sum them and re-sort: with
+    # duplicate y labels matplotlib collapses both bars onto one slot, which
+    # drew a large duplicate at a smaller duplicate's position (the jump seen
+    # for IfcPropertySingleValue in IFC4X3_ADD2).
+    by_schema = {schema: {} for schema in SCHEMAS}
     for schema, entity, count in payload["rows"]:
         schema = normalize_schema(schema)
         if schema in by_schema:
-            by_schema[schema].append((entity, count))
+            by_schema[schema][entity] = by_schema[schema].get(entity, 0) + count
     schemas = [schema for schema in SCHEMAS if by_schema[schema]]
 
     figure, axes = plt.subplots(
         1, len(schemas), figsize=(5.4 * len(schemas), 12), squeeze=False,
     )
     for axis, schema in zip(axes[0], schemas):
-        top = by_schema[schema][:TOP_ENTITY_BARS]
+        top = sorted(by_schema[schema].items(), key=lambda item: (-item[1], item[0]))
+        top = top[:TOP_ENTITY_BARS]
         entities = [entity for entity, _ in reversed(top)]
         counts = [count for _, count in reversed(top)]
         axis.barh(entities, counts, color=SCHEMA_COLORS[schema])
@@ -242,6 +259,122 @@ def entity_bars_figure(payload):
         axis.tick_params(axis="y", labelsize=7)
         axis.spines[["top", "right"]].set_visible(False)
         axis.margins(x=0.15)
+    figure.tight_layout()
+    return figure
+
+
+def tool_family(name, version):
+    """Tool identity across versions and language packages.
+
+    Stored names sometimes repeat the version and carry a language package
+    suffix ("Revit 26.3.0.37 (DEU)"), and year-based versions are part of the
+    name ("Civil 3D 2026 IfcInfra Plugin"). Strip those so the versions of
+    one tool aggregate into a single family.
+    """
+    if not name:
+        return "(unknown)"
+    family = re.sub(r"\s*\([^()]*\)\s*$", "", name).strip() or name
+    version = (version or "").strip()
+    if version and family.casefold().endswith(version.casefold()):
+        trimmed = family[: -len(version)].strip(" -_,;.\u00b7")
+        if trimmed and trimmed.casefold() != version.casefold():
+            family = trimmed
+    yearless = re.sub(r"\b(19|20)\d{2}(\.\d+)*\b", " ", family)
+    yearless = re.sub(r"\s+", " ", yearless).strip(" -_,;.\u00b7")
+    return yearless or family
+
+
+def tool_usage_rows(payload):
+    """Aggregate template graph counts into {tool family: {value: count}}.
+
+    References from files without authoring-tool metadata are left out: they
+    are not a tool and would otherwise dominate the ranking.
+    """
+    tools = {}
+    for _tool_id, name, version, value, count in payload["rows"]:
+        if not value:
+            continue
+        family = tool_family(name, version)
+        if family == "(unknown)":
+            continue
+        counts = tools.setdefault(family, {})
+        counts[value] = counts.get(value, 0) + count
+    return tools
+
+
+def tool_usage_metadata_note(payload):
+    """Share of references from files without authoring-tool metadata."""
+    known = excluded = 0
+    for _tool_id, name, version, value, count in payload["rows"]:
+        if not value:
+            continue
+        if tool_family(name, version) == "(unknown)":
+            excluded += count
+        else:
+            known += count
+    total = known + excluded
+    if not total:
+        return ""
+    return (
+        f"{100.0 * excluded / total:.0f}\\% of references come from files "
+        "without authoring-tool metadata"
+    )
+
+
+def tool_category_label(name):
+    """Compact axis label for a graph value ('IfcPropertySingleValue' -> 'SingleValue')."""
+    return name.removeprefix("IfcProperty").removeprefix("Ifc")
+
+
+def share_label(value):
+    """Compact percentage label for a relative-usage bar."""
+    percent = 100.0 * value
+    if percent >= 10:
+        return f"{percent:.0f}%"
+    if percent >= 1:
+        return f"{percent:.1f}%"
+    return f"{percent:.2f}%"
+
+
+def tool_usage_figure(payload, categories, ylabel):
+    """Anonymised 5x2 grid: relative value usage per top tool."""
+    tools = tool_usage_rows(payload)
+    ranked = sorted(
+        tools.items(), key=lambda item: (-sum(item[1].values()), item[0]),
+    )[: TOOL_GRID[0] * TOOL_GRID[1]]
+    categories = list(categories)
+
+    rows, columns = TOOL_GRID
+    figure, axes = plt.subplots(rows, columns, figsize=(13.5, 6.0), squeeze=False)
+    for index in range(rows * columns):
+        axis = axes[index // columns][index % columns]
+        if index >= len(ranked):
+            axis.set_visible(False)
+            continue
+        _family, counts = ranked[index]
+        total = sum(counts.get(category, 0) for category in categories)
+        values = [
+            counts.get(category, 0) / total if total else 0.0
+            for category in categories
+        ]
+        bars = axis.bar(range(len(categories)), values, color="#4C72B0")
+        axis.bar_label(
+            bars,
+            labels=["" if value == 0 else share_label(value) for value in values],
+            padding=1, fontsize=6,
+        )
+        axis.set_title(f"Tool {TOOL_LETTERS[index]}", fontsize=10)
+        axis.set_xticks(range(len(categories)))
+        axis.set_xticklabels(
+            [tool_category_label(category) for category in categories],
+            rotation=40, ha="right", fontsize=6.5,
+        )
+        axis.set_ylim(0, 1)
+        axis.set_yticks([0, 0.25, 0.5, 0.75, 1.0])
+        axis.set_yticklabels(["0%", "25%", "50%", "75%", "100%"], fontsize=7)
+        if index % columns == 0:
+            axis.set_ylabel(ylabel, fontsize=8)
+        axis.spines[["top", "right"]].set_visible(False)
     figure.tight_layout()
     return figure
 
@@ -581,6 +714,48 @@ def main():
                     "entity types never instantiated",
                 ),
             ))
+
+    property_types_payload = load_payload(args.data_dir, "09_property_types_by_tool")
+    if property_types_payload:
+        save_figure(
+            tool_usage_figure(
+                property_types_payload, PROPERTY_KINDS, "Share of property references",
+            ),
+            args.figures_dir, "09_property_types_by_tool",
+        )
+        frames.append(figure_frame(
+            "Property type usage per authoring tool",
+            "09_property_types_by_tool",
+            dataset_note(
+                property_types_payload,
+                "Tools anonymised A-J, top 10 by property references; "
+                + tool_usage_metadata_note(property_types_payload),
+            ),
+        ))
+
+    basis_payload = load_payload(args.data_dir, "10_basis_curves_by_tool")
+    if basis_payload:
+        basis_categories = sorted({
+            value
+            for counts in tool_usage_rows(basis_payload).values()
+            for value in counts
+        })
+        save_figure(
+            tool_usage_figure(
+                basis_payload, basis_categories, "Share of basis curve references",
+            ),
+            args.figures_dir, "10_basis_curves_by_tool",
+        )
+        frames.append(figure_frame(
+            "Transition curve basis usage per authoring tool",
+            "10_basis_curves_by_tool",
+            dataset_note(
+                basis_payload,
+                "Tools anonymised A-J, top 10 by basis references; "
+                "every basis curve found across tools is shown; "
+                + tool_usage_metadata_note(basis_payload),
+            ),
+        ))
 
     write_frames(args.frames, frames)
 

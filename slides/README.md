@@ -46,9 +46,15 @@ Charts currently included:
 | 2 | `queries/02_model_counts_over_5mb.json` | Same for files larger than 5 MB |
 | 3 | `queries/03_entity_counts.json` | Top 50 entity counts per schema |
 | 4 | `queries/04_pset_counts.json` | Predefined vs custom property-set definitions per schema |
+| 5 | `queries/05_pset_names.json` | Predefined property-set coverage, plus never-instantiated listings |
+| 6-8 | `queries/06_si_units_*.json` | IfcSIUnit instances per model (violins per schema) |
+| 9 | `queries/09_property_types_by_tool.json` | Share of the six IfcProperty\*Value kinds per anonymised tool |
+| 10 | `queries/10_basis_curves_by_tool.json` | Share of transition-curve basis types per anonymised tool |
 
-Note: query 3 fetches 300 rows (top 50 for up to three schemas); widen the
-`limit` and `SCHEMAS` in `render_slides.py` when the corpus grows.
+Note: query 3 returns every entity row (`limit: null`); the renderer keeps the
+top `TOP_ENTITY_BARS` per schema and sums case-variant schema spellings into
+one bucket. The tool charts pick the ten tools with the highest usage and
+anonymise them as A-J.
 
 ## Adding a chart
 

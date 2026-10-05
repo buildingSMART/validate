@@ -1,0 +1,10 @@
+{
+  "source": "template",
+  "groups": ["authoring_tool", "graph_value:ParentCurve"],
+  "expression": {"function": "sum", "operand_a": "count"},
+  "ordering": "descending",
+  "limit": null,
+  "filters": [
+    {"concept": "template", "operator": "eq", "value": "Usage_of_transition_curves_geometry.md"}
+  ]
+}
