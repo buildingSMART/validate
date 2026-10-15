@@ -8,7 +8,7 @@ The Validation Service, or any consuming application, can then decrypt the signa
 re-hash the file content, and compare the two hashes to verify integrity and authenticity.
 
 ![Figure – Signature Process Overview](./signature-process-overview.jpg)
-```{image} ../../_static/digital_app_auth_process_overview.png
+```{image} ../../_static/digital_app_auth_process_overview.jpg
 :alt: Digital Application Authentication process overview
 :scale: 100 %
 :align: center
