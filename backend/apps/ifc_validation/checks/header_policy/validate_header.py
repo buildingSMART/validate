@@ -227,9 +227,10 @@ class HeaderStructure(ConfiguredBaseModel):
             if mvd not in allowed_descriptions.get(schema_identifier, [False]) and not 'AddOnView' in mvd:
                 values.data.get('validation_errors').append('description')
 
-        # A header declares exactly one base MVD; add-on views don't count.
-        # Names are stripped and add-ons matched case-insensitively for this check only.
-        base_views = [name for name in (view.strip() for view in v) if name and 'addonview' not in name.lower()]
+        # A header declares exactly one base MVD; add-on views don't count and a name declared
+        # more than once counts once. Names are stripped and add-ons matched case-insensitively
+        # for this check only.
+        base_views = {name for name in (view.strip() for view in v) if name and 'addonview' not in name.lower()}
         if len(base_views) > 1:
             values.data.get('validation_errors').append('description')  # more than one base MVD
    
