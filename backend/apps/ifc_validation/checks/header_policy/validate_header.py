@@ -282,7 +282,7 @@ def main():
     try:
         file = ifcopenshell.simple_spf.open(filename, only_header=True)
         header = HeaderStructure(file=file)
-    except ifcopenshell.simple_spf.SyntaxError:
+    except ifcopenshell.simple_spf.CollectedValidationErrors:
         header = HeaderStructure(file=None, validation_errors=["syntax_error"])
     except Exception as e:
         print(f"Error opening file '{filename}': {e}")
