@@ -3,6 +3,8 @@ import ifcopenshell
 from pathlib import Path
 from validate_header import HeaderStructure
 import sys
+import json
+import subprocess
 
 def collect_test_files():
     test_dir = Path(__file__).parent / "tests"
@@ -20,6 +22,18 @@ def test_invocation(f):
     header = HeaderStructure(file=file)
     
     assert (field not in header.validation_errors) if outcome == 'pass' else (field in header.validation_errors)
+
+
+def test_unparsable_header_is_reported_as_syntax_error():
+    """A header that simple_spf cannot parse must yield JSON with 'syntax_error', not a traceback."""
+    here = Path(__file__).parent
+    proc = subprocess.run(
+        [sys.executable, str(here / "validate_header.py"), str(here / "fixtures" / "Header_syntax_error.ifc")],
+        capture_output=True, text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    result = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert "syntax_error" in result["validation_errors"]
 
 
 def run_single_file(filename=''):
