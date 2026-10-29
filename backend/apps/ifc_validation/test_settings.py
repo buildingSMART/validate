@@ -23,4 +23,5 @@ DATABASES_ALL = {
 DATABASES = {"default": DATABASES_ALL[os.environ.get("TEST_DJANGO_DB", DB_SQLITE)]}
 
 MEDIA_ROOT = "./apps/ifc_validation/fixtures"
+MAX_FILE_SIZE_IN_MB = int(os.environ.get("MAX_FILE_SIZE_IN_MB", 256))
 USE_TZ = True

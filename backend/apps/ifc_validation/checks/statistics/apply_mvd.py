@@ -51,19 +51,17 @@ def extract_template_statistics(
 
         for focus in focus_instances:
             rows = concept.extract(focus)
-            if not rows:
-                continue
-            graph = {
-                concept.binding_for(key) or key.attribute: json_value(value)
-                for row in rows
-                for key, value in row.items()
-            }
-            results.append({
-                "template": markdown.name,
-                "focus_step_id": focus.id(),
-                "focus_ifc_type": focus.is_a(),
-                "graph": graph,
-            })
+            for row in rows:
+                graph = {
+                    concept.binding_for(key) or key.attribute: json_value(value)
+                    for key, value in row.items()
+                }
+                results.append({
+                    "template": markdown.name,
+                    "focus_step_id": focus.id(),
+                    "focus_ifc_type": focus.is_a(),
+                    "graph": graph,
+                })
 
     return results
 

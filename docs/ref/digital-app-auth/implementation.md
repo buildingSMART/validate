@@ -7,8 +7,7 @@ with a vendor's private key, and appending the resulting signature along with th
 The Validation Service, or any consuming application, can then decrypt the signature using the vendor's public key,
 re-hash the file content, and compare the two hashes to verify integrity and authenticity.
 
-![Figure – Signature Process Overview](./signature-process-overview.jpg)
-```{image} ../../_static/digital_app_auth_process_overview.png
+```{image} ../../_static/digital_app_auth_process_overview.jpg
 :alt: Digital Application Authentication process overview
 :scale: 100 %
 :align: center
@@ -21,8 +20,8 @@ The table below explains the terms used in the figure above.
 |----------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------|
 | Certificate Authority (CA) Private Key | The private key of the Certificate Authority (CA). It is used to **sign other CA certificates** (e.g., vendor or leaf certs). Highly secure, never exposed.                                                  | Private and stays with the issuing vendor       |
 | CA Certificate                         | The **public certificate** of the CA. It includes the CA's public key and is used to **verify signatures** created with the CA key. This certificate is **trusted by default.**                              | Published on the buildingSMART GitHub repo      |
-| Leaf Private Key                       | The private key of the actual **end-entity** (e.g., a specific software tool or product). It signs the actual IFC file.                                                                                      | In the signature comment block of the IFC file  |
-| Leaf CSR (Certificate Signing Request) | A request generated using the leaf key, containing the public key and identity info. It's sent to a CA to obtain a signed certificate (Leaf certificate).                                                    | —                                               |
+| Leaf Private Key                       | The private key of the actual **end-entity** (e.g., a specific software tool, product or user install). It signs the actual IFC file.                                                                        | —       |
+| Leaf CSR (Certificate Signing Request) | A request generated using the leaf key, containing the public key and identity info. Used by CA to obtain a signed certificate (Leaf certificate).                                                    | —                                               |
 | Leaf Certificate                       | A certificate issued to the leaf entity (the signer of the IFC file), signed by a CA (or intermediate CA). It includes the public key that the IFC Validation Service uses to verify the IFC file signature. | Bundled in the IFC signature block (CMS format) |
 
 ### Signature Block Structure

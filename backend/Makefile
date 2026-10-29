@@ -4,7 +4,7 @@ VIRTUAL_ENV = .dev/venv
 PYTHON = $(VIRTUAL_ENV)/bin/python
 PIP = $(VIRTUAL_ENV)/bin/pip 
 IFCOPENSHELL_SITE_PACKAGES = $(VIRTUAL_ENV)/lib/python3.11/site-packages
-PYTHON_MVDXML_REF = support-4.x-graphviz-format-2
+PYTHON_MVDXML_REF = master
 
 none:
 	@echo "MAKE: Enter at least one target (venv, install, install-dev, start-backend, start-worker, clean)"

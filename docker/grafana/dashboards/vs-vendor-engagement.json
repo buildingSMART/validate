@@ -1,0 +1,788 @@
+{
+  "uid": "vs-vendor-engagement",
+  "title": "Validation Service — Vendor Engagement",
+  "tags": [
+    "vendors",
+    "adoption"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "",
+  "time": {
+    "from": "now-2y",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1h",
+      "6h",
+      "1d"
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [],
+  "description": "How software vendors use the Validation Service to test their own exporters: who, how much, how continuously, with which builds. Usage, not quality. Built 2026-09-30 for the bSI Summit request; research context in vendor_fixes_investigation/RESEARCH_NOTE_v2.md.",
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Granularity",
+        "type": "custom",
+        "query": "month,quarter",
+        "current": {
+          "text": "month",
+          "value": "month",
+          "selected": true
+        },
+        "options": [
+          {
+            "text": "month",
+            "value": "month",
+            "selected": true
+          },
+          {
+            "text": "quarter",
+            "value": "quarter",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "description": "Time bucket for the trend panels; the running (incomplete) bucket is excluded."
+      },
+      {
+        "name": "vendor",
+        "label": "Vendor",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "devpg"
+        },
+        "query": "SELECT c.name FROM ifc_company c JOIN ifc_user_additional_info ai ON ai.company_id = c.id JOIN ifc_model m ON m.uploaded_by_id = ai.user_id JOIN ifc_validation_request r ON r.model_id = m.id\nWHERE ai.is_vendor AND r.status = 'COMPLETED' GROUP BY c.name ORDER BY COUNT(*) DESC",
+        "definition": "SELECT c.name FROM ifc_company c JOIN ifc_user_additional_info ai ON ai.company_id = c.id JOIN ifc_model m ON m.uploaded_by_id = ai.user_id JOIN ifc_validation_request r ON r.model_id = m.id\nWHERE ai.is_vendor AND r.status = 'COMPLETED' GROUP BY c.name ORDER BY COUNT(*) DESC",
+        "refresh": 1,
+        "sort": 0,
+        "multi": true,
+        "includeAll": true,
+        "allValue": null,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ],
+          "selected": true
+        },
+        "options": [],
+        "description": "Vendor organisations for the per-vendor panels; defaults to all, select the ones to compare."
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Vendor organisations",
+      "description": "How many vendor organisations test on the service?",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT (SELECT COUNT(DISTINCT company_id) FROM v) AS \"in range\",\n       (SELECT COUNT(DISTINCT ai.company_id) FROM ifc_validation_request r JOIN ifc_model m ON m.id = r.model_id JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n        WHERE r.status = 'COMPLETED' AND ai.is_vendor AND ai.company_id IS NOT NULL) AS \"all time\" "
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Uploads by vendor accounts",
+      "description": "How much of all traffic comes from vendors?",
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT (SELECT COUNT(*) FROM v) AS \"vendor uploads\", ROUND(100.0 * (SELECT COUNT(*) FROM v) / NULLIF((SELECT COUNT(*) FROM ifc_validation_request r WHERE r.status = 'COMPLETED' AND $__timeFilter(r.created)), 0), 1) AS \"share of all uploads\" "
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "share of all uploads"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Vendor accounts",
+      "description": "How many vendor people are behind that?",
+      "gridPos": {
+        "x": 11,
+        "y": 0,
+        "w": 7,
+        "h": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT (SELECT COUNT(DISTINCT uploaded_by_id) FROM v) AS \"vendor accounts that uploaded\" "
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Pre-release testing",
+      "description": "Do vendors test before they release?",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT ROUND(100.0 * COUNT(*) FILTER (WHERE hdr ~* '(alpha|beta|\\mrc[0-9]*\\M|prerelease|pre-release|preview|nightly|\\mdev\\M|-dev|build 0|partner release)') / NULLIF(COUNT(*), 0), 1) AS \"pre-release builds\", ROUND(100.0 * COUNT(*) FILTER (WHERE deleted) / NULLIF(COUNT(*), 0), 1) AS \"later deleted\" FROM v"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none",
+        "orientation": "horizontal",
+        "justifyMode": "center"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pre-release builds"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "later deleted"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Uploads per $bucket: vendor accounts vs other users",
+      "description": "Is vendor testing growing along with the service?",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('$bucket', r.created) AS time,\n       CASE WHEN ai.is_vendor AND ai.company_id IS NOT NULL THEN 'vendor accounts' ELSE 'other users' END AS metric,\n       COUNT(*)::float AS uploads\nFROM ifc_validation_request r JOIN ifc_model m ON m.id = r.model_id LEFT JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\nWHERE r.status = 'COMPLETED' AND $__timeFilter(r.created) AND date_trunc('$bucket', r.created) < date_trunc('$bucket', now())\nGROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Active vendor organisations and accounts per $bucket",
+      "description": "How many vendors are active each month?",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT date_trunc('$bucket', created) AS time, COUNT(DISTINCT company_id)::float AS \"vendor organisations\", COUNT(DISTINCT uploaded_by_id)::float AS \"vendor accounts\"\nFROM v WHERE date_trunc('$bucket', created) < date_trunc('$bucket', now()) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Vendor organisations with an account (cumulative)",
+      "description": "How many vendor organisations have joined so far?",
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH acc AS (SELECT u.date_joined, ai.company_id FROM auth_user u JOIN ifc_user_additional_info ai ON ai.user_id = u.id WHERE ai.is_vendor AND ai.company_id IS NOT NULL),\norg AS (SELECT company_id, MIN(date_joined) AS first_joined FROM acc GROUP BY 1),\nm AS (SELECT generate_series(date_trunc('month', (SELECT MIN(date_joined) FROM acc)), date_trunc('month', now()), interval '1 month') AS month)\nSELECT m.month AS time, (SELECT COUNT(*) FROM org WHERE first_joined < m.month + interval '1 month')::float AS \"vendor organisations with an account\"\nFROM m WHERE $__timeFilter(m.month) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Vendor accounts (cumulative)",
+      "description": "How many vendor people have joined so far?",
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH acc AS (SELECT u.date_joined FROM auth_user u JOIN ifc_user_additional_info ai ON ai.user_id = u.id WHERE ai.is_vendor AND ai.company_id IS NOT NULL),\nm AS (SELECT generate_series(date_trunc('month', (SELECT MIN(date_joined) FROM acc)), date_trunc('month', now()), interval '1 month') AS month)\nSELECT m.month AS time, (SELECT COUNT(*) FROM acc WHERE date_joined < m.month + interval '1 month')::float AS \"vendor accounts\"\nFROM m WHERE $__timeFilter(m.month) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Uploads per $bucket by vendor organisation ($vendor)",
+      "description": "When does each vendor test?",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 10
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT date_trunc('$bucket', created) AS time, vendor AS metric, COUNT(*)::float AS uploads\nFROM v WHERE vendor IN (${vendor:sqlstring}) AND date_trunc('$bucket', created) < date_trunc('$bucket', now()) GROUP BY 1, 2 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "pointSize": 5,
+            "showPoints": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Vendor organisations ranked by uploads (time range)",
+      "description": "Which vendors use the service most, and how?",
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 14
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT vendor,\n       COUNT(*) AS uploads,\n       ROUND(100.0 * COUNT(*) / NULLIF((SELECT COUNT(*) FROM ifc_validation_request r WHERE r.status = 'COMPLETED' AND $__timeFilter(r.created)), 0), 1) AS \"share of all %\",\n       COUNT(*) FILTER (WHERE created >= now() - interval '12 months') AS \"last 12 months\",\n       CASE WHEN COUNT(DISTINCT uploaded_by_id) < 5 THEN '<5' ELSE COUNT(DISTINCT uploaded_by_id)::text END AS accounts,\n       COUNT(DISTINCT date_trunc('month', created)) AS \"active months\",\n       to_char(MIN(created), 'YYYY-MM') AS first, to_char(MAX(created), 'YYYY-MM') AS last,\n       COUNT(DISTINCT NULLIF(orig, '')) AS \"exporter strings (upper bound on versions)\",\n       ROUND(100.0 * COUNT(*) FILTER (WHERE hdr ~* '(alpha|beta|\\mrc[0-9]*\\M|prerelease|pre-release|preview|nightly|\\mdev\\M|-dev|build 0|partner release)') / COUNT(*), 0) AS \"pre-release %\",\n       ROUND(100.0 * COUNT(*) FILTER (WHERE deleted) / COUNT(*), 0) AS \"deleted %\"\nFROM v GROUP BY vendor ORDER BY uploads DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "What the selected vendors upload: originating systems ($vendor)",
+      "description": "Do they upload their own exporter, or other vendors' files?",
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 14,
+        "h": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH v AS (\n  SELECT r.id, r.created, r.deleted, m.uploaded_by_id, c.id AS company_id, c.name AS vendor,\n         COALESCE(NULLIF(m.header_validation->>'originating_system', ''), NULLIF(at.canonical_name, ''), at.name) AS orig,\n         (COALESCE(m.header_validation->>'originating_system','') || ' ' || COALESCE(m.header_validation->>'preprocessor_version','') || ' ' || COALESCE(m.header_validation->>'version','')) AS hdr\n  FROM ifc_validation_request r\n  JOIN ifc_model m ON m.id = r.model_id\n  JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id\n  JOIN ifc_company c ON c.id = ai.company_id\n  LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND ai.is_vendor AND $__timeFilter(r.created)\n)\nSELECT vendor, COALESCE(NULLIF(orig, ''), '(no header)') AS \"originating system (raw header, or tool name when no header was stored)\", COUNT(*) AS uploads,\n       to_char(MIN(created), 'YYYY-MM-DD') AS first, to_char(MAX(created), 'YYYY-MM-DD') AS last\nFROM v WHERE vendor IN (${vendor:sqlstring}) GROUP BY 1, 2 ORDER BY uploads DESC LIMIT 40"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Most-validated tools, all uploaders (time range)",
+      "description": "Which tools do users validate most?",
+      "gridPos": {
+        "x": 14,
+        "y": 45,
+        "w": 10,
+        "h": 12
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "devpg"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "devpg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "WITH b AS (\n  SELECT m.uploaded_by_id, ai.is_vendor, ai.company_id,\n    CASE WHEN m.header_validation->>'preprocessor_version' ~* 'IFC-manager for SketchUp' THEN 'SketchUp IFC Manager' END AS pre_s,\n    COALESCE(\n      NULLIF(trim(regexp_replace(COALESCE(NULLIF(at.canonical_name, ''), at.name), '\\s*[-(,]?\\s*[vV]?[0-9].*$', '')), ''),\n      CASE WHEN m.header_validation->>'originating_system' ~ '^\\s*[0-9]{8}_[0-9]{4}' OR m.header_validation->>'originating_system' ~ '^\\s*[0-9]+(\\.[0-9]+)+\\s*-\\s*(Exporter|IFC)\\M' THEN 'Autodesk Revit' END,\n      NULLIF(trim(regexp_replace(regexp_replace(m.header_validation->>'originating_system', '^IFC file generated by ', ''), '\\s*[-(,]?\\s*[vV]?[0-9].*$', '')), ''),\n      CASE WHEN m.header_validation IS NULL THEN '(unknown: no header stored)' WHEN COALESCE(m.header_validation->>'originating_system', '') = '' THEN '(unknown: header names no software)' ELSE '(unknown: header not parsed)' END) AS s\n  FROM ifc_validation_request r JOIN ifc_model m ON m.id = r.model_id LEFT JOIN ifc_user_additional_info ai ON ai.user_id = m.uploaded_by_id LEFT JOIN ifc_authoring_tool at ON at.id = m.produced_by_id\n  WHERE r.status = 'COMPLETED' AND $__timeFilter(r.created))\nSELECT CASE WHEN pre_s IS NOT NULL THEN pre_s\n            WHEN s ~* 'ifc.?manager' THEN 'SketchUp IFC Manager'\n            WHEN s ~* '^(autodesk\\s*-?\\s*)?revit' THEN 'Autodesk Revit'\n            WHEN s ~* '^(graphisoft\\s+)?archicad' THEN 'Graphisoft Archicad'\n            WHEN s ~* '^(autodesk\\s+)?civil$|^autodesk ifc$' THEN 'Autodesk Civil 3D (incl. IFC 4.3 plug-in)'\n            WHEN s ~* '^(trimble\\s+)?quadri' THEN 'Trimble Quadri'\n            WHEN s ~* '^redacted$' THEN '(unknown: name redacted)'\n            ELSE s END AS \"tool (name stem, approximate)\",\n       COUNT(*) AS files,\n       CASE WHEN COUNT(DISTINCT uploaded_by_id) < 5 THEN '<5' ELSE COUNT(DISTINCT uploaded_by_id)::text END AS \"uploader accounts\",\n       ROUND(100.0 * COUNT(*) FILTER (WHERE is_vendor AND company_id IS NOT NULL) / COUNT(*), 0) AS \"from vendor accounts %\"\nFROM b GROUP BY 1 ORDER BY files DESC LIMIT 25"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        },
+        "cellHeight": "sm"
+      }
+    },
+    {
+      "id": 11,
+      "type": "text",
+      "title": "What counts as a vendor here, and what did the research find?",
+      "gridPos": {
+        "x": 0,
+        "y": 57,
+        "w": 24,
+        "h": 8
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Vendor account** = an account buildingSMART flagged as a vendor, with a company. The flag is hand-maintained, so every number here is a lower bound. **Uploads** include ones the uploader later deleted. Account counts under 5 show as *<5*. The organisation count has been flat since mid-2025: the established vendors are all on board; newcomers are small makers (about 30 to 40) not yet on the hand-kept list. **This measures use of the service, not the quality of anyone's exports.** Internal; name vendors publicly only with their consent.\n\n*The research summary with results per maker is internal and is not stored in the repository.*"
+      }
+    }
+  ]
+}

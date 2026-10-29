@@ -258,16 +258,20 @@ def missing_template_names(model, template_names=None):
     return tuple(name for name in template_names if name not in completed)
 
 
+def _record_completion_markers(marker_queryset, markers):
+    markers = tuple(markers)
+    marker_queryset.delete()
+    if markers:
+        type(markers[0]).objects.bulk_create(markers)
+
+
 def _complete_failed_statistics(model, statistic_name, marker_queryset, markers):
     logger.exception(
         "Failed to populate %s for model %s; recording completion marker(s)",
         statistic_name,
         model.pk,
     )
-    markers = tuple(markers)
-    marker_queryset.delete()
-    if markers:
-        type(markers[0]).objects.bulk_create(markers)
+    _record_completion_markers(marker_queryset, markers)
 
 
 @shared_task
@@ -276,6 +280,13 @@ def populate_entity_count_histogram(model_id):
     model = Model.objects.get(pk=model_id)
     file_path = model_statistics_file_path(model)
     if file_path is None:
+        # Without a marker the scheduler would keep re-selecting this model.
+        _record_completion_markers(
+            model.histogram_entries.filter(
+                count=EntityCountHistogram.COMPLETION_MARKER_COUNT,
+            ),
+            [EntityCountHistogram.completion_marker(model)],
+        )
         return 0
     try:
         extracted = extract_entity_histogram_in_subprocess(file_path)
@@ -317,6 +328,13 @@ def populate_pset_count_histogram(model_id):
     model = Model.objects.get(pk=model_id)
     file_path = model_statistics_file_path(model)
     if file_path is None:
+        # Without a marker the scheduler would keep re-selecting this model.
+        _record_completion_markers(
+            model.pset_count_entries.filter(
+                count=PsetCountHistogram.COMPLETION_MARKER_COUNT,
+            ),
+            [PsetCountHistogram.completion_marker(model)],
+        )
         return 0
     try:
         extracted = extract_pset_histogram_in_subprocess(file_path)
@@ -364,6 +382,17 @@ def populate_template_statistics(model_id, template_names):
     template_names = tuple(template_names)
     file_path = model_statistics_file_path(model)
     if file_path is None:
+        # Without markers the scheduler would keep re-selecting this model.
+        _record_completion_markers(
+            model.template_statistics.filter(
+                template_name__in=template_names,
+                graph__isnull=True,
+            ),
+            [
+                TemplateStatistic.completion_marker(model, template_name)
+                for template_name in template_names
+            ],
+        )
         return 0
     try:
         extracted = extract_template_statistics_in_subprocess(

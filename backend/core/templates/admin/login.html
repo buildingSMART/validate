@@ -1,0 +1,10 @@
+{% extends "admin/login.html" %}
+{% load i18n %}
+
+{% block content %}
+  {{ block.super }}
+  <br class="clear">
+  <p class="submit-row">
+    <a href="{% url 'login' %}">{% translate "Sign in with SSO" %}</a>
+  </p>
+{% endblock %}

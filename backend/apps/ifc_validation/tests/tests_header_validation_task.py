@@ -232,3 +232,28 @@ class HeaderValidationTaskTestCase(TransactionTestCase):
         self.assertEquals('MyFAB Tool Ä Ä', model.produced_by.name)
         self.assertEquals('2026.3', model.produced_by.version)
         self.assertEquals('Testä Inc.', model.produced_by.company.name)
+    def test_header_validation_task_splits_language_package(self):
+
+        # arrange
+        HeaderValidationTaskTestCase.set_user_context()
+        request = ValidationRequest.objects.create(
+            file_name='pass_header_language.ifc',
+            file='pass_header_language.ifc', 
+            size=1
+        )
+        request.mark_as_initiated()
+
+        # act
+        header_validation_subtask(
+            prev_result={'is_valid': True, 'reason': 'test'}, 
+            id=request.id, 
+            file_name=request.file_name
+        )
+
+        # assert
+        model = Model.objects.get(id=request.id)
+        self.assertIsNotNone(model)
+        self.assertEquals('Revit 26.4.0.32 (ENU)', model.produced_by.name)
+        self.assertEquals('26.4.0.32', model.produced_by.version)
+        self.assertEquals('Revit 26.4.0.32', model.produced_by.canonical_name)
+        self.assertEquals('en', model.produced_by.language_code)

@@ -72,12 +72,20 @@ to the model.
 | authoring_tool | Authoring tool                | group            | template               | — |
 | graph_value    | Template graph value          | group            | template               | — |
 
+Annotate and Expression share the ``[function](A [operator B])`` grammar.
+Annotate assigns that formula a reusable name and may add one local condition
+to its source aggregates. Later annotations and the final unnamed Expression
+can reuse those names, so scalar measures such as ``wall_count / door_count``
+do not require a Group by clause.
+
 """
 
 import operator
+import re
 from dataclasses import dataclass
 
 from django.db.models import Count, ExpressionWrapper, FloatField, Sum, Value
+from django.db.models.functions import Coalesce, NullIf
 
 from apps.ifc_validation_models.models import (
     EntityCountHistogram,
@@ -153,8 +161,13 @@ class StatisticsSource(NamedChoice):
     def queryset(self):
         return self.model.objects.filter(**dict(self.conditions))
 
-    def count_expression(self):
-        return Sum(self.count_field) if self.count_field else Count("pk")
+    def count_expression(self, condition=None):
+        options = {"filter": condition} if condition is not None else {}
+        if self.count_field:
+            if condition is not None:
+                options["default"] = 0
+            return Sum(self.count_field, **options)
+        return Count("pk", **options)
 
 
 @dataclass(frozen=True)
@@ -175,16 +188,25 @@ class StatisticsExpression:
         "count", "computed_models", "total_count", "model_total_count", "1", "100",
     })
 
+    @staticmethod
+    def is_valid_operand(value):
+        return (
+            value in OPERAND
+            or bool(re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value or ""))
+        )
+
     def validate(self):
-        if self.function not in FUNCTION or self.operand_a not in OPERAND:
+        if self.function not in FUNCTION or not self.is_valid_operand(self.operand_a):
+            raise ValueError("Unsupported expression function or operand.")
+        if self.operand_b and not self.is_valid_operand(self.operand_b):
             raise ValueError("Unsupported expression function or operand.")
         if self.operator not in EXPRESSION_OPERATOR:
             raise ValueError("Unsupported expression operator.")
         if bool(self.operator) != bool(self.operand_b):
             raise ValueError("An expression operator and operand B must be used together.")
         if self.function == "average":
-            if {self.operand_a, self.operand_b} - {""} <= {
-                "count", "model_total_count", "1", "100",
+            if not ({self.operand_a, self.operand_b} - {""}) & {
+                "model", "computed_models", "total_count",
             }:
                 return
             raise ValueError("Unsupported AVG expression.")
@@ -197,7 +219,7 @@ class StatisticsExpression:
                 return
             raise ValueError("Unsupported COUNT DISTINCT expression.")
         operands = {self.operand_a, self.operand_b} - {""}
-        if not operands <= self.NAMES or "model_total_count" in operands:
+        if operands & {"model", "model_total_count"}:
             raise ValueError("Unsupported expression operand.")
 
     @property
@@ -220,7 +242,10 @@ class StatisticsExpression:
     @property
     def names(self):
         self.validate()
-        return {name for name in (self.operand_a, self.operand_b) if name in self.NAMES}
+        return {
+            name for name in (self.operand_a, self.operand_b)
+            if name not in {"", "1", "100", "model"}
+        }
 
     def _operand(self, name, values, orm=False):
         if name in {"1", "100"}:
@@ -232,9 +257,23 @@ class StatisticsExpression:
         self.validate()
         expression = self._operand(self.operand_a, values, orm=True)
         if self.operator:
-            expression = EXPRESSION_OPERATOR[self.operator].function(
-                expression, self._operand(self.operand_b, values, orm=True),
-            )
+            right = self._operand(self.operand_b, values, orm=True)
+            if self.operator == "divide":
+                # Django adds scalar functions around literals to GROUP BY in an
+                # aggregate query.  Literal operands are already known here, so
+                # only use SQL NULLIF for denominators resolved by the database.
+                denominator = right
+                if not isinstance(right, Value):
+                    denominator = NullIf(right, Value(0.0))
+                expression = Coalesce(
+                    expression / denominator,
+                    Value(0.0),
+                )
+            else:
+                expression = EXPRESSION_OPERATOR[self.operator].function(
+                    expression,
+                    right,
+                )
         return ExpressionWrapper(expression, output_field=FloatField())
 
     def evaluate(self, values):
@@ -251,6 +290,13 @@ class StatisticsExpression:
 
 
 @dataclass(frozen=True)
+class StatisticsAnnotation:
+    name: str
+    expression: StatisticsExpression = StatisticsExpression()
+    filters: tuple = ()
+
+
+@dataclass(frozen=True)
 class StatisticsQuery:
     source: str
     groups: tuple
@@ -258,6 +304,7 @@ class StatisticsQuery:
     ordering: str = "descending"
     limit: int | None = 10
     filters: tuple = ()
+    annotations: tuple = ()
 
 
 def _index(entries):
@@ -266,8 +313,8 @@ def _index(entries):
 
 OPERATIONS = (
     NamedChoice("filter", "Filter"), NamedChoice("group", "Group by"),
-    NamedChoice("expression", "Expression"), NamedChoice("order", "Order by"),
-    NamedChoice("limit", "Limit"),
+    NamedChoice("annotate", "Annotate"), NamedChoice("expression", "Expression"),
+    NamedChoice("order", "Order by"), NamedChoice("limit", "Limit"),
 )
 ORDERINGS = (
     NamedChoice("descending", "Descending"), NamedChoice("ascending", "Ascending"),

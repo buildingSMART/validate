@@ -23,6 +23,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 256M
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -43,6 +46,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: ${BACKEND_MEMORY_LIMIT}
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -69,7 +75,7 @@ services:
         networks:
             - validate
         deploy:
-            replicas: 2
+            replicas: ${WORKER_REPLICAS}
             # No placement constraint - workers run on any node
             resources:
                 limits:
@@ -97,7 +103,7 @@ services:
             replicas: 1
             resources:
                 limits:
-                    memory: 4G
+                    memory: ${AV_WORKER_MEMORY_LIMIT}
             # No placement constraint - workers run on any node
             restart_policy:
                 condition: on-failure
@@ -118,6 +124,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: ${SCHEDULER_MEMORY_LIMIT}
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -135,6 +144,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 512M
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -163,6 +175,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 512M
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -187,6 +202,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 1G
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -215,6 +233,26 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 512M
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    # Remote image renderer for Grafana (PNG export of panels via /render/...).
+    # Grafana finds it via GF_RENDERING_SERVER_URL/GF_RENDERING_CALLBACK_URL in the env file.
+    image_renderer:
+        image: grafana/grafana-image-renderer:3.12.9
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            resources:
+                limits:
+                    memory: 1G
             placement:
                 constraints: [node.role == manager]
             restart_policy:
@@ -231,6 +269,68 @@ services:
             - validate
         deploy:
             mode: global  # one per node; Prometheus discovers via tasks.node_exporter
+            resources:
+                limits:
+                    memory: 128M
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    # Serves batch metrics that cron jobs on the manager write as .prom files
+    # (per-rule gherkin costs, harvested peak-RSS). Separate manager-only service:
+    # mounting the directory into the global node_exporter breaks nodes that do
+    # not have the path (reject-loop, seen on DEV 30 Jul).
+    textfile_exporter:
+        image: prom/node-exporter:v1.12.1
+        command:
+            - '--collector.disable-defaults'
+            - '--collector.textfile'
+            - '--collector.textfile.directory=/textfile'
+        volumes:
+            - ${TEXTFILE_DIR}:/textfile:ro
+        networks:
+            - validate
+        deploy:
+            replicas: 1
+            resources:
+                limits:
+                    memory: 128M
+            placement:
+                constraints: [node.role == manager]
+            restart_policy:
+                condition: on-failure
+                delay: 5s
+
+    # Per-container memory/CPU (cAdvisor). Closes the measuring blind spot behind
+    # the false-quarantine incident: long-lived daemons inside containers (clamd)
+    # were invisible to both host-level and per-subprocess measurements.
+    cadvisor:
+        # v0.55+: v0.52 chokes on Docker 29's containerd image store (rw-layer
+        # lookup fails -> ALL metrics for those containers silently dropped).
+        image: gcr.io/cadvisor/cadvisor:v0.55.1
+        command:
+            - '--docker_only=true'
+            - '--housekeeping_interval=15s'
+            - '--store_container_labels=false'
+            # keep only this label: needed to group metrics per swarm service
+            - '--whitelisted_container_labels=com.docker.swarm.service.name'
+            # disk/diskIO also disabled: the rw-layer lookup they require breaks
+            # on Docker 29's containerd image store (no overlayfs/layerdb path),
+            # which silently drops ALL metrics for those containers.
+            - '--disable_metrics=percpu,sched,tcp,udp,advtcp,process,hugetlb,referenced_memory,cpu_topology,resctrl,disk,diskIO'
+        volumes:
+            - /:/rootfs:ro
+            - /var/run:/var/run:ro
+            - /sys:/sys:ro
+            - /var/lib/docker/:/var/lib/docker:ro
+            - /dev/disk/:/dev/disk:ro
+        networks:
+            - validate
+        deploy:
+            mode: global
+            resources:
+                limits:
+                    memory: 512M
             restart_policy:
                 condition: on-failure
                 delay: 5s
@@ -245,6 +345,9 @@ services:
             - validate
         deploy:
             replicas: 1
+            resources:
+                limits:
+                    memory: 512M
             restart_policy:
                 condition: on-failure
                 delay: 5s

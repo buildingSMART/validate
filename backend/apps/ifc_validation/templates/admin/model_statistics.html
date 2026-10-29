@@ -13,7 +13,9 @@
   <div id="content-main">
     <p>
       Build a transient query one clause at a time. Filter clauses are combined
-      with AND. Nothing is saved.
+      with AND. Annotate names a formula that later annotations and the final
+      Expression can reuse. Group by is optional for a scalar result. Nothing
+      is saved.
     </p>
     <details class="statistics-examples">
       <summary>Example query patterns</summary>
@@ -38,12 +40,19 @@
                 <span class="statistics-example-control">{{ clause.operation }}</span>
                 {% if clause.expression %}
                   <span class="statistics-example-expression">
+                    {% if clause.expression.annotation_name %}
+                      <span class="statistics-example-control">{{ clause.expression.annotation_name }}</span>
+                      <span>=</span>
+                    {% endif %}
                     <span class="statistics-example-control{% if not clause.expression.function_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.function }}</span>
                     {% if clause.expression.function_active %}<span>(</span>{% endif %}
                     <span class="statistics-example-control">{{ clause.expression.operand_a }}</span>
                     <span class="statistics-example-control{% if not clause.expression.operator_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.operator }}</span>
                     <span class="statistics-example-control{% if not clause.expression.operand_b_active %} statistics-example-placeholder{% endif %}">{{ clause.expression.operand_b }}</span>
                     {% if clause.expression.function_active %}<span>)</span>{% endif %}
+                    {% if clause.expression.condition %}
+                      <span class="statistics-example-condition">{{ clause.expression.condition }}</span>
+                    {% endif %}
                   </span>
                 {% else %}
                   {% if clause.selection %}<span class="statistics-example-control">{{ clause.selection }}</span>{% else %}<span></span>{% endif %}
@@ -87,6 +96,7 @@
               <div class="statistics-operator">{{ clause_form.operator }}</div>
               <div class="statistics-value">{{ clause_form.value }}</div>
               <div class="statistics-expression">
+                <span class="statistics-annotation-name">{{ clause_form.annotation_name }} =</span>
                 {{ clause_form.expression_function }}
                 <span class="statistics-expression-parenthesis">(</span>
                 {{ clause_form.operand_a }}
@@ -148,6 +158,7 @@
       <div class="statistics-operator">{{ clause_formset.empty_form.operator }}</div>
       <div class="statistics-value">{{ clause_formset.empty_form.value }}</div>
       <div class="statistics-expression">
+        <span class="statistics-annotation-name">{{ clause_formset.empty_form.annotation_name }} =</span>
         {{ clause_formset.empty_form.expression_function }}
         <span class="statistics-expression-parenthesis">(</span>
         {{ clause_formset.empty_form.operand_a }}
@@ -193,6 +204,8 @@
   </datalist>
   {{ clause_target_choices|json_script:"statistics-clause-targets" }}
   {{ filter_operator_choices|json_script:"statistics-filter-operators" }}
+  {{ statistics_operand_choices|json_script:"statistics-operand-choices" }}
+  {{ statistics_function_choices|json_script:"statistics-function-choices" }}
   {{ statistics_query_examples|json_script:"statistics-query-examples" }}
 
   <style>
@@ -237,6 +250,10 @@
       gap: 0.4rem;
       align-items: center;
     }
+    .statistics-example-condition {
+      grid-column: 1 / -1;
+      font-style: italic;
+    }
     .statistics-example-placeholder {
       background: transparent;
       border-color: transparent;
@@ -258,6 +275,13 @@
     .statistics-clause-row[hidden] { display: none; }
     .statistics-clause-row select,
     .statistics-clause-row input[type="text"] { width: 100%; box-sizing: border-box; }
+    .statistics-annotation-name {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.4rem;
+      align-items: center;
+    }
+    .statistics-annotation-name[hidden] { display: none; }
     .statistics-expression {
       grid-column: 2 / 5;
       display: grid;
@@ -279,6 +303,13 @@
     }
     .statistics-expression[hidden],
     .statistics-expression-parenthesis[hidden] { display: none; }
+    .statistics-annotate-row .statistics-expression {
+      grid-row: 1;
+      grid-template-columns: minmax(10rem, 1fr) minmax(8rem, 0.8fr) auto minmax(8rem, 1fr) minmax(8rem, 0.8fr) minmax(8rem, 1fr) auto;
+    }
+    .statistics-annotate-row .statistics-target { grid-column: 2; grid-row: 2; }
+    .statistics-annotate-row .statistics-operator { grid-column: 3; grid-row: 2; }
+    .statistics-annotate-row .statistics-value { grid-column: 4; grid-row: 2; }
     .statistics-clause-errors { grid-column: 1 / -1; }
     .statistics-clause-errors:empty { display: none; }
     .statistics-delete-control { display: none; }
@@ -288,6 +319,8 @@
     (() => {
       const targetChoices = JSON.parse(document.getElementById("statistics-clause-targets").textContent);
       const operatorChoices = JSON.parse(document.getElementById("statistics-filter-operators").textContent);
+      const operandChoices = JSON.parse(document.getElementById("statistics-operand-choices").textContent);
+      const functionChoices = JSON.parse(document.getElementById("statistics-function-choices").textContent);
       const exampleQueries = JSON.parse(document.getElementById("statistics-query-examples").textContent);
       const source = document.getElementById("id_source");
       const rows = document.getElementById("statistics-clause-rows");
@@ -341,6 +374,7 @@
         const operator = row.querySelector('select[name$="-operator"]');
         const value = row.querySelector('input[name$="-value"]');
         const targetCell = row.querySelector(".statistics-target");
+        const annotationName = row.querySelector(".statistics-annotation-name");
         const operatorCell = row.querySelector(".statistics-operator");
         const valueCell = row.querySelector(".statistics-value");
         const expressionCell = row.querySelector(".statistics-expression");
@@ -348,19 +382,32 @@
         const parentheses = row.querySelectorAll(".statistics-expression-parenthesis");
 
         let choices = targetChoices[operation.value] || [];
-        if (["filter", "group"].includes(operation.value)) {
+        if (["filter", "group", "annotate"].includes(operation.value)) {
           choices = choices[source.value] || [];
         }
         replaceChoices(target, choices);
+        row.classList.toggle("statistics-annotate-row", operation.value === "annotate");
         targetCell.hidden = ["expression", "limit"].includes(operation.value);
-        operatorCell.hidden = operation.value !== "filter";
+        annotationName.hidden = operation.value !== "annotate";
+        const annotateHasCondition = (
+          operation.value === "annotate" && target.value !== "annotate:none"
+        );
+        operatorCell.hidden = operation.value !== "filter" && !annotateHasCondition;
         const needsGroupValue = (
           operation.value === "group" && target.value === "group:graph_value"
         );
         valueCell.hidden = (
-          !["filter", "limit"].includes(operation.value) && !needsGroupValue
+          !["filter", "limit"].includes(operation.value)
+          && !needsGroupValue
+          && !annotateHasCondition
         );
-        expressionCell.hidden = operation.value !== "expression";
+        expressionCell.hidden = !["annotate", "expression"].includes(operation.value);
+        replaceChoices(
+          expressionFunction,
+          functionChoices.filter(choice => (
+            operation.value !== "annotate" || choice.value !== "average"
+          )),
+        );
         parentheses.forEach(parenthesis => {
           parenthesis.hidden = !expressionFunction.value;
         });
@@ -368,15 +415,44 @@
           select.classList.toggle("statistics-empty-placeholder", !select.value);
         });
 
-        if (operation.value === "filter") {
+        if (operation.value === "filter" || annotateHasCondition) {
           replaceChoices(operator, operatorChoices[target.value] || []);
         }
-        value.placeholder = placeholders[target.value] || placeholders[operation.value] || "Value";
-        if (valueLists[target.value]) {
-          value.setAttribute("list", valueLists[target.value]);
+        const suggestionTarget = target.value.replace("annotate:", "filter:");
+        value.placeholder = (
+          placeholders[target.value]
+          || placeholders[suggestionTarget]
+          || placeholders[operation.value]
+          || "Value"
+        );
+        if (valueLists[target.value] || valueLists[suggestionTarget]) {
+          value.setAttribute("list", valueLists[target.value] || valueLists[suggestionTarget]);
         } else {
           value.removeAttribute("list");
         }
+      }
+
+      function syncExpressionOperandChoices() {
+        const queryRows = [...rows.querySelectorAll(".statistics-clause-row")];
+        queryRows.forEach((row, rowIndex) => {
+          const annotations = queryRows.slice(0, rowIndex)
+            .filter(candidate => (
+              candidate.querySelector('select[name$="-operation"]').value === "annotate"
+            ))
+            .map(candidate => (
+              candidate.querySelector('input[name$="-annotation_name"]').value.trim()
+            ))
+            .filter((name, index, names) => name && names.indexOf(name) === index)
+            .map(name => ({ value: name, label: name }));
+          row.querySelectorAll('select[name$="-operand_a"], select[name$="-operand_b"]').forEach(select => {
+            const placeholder = select.name.endsWith("-operand_a") ? "𝑎" : "𝑏";
+            replaceChoices(select, [
+              { value: "", label: placeholder },
+              ...operandChoices,
+              ...annotations,
+            ]);
+          });
+        });
       }
 
       function appendClause(values = {}) {
@@ -395,12 +471,14 @@
           row.querySelector('select[name$="-target"]').value = values.target;
           syncClauseRow(row);
         }
+        syncExpressionOperandChoices();
         Object.entries(values).forEach(([field, value]) => {
           if (["operation", "target"].includes(field)) return;
           const control = row.querySelector(`[name$="-${field}"]`);
           if (control) control.value = value;
         });
         syncClauseRow(row);
+        syncExpressionOperandChoices();
         return row;
       }
 
@@ -471,6 +549,12 @@
       rows.addEventListener("change", event => {
         if (event.target.matches('select[name$="-operation"], select[name$="-target"], .statistics-expression select')) {
           syncClauseRow(event.target.closest(".statistics-clause-row"));
+          syncExpressionOperandChoices();
+        }
+      });
+      rows.addEventListener("input", event => {
+        if (event.target.matches('input[name$="-annotation_name"]')) {
+          syncExpressionOperandChoices();
         }
       });
       rows.addEventListener("click", event => {
@@ -480,6 +564,7 @@
         const row = button.closest(".statistics-clause-row");
         row.remove();
         renumberClauseRows();
+        syncExpressionOperandChoices();
       });
       source.addEventListener("change", () => {
         rows.querySelectorAll(".statistics-clause-row").forEach(syncClauseRow);
@@ -497,6 +582,7 @@
         });
       }
       rows.querySelectorAll(".statistics-clause-row").forEach(syncClauseRow);
+      syncExpressionOperandChoices();
     })();
   </script>
 {% endblock %}
