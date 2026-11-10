@@ -163,8 +163,6 @@ class Command(BaseCommand):
                         request.file = None
                         request.file_removed = timezone.now()
                         request.save(update_fields=['file', 'file_removed'])
-                        from apps.ifc_validation_bff.report.pdf import remove_pdf
-                        remove_pdf(request)
                         if file_path:
                             os.remove(file_path)
 
