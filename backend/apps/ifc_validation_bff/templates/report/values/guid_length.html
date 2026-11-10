@@ -1,0 +1,5 @@
+{% if value.expected %}
+  A sequence of length {{ value.length }} for the global ID
+{% else %}
+  The guid '{{ value.guid }}' is a sequence of length {{ value.length }}
+{% endif %}

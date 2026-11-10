@@ -1,0 +1,48 @@
+{% extends pdf|yesno:'report/print_base.html,ui/base.html' %}
+
+{% block title %}{{ report.title }}{% endblock %}
+
+{% block content %}
+  <div class="report-content" data-testid="report-content">
+    {% if pdf %}
+      {% include 'report/overview.html' %}
+      <h2 id="file">File information &amp; header validation</h2>
+    {% else %}
+      <h2>{{ report.title }}</h2>
+    {% endif %}
+
+    {% include 'report/file_info.html' %}
+
+    {% if not pdf %}
+      {% include 'report/section.html' %}
+    {% endif %}
+
+    {% if report.signatures or pdf %}
+      <h2 id="signatures">Digital Application Authentication</h2>
+      {% for signature in report.signatures %}
+        {% include 'report/signature.html' %}
+      {% empty %}
+        <p>No digital application signatures were recorded for this file.</p>
+      {% endfor %}
+    {% endif %}
+
+    {% if pdf %}
+      {% for chapter in document.chapters %}
+        <section class="print-chapter{% if not chapter.reports %} empty-chapter{% endif %}">
+          <h2 id="{{ chapter.anchor }}">{{ chapter.title }}</h2>
+          {% comment %}
+            <p class="chapter-description">{{ chapter.description }}</p>
+          {% endcomment %}
+
+          {% for report in chapter.reports %}
+            {% include 'report/section.html' %}
+          {% empty %}
+            <p class="empty-chapter">No recorded results in this category.</p>
+          {% endfor %}
+        </section>
+      {% endfor %}
+
+      {% include 'report/task_summary.html' %}
+    {% endif %}
+  </div>
+{% endblock %}

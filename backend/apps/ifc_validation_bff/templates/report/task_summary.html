@@ -1,0 +1,36 @@
+<section class="print-chapter">
+  <h2 id="validation-tasks">Validation execution</h2>
+  <p>
+    Latest execution of each validation task. Skipped, unavailable and failed checks
+    are listed explicitly.
+  </p>
+
+  <table class="task-summary">
+    <thead>
+      <tr>
+        <th>Check</th>
+        <th>Execution state</th>
+        <th>Details</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in document.tasks %}
+        <tr>
+          <th>{{ task.title }}</th>
+          <td>{{ task.status }}</td>
+          <td>{{ task.reason|default:'—' }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="3">No validation tasks were recorded.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p class="scope-note">
+    Validation checks IFC conformance within the implemented checks. It is not a
+    certification of design quality, completeness or fitness for a particular purpose.
+    Allowlisting adjusts known exceptions; these outcomes are labelled in the findings.
+  </p>
+</section>

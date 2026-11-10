@@ -1,0 +1,79 @@
+{% load report_tags %}
+
+<header class="document-title">
+  <p class="eyebrow">buildingSMART International · Validation Service</p>
+  <h1>Validation report</h1>
+  <p class="file-title">{{ document.file.metadata.file_name }}</p>
+  <p class="document-meta">{{ document.file.request_id }} · Generated {{ document.generated_at }}</p>
+</header>
+
+<h2 id="overview">Report overview</h2>
+<p class="conformance-status" data-status="{{ document.conformance_status }}">
+  {{ document.conformance_status|conformance_label }}
+</p>
+
+<table class="overview">
+  <colgroup>
+    <col class="overview-layer">
+    <col class="overview-state">
+    <col span="6">
+  </colgroup>
+  <thead>
+    <tr>
+      <th scope="col" rowspan="2">Validation layer</th>
+      <th scope="col" rowspan="2">State</th>
+      <th scope="colgroup" colspan="2">Errors</th>
+      <th scope="colgroup" colspan="2">Warnings</th>
+      <th scope="col" rowspan="2">Passed</th>
+      <th scope="col" rowspan="2">N/A</th>
+    </tr>
+    <tr>
+      <th scope="col">Rules</th>
+      <th scope="col">Outcomes</th>
+      <th scope="col">Rules</th>
+      <th scope="col">Outcomes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Header validation</th>
+      <td>{{ document.header_status|pdf_status_label }}</td>
+      <td colspan="6">{{ document.file.header.invalid_fields|length }} header field issue{{ document.file.header.invalid_fields|length|pluralize }}</td>
+    </tr>
+    {% for check in document.overview %}
+      <tr>
+        <th>{{ check.title }}</th>
+        <td>{{ check.status|pdf_status_label }}</td>
+        <td>{{ check.error_rules }}</td>
+        <td>{{ check.error_outcomes }}</td>
+        <td>{{ check.warning_rules }}</td>
+        <td>{{ check.warning_outcomes }}</td>
+        <td>{% if check.title == 'STEP Syntax' or check.title == 'IFC Schema' %}{% if check.status == 'v' %}✓{% else %}✗{% endif %}{% else %}{{ check.passed_rules }}{% endif %}</td>
+        <td>{% if check.title == 'STEP Syntax' or check.title == 'IFC Schema' %}-{% else %}{{ check.not_applicable_rules }}{% endif %}</td>
+        <td>{{ check.not_applicable_rules }}</td>
+      </tr>
+    {% endfor %}
+    <tr>
+      <th>Digital signatures</th>
+      <td>{{ document.signature_status|pdf_status_label }}</td>
+      <td colspan="6">{{ document.file.signatures|length }} recorded signature{{ document.file.signatures|length|pluralize }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="scope-note">
+  Errors and warnings show separate counts for rules and for outcomes, but, for performance reasons, the maximum number of outcomes per rule is limited to {{ document.outcome_limit }}.
+</p>
+
+<nav class="contents" aria-label="Report contents">
+  <h3>Contents</h3>
+  <a href="#overview">Report overview</a>
+  <a href="#file">File information &amp; header validation</a>
+  <a href="#signatures">Digital Application Authentication</a>
+  {% for chapter in document.chapters %}
+    <a href="#{{ chapter.anchor }}">
+      {{ chapter.title }} <span>{{ chapter.rule_count }} group{{ chapter.rule_count|pluralize }}</span>
+    </a>
+  {% endfor %}
+  <a href="#validation-tasks">Validation execution</a>
+</nav>

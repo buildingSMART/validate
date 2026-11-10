@@ -1,0 +1,35 @@
+{% load report_tags %}
+
+<table class="results syntax{% if pdf %} grouped-results{% endif %}">
+  {% if pdf %}
+    <colgroup>
+      <col class="syntax-position">
+      <col class="syntax-position">
+      <col class="outcome-severity">
+      <col>
+    </colgroup>
+  {% endif %}
+  <thead>
+    {% if pdf %}
+      <tr>
+        <th scope="colgroup" colspan="2">Location</th>
+        <th scope="colgroup" colspan="2">Outcome</th>
+      </tr>
+    {% endif %}
+    <tr>
+      <th>Line</th>
+      <th>Column</th>
+      <th>Severity</th>
+      <th>Message</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>{{ error.line_number|default_if_none:'' }}</td>
+      <td>{{ error.column_number|default_if_none:'' }}</td>
+      <td>{{ error.severity_after_whitelisting|severity_label }}</td>
+      {# Adjacent spans preserve the original preformatted diagnostic without extra whitespace. #}
+      <td><span class="pre">{{ error.diagnosis }}</span><span class="pre mono">{{ error.source_excerpt }}</span></td>
+    </tr>
+  </tbody>
+</table>

@@ -19,6 +19,7 @@ from .utils import get_absolute_file_path
 from .logger import logger
 from .email_tasks import *
 from .file_retention_tasks import *
+from .report_tasks import generate_validation_report
 
 
 def terminate_subprocesses():
@@ -149,6 +150,10 @@ def on_workflow_completed(self, result, **kwargs):
         # queue sending email
         send_completion_email_task.delay(id=id, file_name=request.file_name)
 
+    # The immutable export is a post-validation artifact, outside the check registry
+    # and its progress/blocker semantics. PDF errors are retried independently.
+    generate_validation_report.delay(request_id=id)
+
 
 @shared_task(bind=True)
 @log_execution
@@ -173,6 +178,8 @@ def on_workflow_failed(self, *args, **kwargs):
     if exc:
         reason += f" Error: {exc}"
     request.mark_as_failed(reason)
+
+    generate_validation_report.delay(request_id=id)
 
     # queue sending email
     send_failure_email_task.delay(id=id, file_name=request.file_name)

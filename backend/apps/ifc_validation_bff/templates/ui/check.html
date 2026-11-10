@@ -1,0 +1,15 @@
+{% load ui_tags %}
+
+{% if status == 'v' or status == 'i' or status == 'w' %}
+  <a
+    href="{% url report_route request_id %}"
+    target="_blank"
+    rel="noopener"
+    class="icon-button check-link"
+    aria-label="{{ label }}: {{ status|check_label }}"
+  >
+    {% include 'ui/status.html' with icon=status|check_icon %}
+  </a>
+{% else %}
+  {% include 'ui/status.html' with icon=status|check_icon %}
+{% endif %}

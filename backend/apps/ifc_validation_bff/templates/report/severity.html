@@ -1,0 +1,12 @@
+{% load report_tags %}
+
+{% if result.allowlisted %}
+  {# The PDF retains the database severity alongside the effective, allowlisted classification. #}
+  {% if pdf %}
+    Allowlisted · {{ result.severity_after_whitelisting|severity_label }} (was {{ result.severity_in_db|severity_label }})
+  {% else %}
+    <a href="/v2/allowlist">ⓘ Allowlisted</a>
+  {% endif %}
+{% else %}
+  {{ result.severity_after_whitelisting|severity_label }}
+{% endif %}

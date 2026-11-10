@@ -3,6 +3,7 @@
   "description": "End-to-end tests for the IFC Validation Service using Playwright",
   "version": "0.0.1",
   "scripts": {
+    "test:report-parity": "playwright test --config report-parity.config.js",
     "test": "playwright test --reporter=line",
     "test:html": "playwright test",
     "test:headed": "playwright test --headed",

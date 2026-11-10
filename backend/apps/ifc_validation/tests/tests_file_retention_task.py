@@ -1,6 +1,10 @@
 from io import StringIO
+from pathlib import Path
+import shutil
+import tempfile
+from unittest.mock import patch
 
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 from django.contrib.auth.models import User
 
 from apps.ifc_validation_models.models import *
@@ -9,6 +13,21 @@ from ..tasks.file_retention_tasks import apply_file_retention
 
 
 class ApplyFileRetentionTaskTestCase(TransactionTestCase):
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        shutil.copyfile(Path(__file__).parent.parent / 'fixtures' / 'valid_file.ifc',
+                        Path(directory.name) / 'valid_file.ifc')
+        settings = override_settings(MEDIA_ROOT=directory.name)
+        settings.enable()
+        self.addCleanup(settings.disable)
+        files = patch('apps.ifc_validation.tasks.utils.MEDIA_ROOT', directory.name)
+        files.start()
+        self.addCleanup(files.stop)
+        from ..tasks.utils import get_absolute_file_path
+        get_absolute_file_path.cache_clear()
+        self.addCleanup(get_absolute_file_path.cache_clear)
 
     def set_user_context():
         user, _ = User.objects.get_or_create(id=1, defaults={'username': 'SYSTEM', 'is_active': True})
@@ -65,6 +84,11 @@ class ApplyFileRetentionTaskTestCase(TransactionTestCase):
         )
         request.created = timezone.now() - timezone.timedelta(days=250)
         request.save()
+
+        from apps.ifc_validation_bff.report.pdf import artifact_path
+        report = artifact_path(request)
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_bytes(b'%PDF-test')
         
         # act
         task = apply_file_retention(dry_run=False, action="remove")
@@ -72,6 +96,7 @@ class ApplyFileRetentionTaskTestCase(TransactionTestCase):
         # assert
         request = ValidationRequest.objects.get(id=request.id)
         self.assertIsNotNone(request.file_removed)
+        self.assertFalse(report.exists())
 
     def test_apply_file_retention_remove_retains_removed_field(self):
 

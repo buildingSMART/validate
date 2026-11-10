@@ -107,6 +107,10 @@ def callback(request):
         redirect_to = POST_LOGIN_REDIRECT_URL
         logger.warning(f"Logged in as user with username = '{username}' via OAuth, user.id = {user.id}")
 
+    ui_return_to = request.session.pop('ui_return_to', None)
+    if not django_admin and isinstance(ui_return_to, str) and ui_return_to.startswith('/v2/') and '\\' not in ui_return_to:
+        redirect_to = ui_return_to if user.is_active else '/v2/waiting_zone'
+
     logger.info(f"Redirecting user with username = '{username}' to '{redirect_to}', user.id = {user.id}")
     return redirect(redirect_to)
 

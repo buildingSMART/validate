@@ -1,0 +1,5 @@
+{% if value.expected %}
+  One of the following characters: {{ value.characters }}
+{% else %}
+  For guid '{{ value.guid }}', the following invalid character(s) is/were found: {{ value.characters }}
+{% endif %}

@@ -1,0 +1,7 @@
+{# Clipboard extraction strips tags, so indentation must not add text between these blocks. #}
+{% spaceless %}
+  <div>{{ value.description }}</div>
+  {% for line in value.details %}
+    <div>{{ line }}</div>
+  {% endfor %}
+{% endspaceless %}

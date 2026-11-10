@@ -75,6 +75,7 @@ urlpatterns = [
     # APPS
     path('api/v1/',          include(('apps.ifc_validation.api.v1.urls', 'apps.ifc_validation'), namespace='v1')), # API v1
     path('bff/',             include('apps.ifc_validation_bff.urls')), # BFF for UI
+    path('v2/',              include('apps.ifc_validation_bff.ui.urls')), # Django/HTMX UI
 
     # SQL Explorer
     path('sqlexplorer/',     include('explorer.urls')),
