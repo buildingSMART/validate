@@ -96,7 +96,7 @@ class ApplyFileRetentionTaskTestCase(TransactionTestCase):
         # assert
         request = ValidationRequest.objects.get(id=request.id)
         self.assertIsNotNone(request.file_removed)
-        self.assertFalse(report.exists())
+        self.assertTrue(report.exists())  # the PDF outlives the IFC file
 
     def test_apply_file_retention_remove_retains_removed_field(self):
 
