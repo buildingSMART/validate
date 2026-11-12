@@ -81,7 +81,7 @@ stop-worker:
 	-$(PYTHON) -m celery -A core control shutdown \
 	    --destination=worker@$(shell hostname) || true
 
-test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine test-management-commands test-report-views
+test: test-models test-header-validation-task test-syntax-task test-syntax-header-validation-task test-schema-task test-magic-and-av-task test-utils test-file-retention-task test-status-combine test-management-commands test-report-views test-ui-and-reports
 
 test-models:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps/ifc_validation_models --settings apps.ifc_validation_models.test_settings --debug-mode --verbosity 3
@@ -112,6 +112,11 @@ test-management-commands:
 
 test-report-views:
 	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation_bff.tests.tests_report_view --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+
+# HTMX UI, HTML report and PDF report. The PDF tests need the test-only packages:
+#   pip install $$(grep -E '^(pypdf|PyMuPDF)' requirements-dev.txt)
+test-ui-and-reports:
+	MEDIA_ROOT=./apps/ifc_validation/fixtures $(PYTHON) manage.py test apps.ifc_validation_bff.tests.tests_ui apps.ifc_validation_bff.tests.tests_report_html apps.ifc_validation_bff.tests.tests_report_pdf apps.ifc_validation_bff.tests.tests_report_values apps.ifc_validation_bff.tests.tests_model_summary apps.ifc_validation_bff.tests.tests_step_lines --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
 
 test-utils:
 	$(PYTHON) manage.py test core.tests.test_utils --debug-mode --verbosity 3
