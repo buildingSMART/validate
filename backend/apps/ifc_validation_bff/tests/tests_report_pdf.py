@@ -233,3 +233,13 @@ class ReportPDFTests(TestCase):
             retry.assert_called_once_with(exc=failure, countdown=30)
         self.item.refresh_from_db()
         self.assertEqual(self.item.status, 'COMPLETED')
+
+    @patch('apps.ifc_validation_models.decorators.set_django_system_user_context')
+    def test_time_limit_is_not_retried_and_lost_worker_is_not_redelivered(self, context):
+        from celery.exceptions import SoftTimeLimitExceeded
+        from apps.ifc_validation.tasks.report_tasks import generate_validation_report
+        self.assertFalse(generate_validation_report.acks_late)
+        with patch('apps.ifc_validation_bff.report.pdf.generate_pdf', side_effect=SoftTimeLimitExceeded()), patch.object(
+                generate_validation_report, 'retry') as retry:
+            self.assertIsNone(generate_validation_report.run(self.item.pk))
+            retry.assert_not_called()
