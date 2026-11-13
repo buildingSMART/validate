@@ -1,0 +1,11 @@
+{% extends 'ui/base.html' %}
+{% load ui_tags %}
+
+{% block content %}
+  <section class="paper prose">
+    <h1>404</h1>
+    <h4>Not Found</h4>
+    <p class="empty-state">{% material_icon 'SearchOffOutlined' %}</p>
+    <a class="icon-text" href="{% url 'ui:home' %}">{% material_icon 'Home' %}Home</a>
+  </section>
+{% endblock %}

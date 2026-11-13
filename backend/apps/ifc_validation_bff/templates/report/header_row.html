@@ -1,0 +1,28 @@
+{% load ui_tags %}
+
+<tr>
+  <td>
+    <span title="{{ tooltip }}" aria-label="{{ tooltip }}"{% if not pdf %} style="border-bottom: 1px dotted gray; cursor: help;"{% endif %}><b>{{ label }}</b></span>
+    {% if pdf %}
+    <div class="explanation">
+      {{ tooltip }}
+    </div>
+    {% endif %}
+    {% if invalid %}
+      <a
+        class="{% if pdf %}field-warning{% else %}icon-button header-warning{% endif %}"
+        href="{{ url }}"
+        target="_blank"
+        rel="noopener"
+        aria-label="Header validation warning"
+      >
+        {% if pdf %}
+          Warning
+        {% else %}
+          {% material_icon 'Warning' %}
+        {% endif %}
+      </a>
+    {% endif %}
+  </td>
+  <td>{{ value }}</td>
+</tr>

@@ -306,7 +306,7 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
-USE_THOUSAND_SEPARATOR = True
+USE_THOUSAND_SEPARATOR = False
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
@@ -324,6 +324,7 @@ MAX_FILES_PER_UPLOAD = 100
 MAX_FILE_SIZE_IN_MB = int(os.environ.get("MAX_FILE_SIZE_IN_MB", 256))  # default to 256 MB
 MEDIA_URL = '/files/'
 MEDIA_ROOT = os.environ.get('MEDIA_ROOT', '/files_storage')
+VALIDATION_REPORT_ROOT = os.environ.get('VALIDATION_REPORT_ROOT', os.path.join(MEDIA_ROOT, '.reports'))
 try:
     os.makedirs(MEDIA_ROOT, exist_ok=True)
 except Exception as err:

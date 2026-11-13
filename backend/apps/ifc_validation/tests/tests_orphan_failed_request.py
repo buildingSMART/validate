@@ -29,6 +29,11 @@ from apps.ifc_validation.tasks.task_runner import (
 
 class OrphanFailedRequestElegantTestCase(TestCase):
 
+    def setUp(self):
+        export = patch('apps.ifc_validation.tasks.task_runner.generate_validation_report')
+        self.export = export.start()
+        self.addCleanup(export.stop)
+
     @staticmethod
     def _set_user_context():
         user, _ = User.objects.get_or_create(
@@ -91,6 +96,7 @@ class OrphanFailedRequestElegantTestCase(TestCase):
                          "failure email must be sent exactly once across both firings")
         self.assertEqual(mock_admin_email.delay.call_count, 1,
                          "admin failure email must be sent exactly once across both firings")
+        self.export.delay.assert_called_once_with(request_id=request.id)
 
     # --- when an exception is available it is surfaced in the reason ---
     @patch('apps.ifc_validation.tasks.task_runner.send_failure_admin_email_task')

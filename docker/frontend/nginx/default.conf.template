@@ -60,6 +60,11 @@ server {
     }
 
     # BFF (React UI)
+    location = /v2 { return 302 /v2/; }
+    location /v2/ {
+        try_files $uri @proxy_api;
+    }
+
     location /bff {
         try_files $uri @proxy_api;
     }

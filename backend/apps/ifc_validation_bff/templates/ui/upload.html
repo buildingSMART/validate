@@ -1,0 +1,36 @@
+{% load ui_tags %}
+
+<section id="upload-panel" class="upload-panel" aria-label="Upload IFC files">
+  <div data-upload-errors aria-live="polite">
+    {% for error in upload.errors %}
+      <p role="alert" class="error">{{ error }}</p>
+    {% endfor %}
+  </div>
+
+  <form
+    id="ifc_dropzone"
+    class="dropzone"
+    action="{% url 'ui:upload' %}"
+    method="post"
+    enctype="multipart/form-data"
+    data-max-files="{{ upload.policy.max_files }}"
+    data-max-size="{{ upload.policy.max_size_mb }}"
+  >
+    {% csrf_token %}
+    <progress max="100" value="0" hidden aria-label="Upload progress"></progress>
+    <div class="dz-message" data-dz-message>
+      <span class="upload-icon">{% material_icon 'FileUpload' %}</span>
+      Click or drop files here to upload for validation
+    </div>
+    {# Dropzone removes this native input when it initializes; the form still works without JavaScript. #}
+    <div class="fallback">
+      <input type="file" name="file" accept=".ifc" multiple required aria-label="Select IFC files">
+    </div>
+  </form>
+
+  {#<small>Maximum {{ upload.policy.max_size_mb }} MB per file; {{ upload.policy.max_files }} files per upload.</small>#}
+  <div class="upload-actions">
+    <button class="button" type="submit" form="ifc_dropzone">Upload &amp; Validate</button>
+    {#<button type="reset" form="ifc_dropzone" class="text-button">Clear files</button>#}
+  </div>
+</section>

@@ -17,7 +17,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
 ]
 
-ROOT_URLCONF = "apps.ifc_validation_bff.urls"
+ROOT_URLCONF = "apps.ifc_validation_bff.tests.urls"
 
 DB_SQLITE = "sqlite"
 
@@ -34,3 +34,11 @@ DATABASES = {"default": DATABASES_ALL[os.environ.get("TEST_DJANGO_DB", DB_SQLITE
 MEDIA_ROOT = "./apps/ifc_validation/fixtures"
 USE_TZ = True
 SECRET_KEY = "insecure-test-only-secret-key"
+
+STATIC_URL = "/static/"
+MAX_OUTCOMES_PER_RULE = 10
+TEMPLATES = [{
+    "BACKEND": "django.template.backends.django.DjangoTemplates",
+    "APP_DIRS": True,
+    "OPTIONS": {"context_processors": ["django.template.context_processors.request"]},
+}]

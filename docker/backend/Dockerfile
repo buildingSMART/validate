@@ -82,6 +82,7 @@ RUN set -ex && \
         netcat-openbsd \
         procps \
         htop \
+        libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
         clamav clamav-daemon clamav-freshclam clamdscan && \
     update-ca-certificates -f && \
     # cleanup

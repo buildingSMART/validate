@@ -1,0 +1,37 @@
+<nav class="pagination" aria-label="Report pagination">
+  <span>{{ page.first }}–{{ page.last }} of {{ page.total }}</span>
+
+  {% if page.previous_page %}
+    <a
+      aria-label="Go to previous page"
+      href="?include_all={{ page.options.include_all|yesno:'1,0' }}&amp;page={{ page.previous_page }}"
+      hx-get="?include_all={{ page.options.include_all|yesno:'1,0' }}&amp;page={{ page.previous_page }}"
+      hx-target="#report-section"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+    >
+      {% include 'report/previous_icon.html' %}
+    </a>
+  {% else %}
+    <button disabled aria-label="Go to previous page">
+      {% include 'report/previous_icon.html' %}
+    </button>
+  {% endif %}
+
+  {% if page.next_page %}
+    <a
+      aria-label="Go to next page"
+      href="?include_all={{ page.options.include_all|yesno:'1,0' }}&amp;page={{ page.next_page }}"
+      hx-get="?include_all={{ page.options.include_all|yesno:'1,0' }}&amp;page={{ page.next_page }}"
+      hx-target="#report-section"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+    >
+      {% include 'report/next_icon.html' %}
+    </a>
+  {% else %}
+    <button disabled aria-label="Go to next page">
+      {% include 'report/next_icon.html' %}
+    </button>
+  {% endif %}
+</nav>

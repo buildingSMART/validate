@@ -1,0 +1,39 @@
+# django
+django
+djangorestframework
+django-filter
+django-cors-headers
+drf-spectacular
+drf-spectacular[sidecar]
+
+# celery
+django-celery-results
+django-celery-beat
+celery
+celery[redis]
+
+# servers + utils
+sqlalchemy
+sqlalchemy-utils
+psutil
+python-dotenv
+markdown
+pytest
+pydantic
+requests
+
+# ifc
+ifcopenshell
+lark-parser
+pyparsing
+behave
+
+# dev
+django-debug-toolbar
+flake8
+deprecated
+
+# PDF regression checks
+WeasyPrint==70.0
+pypdf>=6,<7
+PyMuPDF>=1.26,<2

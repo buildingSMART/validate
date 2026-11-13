@@ -1,0 +1,12 @@
+<div>
+  {% if value.context %}
+    {{ value.context|capfirst }} one of:
+  {% else %}
+    One of:
+  {% endif %}
+  <ul>
+    {% for item in value.values %}
+      <li>{{ item }}</li>
+    {% endfor %}
+  </ul>
+</div>

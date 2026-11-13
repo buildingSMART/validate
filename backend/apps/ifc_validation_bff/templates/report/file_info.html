@@ -1,0 +1,46 @@
+{% load report_tags %}
+
+<table class="file-info">
+  {% if pdf %}
+    <colgroup>
+      <col class="field-name">
+      <col>
+    </colgroup>
+  {% endif %}
+  <thead>
+    <tr>
+      <th colspan="2">{% if pdf %}File metadata{% else %}{{ report.kind|title }}{% endif %}</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>{% if pdf %}Uploaded{% else %}Report Date{% endif %}</b></td>
+      <td>{{ report.metadata.report_date }}</td>
+    </tr>
+    <tr>
+      <td><b>IFC Schema</b></td>
+      <td>{{ report.header.schema_identifier }}</td>
+    </tr>
+    {% header_row report.header 'description' 'MVD(s)' report.header.model_view_definition 'One or more model view definitions used in the context of this data exchange.' %}
+    {% header_row report.header 'file_name' 'File Name in Header' report.header.file_name 'The string of graphic characters used to name this particular instance of an exchange structure' %}
+    <tr>
+      <td><b>File Name</b></td>
+      <td>{{ report.metadata.file_name }}</td>
+    </tr>
+    <tr>
+      <td><b>File Size</b></td>
+      <td>{{ report.metadata.file_size }}</td>
+    </tr>
+    {% header_row report.header 'time_stamp' 'File Date' report.header.time_stamp 'The date and time specifying when the exchange structure was created, formatted in ISO 8601' %}
+
+    {% if report.kind == 'file' %}
+      {% header_row report.header 'originating_system' 'Originating System' report.header.originating_system 'The software from which the model originated, also known as the authoring tool.' %}
+      {% header_row report.header 'preprocessor_version' 'Preprocessor Version' report.header.preprocessor_version 'The system used to create the exchange structure, including the system product name and version.' %}
+      {% header_row report.header 'company_name' 'Company Name' report.header.company_name 'The name of the company, derived from the originating system' %}
+      {% header_row report.header 'application_name' 'Application Name' report.header.application_name 'The software used to export the model, derived from the originating system' %}
+      {% header_row report.header 'version' 'Application Version' report.header.application_version 'The version of the model or file format used, derived from the originating system' %}
+      {% header_row report.header 'author' 'Author' report.header.author 'The name and mailing address of the person responsible for creating the exchange structure.' %}
+      {% header_row report.header 'organization' 'Organization' report.header.organization 'The group or organization with whom the author is associated.' %}
+    {% endif %}
+  </tbody>
+</table>
