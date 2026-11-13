@@ -38,18 +38,32 @@ def ifcopenshell_pre_validation(file):
     logger.addHandler(handler)
 
     validate.validate_ifc_header(file, logger)
-    
-    log_contents = log_stream.getvalue().strip().split('\n') 
-    extracted_info = []
-    
-    pattern = r"Attribute '(.+?)' has invalid"
-    
-    for line in log_contents:
-        match = re.search(pattern, line)
-        if match:
-            extracted_info.append(match.group(1))
-    
-    return extracted_info
+
+    # one multi-line record per invalid attribute:
+    #   Attribute '<name>' has invalid type:
+    #       Expected: <type>
+    #       Current value type: <type>
+    pattern = re.compile(r"Attribute '(.+?)' has invalid type:\s*Expected: (.+?)\s*Current value type: (.+?)\s*$", re.MULTILINE)
+
+    return [match.groups() for match in pattern.finditer(log_stream.getvalue())]
+
+
+def add_validation_error(data, field, expected, observed):
+    """
+    Register a header policy violation on `data` (the attributes dict or `ValidationInfo.data`).
+    The field name goes to validation_errors (unchanged behaviour); validation_details gets the
+    matching explanation so the report can show what the policy expects vs. what the header declares.
+    """
+    data['validation_errors'].append(field)
+    data['validation_details'].append({'field': field, 'expected': expected, 'observed': observed})
+
+
+def raw_description(file):
+    """The FILE_DESCRIPTION.description as declared in the file, for reporting."""
+    description = file.mvd.description
+    if isinstance(description, (tuple, list)):
+        return ' '.join(str(item) for item in description)
+    return description
 
 
 def is_valid_iso8601(dt_str: str) -> bool:
@@ -107,7 +121,9 @@ def validate_and_split_originating_system(attributes):
     try:
         match = pattern.match(attributes['originating_system'])
         if not match:
-            attributes['validation_errors'].append('originating_system')
+            add_validation_error(attributes, 'originating_system',
+                                 'Software Company Name - Application Name - Application Version',
+                                 attributes['originating_system'])
             company_name = application_name = version = None
 
         else:
@@ -127,6 +143,8 @@ def validate_and_split_originating_system(attributes):
 class HeaderStructure(ConfiguredBaseModel):
     file: Optional[simple_spf.file] = None
     validation_errors : list = Field(default_factory=list)  
+    # one entry per validation error, in the same order: {'field', 'expected', 'observed'}
+    validation_details : list = Field(default_factory=list)
     
     description: Optional[Tuple[str, ...]] = Field(default=None)
     implementation: Optional[str] = Field(default=None)
@@ -168,6 +186,7 @@ class HeaderStructure(ConfiguredBaseModel):
             attributes = {field: getattr(obj, field) for obj, field, index in fields}
             
             attributes['validation_errors'] = []
+            attributes['validation_details'] = []
             attributes['mvd'] = file.mvd.view_definitions
             attributes['comments'] = file.mvd.comments
             attributes['schema_identifier'] = ''
@@ -175,10 +194,9 @@ class HeaderStructure(ConfiguredBaseModel):
             attributes = validate_and_split_originating_system(attributes)
             
             if file.mvd.description:
-                errors_from_pre_validation = ifcopenshell_pre_validation(file)
-                for error in errors_from_pre_validation:
-                    attributes['validation_errors'].append(error)
-                    attributes[error] = None
+                for field, expected_type, observed_type in ifcopenshell_pre_validation(file):
+                    add_validation_error(attributes, field, f'A value of type {expected_type}', observed_type)
+                    attributes[field] = None
 
             values.update(attributes)         
         
@@ -194,7 +212,9 @@ class HeaderStructure(ConfiguredBaseModel):
         if v:            
             # comments is a free textfield, but constrainted to 256 characters
             if len(v) > 256:
-                values.data.get('validation_errors').append(values.field_name)
+                add_validation_error(values.data, values.field_name,
+                                     'A comment of at most 256 characters',
+                                     ', '.join(str(comment) for comment in v))
                 return v if type(v) == tuple else v
             
             return v if type(v) == tuple else v
@@ -211,28 +231,38 @@ class HeaderStructure(ConfiguredBaseModel):
         the comma separated list into a single string.
         """
         if not v:
-            values.data.get('validation_errors').append('description')
+            add_validation_error(values.data, 'description',
+                                 'One Model View Definition, declared as ViewDefinition [...]',
+                                 raw_description(values.data.get('file')))
             return v
 
         allowed_descriptions = yaml.safe_load(open(os.path.join(os.path.dirname(__file__), 'valid_descriptions.yaml')))
         schema_identifier = values.data.get('file').schema_identifier
+        allowed_for_schema = allowed_descriptions.get(schema_identifier, [])
         
         view_definitions_set = {view for view in v} 
 
         if any("AddOnView" in view for view in view_definitions_set):
             if not any("CoordinationView" in view for view in view_definitions_set):
-                values.data.get('validation_errors').append('description')  # AddOnView MVD without CoordinationView        
+                add_validation_error(values.data, 'description',  # AddOnView MVD without CoordinationView
+                                     'Add-on views only in combination with CoordinationView',
+                                     raw_description(values.data.get('file')))
         
         for mvd in v:
-            if mvd not in allowed_descriptions.get(schema_identifier, [False]) and not 'AddOnView' in mvd:
-                values.data.get('validation_errors').append('description')
+            if mvd not in allowed_for_schema and not 'AddOnView' in mvd:
+                add_validation_error(values.data, 'description',
+                                     f"One of the MVDs valid for {schema_identifier}: {', '.join(allowed_for_schema)}"
+                                     if allowed_for_schema else f'An MVD valid for {schema_identifier} (none defined)',
+                                     mvd)
 
         # A header declares exactly one base MVD; add-on views don't count, the same name declared
         # twice counts twice. Names are stripped and add-ons matched case-insensitively for this
         # check only.
         base_views = [name for name in (view.strip() for view in v) if name and 'addonview' not in name.lower()]
         if len(base_views) > 1:
-            values.data.get('validation_errors').append('description')  # more than one base MVD
+            add_validation_error(values.data, 'description',  # more than one base MVD
+                                 'Exactly one base MVD (add-on views excluded)',
+                                 ', '.join(base_views))
    
         return ', '.join(v)
     
@@ -247,7 +277,8 @@ class HeaderStructure(ConfiguredBaseModel):
         r"(?:\.\d+)?(?:Z|[+-][01]\d:[0-5]\d)?$"  # Optional fractional seconds and timezone
     )   
         if not v or not (iso8601_pattern.match(v) and is_valid_iso8601(v)):
-            values.data['validation_errors'].append(values.field_name)
+            add_validation_error(values.data, values.field_name,
+                                 'A date and time in ISO 8601 format, e.g. 2022-11-21T05:33:05', v)
         return v
         
         
@@ -258,7 +289,9 @@ class HeaderStructure(ConfiguredBaseModel):
         # - must not contain dashes
         # - must not contain trailing and/or leading whitespaces
         if not (v and v == v.strip() and '-' not in v):
-            values.data['validation_errors'].append(values.field_name)
+            part = 'Software Company Name' if values.field_name == 'company_name' else 'Application Name'
+            add_validation_error(values.data, values.field_name,
+                                 f'{part} from Originating System: not empty, no dashes, no leading or trailing whitespace', v)
         return v
     
     
@@ -268,9 +301,12 @@ class HeaderStructure(ConfiguredBaseModel):
             try:
                 parse(v)
                 if v.strip() != v:
-                    values.data['validation_errors'].append(values.field_name)
+                    add_validation_error(values.data, values.field_name,
+                                         'Application Version from Originating System: no leading or trailing whitespace', v)
             except InvalidVersion:
-                values.data['validation_errors'].append(values.field_name)
+                add_validation_error(values.data, values.field_name,
+                                     'Application Version from Originating System according to PEP 440: '
+                                     'numbers and dots, optionally followed by -alpha, -beta or -rc', v)
         return v
 
 
