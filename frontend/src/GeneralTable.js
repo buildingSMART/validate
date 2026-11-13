@@ -8,6 +8,7 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import WarningIcon from '@mui/icons-material/Warning';
 import Tooltip from '@mui/material/Tooltip';
+import { headerFieldDescriptions, headerPolicyUrl } from './mappings';
 
 function prettyPrintFileSize(fileSizeInBytes) {
   var i = -1;
@@ -34,28 +35,15 @@ function preprocessData(data, type) {
   const validationErrors = data["model"]["header_validation"]?.["validation_errors"] || [];
 
   function warningIconWithLink(field, path) {
-    const file_info_mapping = {
-      "description": "One or more model view definitions used in the context of this data exchange.",
-      "file_name": "The string of graphic characters used to name this particular instance of an exchange structure",
-      "time_stamp": "The date and time specifying when the exchange structure was created, formatted in ISO 8601",
-      "originating_system": "The software from which the model originated, also known as the authoring tool.",
-      "preprocessor_version": "The system used to create the exchange structure, including the system product name and version.",
-      "version": "The version of the model or file format used, derived from the originating system",
-      "company_name": "The name of the company, derived from the originating system",
-      "application_name": "The software used to export the model, derived from the originating system",
-      "authorization": "The name and mailing address of the person who authorized the sending of the exchange structure.",
-      "organization": "The group or organization with whom the author is associated.",
-      "author": "The name and mailing address of the person responsible for creating the exchange structure.",
-    };
 
     return (
       <>
-        <Tooltip title={file_info_mapping[path] || "No description available"}>
+        <Tooltip title={headerFieldDescriptions[path] || "No description available"}>
           <span style={{ borderBottom: '1px dotted gray', cursor: 'help' }}>{field}</span>
         </Tooltip>
         {validationErrors.includes(path) && (
           <a
-            href={`https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header#${path}`}
+            href={headerPolicyUrl(path)}
             target="_blank"
             rel="noopener noreferrer"
           >
