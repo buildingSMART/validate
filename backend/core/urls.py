@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.static import serve
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import RedirectView
 
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -50,6 +51,8 @@ urlpatterns = [
     path('', include('django_prometheus.urls')),
 
     # Django Admin
+    # The HTMX catch-all prevents CommonMiddleware from adding this slash.
+    path("admin", RedirectView.as_view(url="/admin/", permanent=True, query_string=True)),
     path("admin/",           admin.site.urls),
 
     # API redirect for browsers

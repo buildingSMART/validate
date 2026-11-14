@@ -22,6 +22,8 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.60.0-noble
     env:
+      # This suite exercises the React UI; HTMX has its own report-parity suite.
+      FRONTEND_MODE: react
       DJANGO_DB: postgresql
       POSTGRES_DB: postgres
       POSTGRES_HOST: postgres
@@ -158,6 +160,13 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_PORT: 5432
           VIRTUAL_ENV: backend/.dev/venv
+
+      - name: Check admin routes in both frontend modes
+        working-directory: ./backend
+        run: |
+          for mode in react htmx; do
+            FRONTEND_MODE=$mode .dev/venv/bin/python manage.py test core.tests.test_urls
+          done
 
       - name: Start Celery worker
         run: |
