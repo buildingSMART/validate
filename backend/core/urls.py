@@ -1,5 +1,6 @@
 import re
 from django.contrib import admin
+from django.conf import settings
 from django.http import HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.urls import include, path, re_path
 from django.contrib.auth.decorators import login_required
@@ -45,9 +46,7 @@ def redirect_to_v1(request, resource, suffix=None):
 
 urlpatterns = [
 
-    # Prometheus scrape endpoint (/metrics). Internal only: nginx serves the React
-    # app at / and never proxies this path, so it is reachable solely on the
-    # overlay network (backend:8000).
+    # Prometheus scrape endpoint (/metrics). Reachable at backend:8000.
     path('', include('django_prometheus.urls')),
 
     # Django Admin
@@ -75,7 +74,6 @@ urlpatterns = [
     # APPS
     path('api/v1/',          include(('apps.ifc_validation.api.v1.urls', 'apps.ifc_validation'), namespace='v1')), # API v1
     path('bff/',             include('apps.ifc_validation_bff.urls')), # BFF for UI
-    path('v2/',              include('apps.ifc_validation_bff.ui.urls')), # Django/HTMX UI
 
     # SQL Explorer
     path('sqlexplorer/',     include('explorer.urls')),
@@ -89,9 +87,9 @@ urlpatterns = [
 ]
 
 if DEVELOPMENT or PREVIEW:
+    if settings.FRONTEND_MODE == "react":
+        urlpatterns += [path("", lambda request: HttpResponseRedirect("/admin/"))]
     urlpatterns += [
-        # redirect root to admin
-        path("", lambda request: HttpResponseRedirect("/admin/")),
         # load debug toolbar
         path("__debug__/", include("debug_toolbar.urls")),
     ]
@@ -114,4 +112,10 @@ urlpatterns += [
         serve,
         kwargs={"document_root": STATIC_ROOT},
     ),
+]
+
+# Keep the UI catch-all after API, OAuth, media, static and development routes.
+urlpatterns += [
+    path('' if settings.FRONTEND_MODE == 'htmx' else 'v2/',
+         include('apps.ifc_validation_bff.ui.urls')),
 ]

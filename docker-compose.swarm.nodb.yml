@@ -14,6 +14,7 @@ services:
             - 80:80
             - 443:443
         environment:
+            FRONTEND_MODE: ${FRONTEND_MODE}
             CERTBOT_DOMAIN: ${CERTBOT_DOMAIN}
             CERTBOT_EMAIL: ${CERTBOT_EMAIL}
         volumes:
@@ -35,6 +36,8 @@ services:
     backend:
         image: ${REGISTRY}/validationsvc-backend
         entrypoint: /app/backend/server-entrypoint.sh
+        environment:
+            FRONTEND_MODE: ${FRONTEND_MODE}
         env_file: ${ENV_FILE}
         volumes:
             - static_data:/app/backend/django_static

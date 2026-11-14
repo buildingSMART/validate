@@ -2,7 +2,6 @@ from django.http import FileResponse, HttpResponseNotAllowed, HttpResponseNotFou
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.vary import vary_on_headers
-from urllib.parse import urlencode
 
 from apps.ifc_validation_models.models import ValidationRequest
 from ..views_legacy import get_current_user, resolve_request_id
@@ -24,9 +23,9 @@ def report_html(request, id: str, kind=None):
     user = get_current_user(request)
     if not user:
         from ..ui.views import redirect_to
-        return redirect_to(request, '/v2/login?' + urlencode({'next': request.get_full_path()}))
+        return redirect_to(request, reverse('ui:login'))
     if not user.is_active:
-        return HttpResponseRedirect('/v2/waiting_zone')
+        return HttpResponseRedirect(reverse('ui:waiting_zone'))
     private_id = resolve_request_id(id)
     if not private_id:
         return missing(user)

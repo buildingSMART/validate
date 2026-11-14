@@ -24,11 +24,11 @@ server {
     add_header Referrer-Policy 'same-origin';
     add_header Content-Security-Policy "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://code.jquery.com; frame-ancestors 'none'";
     
-    # React UI
+    # Selected UI: React bundle or Django/HTMX at root.
     location / {
         root   /app/frontend;
         index  index.html index.htm;
-        try_files $uri $uri/ /index.html;
+        ${FRONTEND_ROOT}
     }
 
     # Grafana dashboards, served behind the same nginx as the Django admin.
@@ -59,7 +59,10 @@ server {
         proxy_set_header Connection "upgrade";
     }
 
-    # BFF (React UI)
+    # Metrics are internal even when every UI path is proxied to Django.
+    location ~ ^/metrics(?:/|$) { return 404; }
+
+    # Django/HTMX UI in React mode; Django returns 404 here in HTMX mode.
     location = /v2 { return 302 /v2/; }
     location /v2/ {
         try_files $uri @proxy_api;

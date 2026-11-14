@@ -21,6 +21,11 @@ from celery.schedules import crontab
 
 load_dotenv()
 
+# react: React at / and Django/HTMX at /v2/; htmx: Django/HTMX at /.
+FRONTEND_MODE = os.getenv("FRONTEND_MODE") or "htmx"
+if FRONTEND_MODE not in ("react", "htmx"):
+    raise ImproperlyConfigured("FRONTEND_MODE must be 'react' or 'htmx'")
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 CURRENT_DIR = Path(__file__).resolve().parent

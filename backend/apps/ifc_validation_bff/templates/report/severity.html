@@ -5,7 +5,7 @@
   {% if pdf %}
     Allowlisted · {{ result.severity_after_whitelisting|severity_label }} (was {{ result.severity_in_db|severity_label }})
   {% else %}
-    <a href="/v2/allowlist">ⓘ Allowlisted</a>
+    <a href="{% url 'ui:allowlist' %}">ⓘ Allowlisted</a>
   {% endif %}
 {% else %}
   {{ result.severity_after_whitelisting|severity_label }}

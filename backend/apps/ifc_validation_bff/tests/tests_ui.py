@@ -1,3 +1,4 @@
+import json
 import tempfile
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -54,7 +55,7 @@ class FrontendTests(TestCase):
             for path in ("/v2/dashboard", "/v2/allowlist"):
                 response = self.client.get(path)
                 self.assertEqual(response.status_code, 302)
-                self.assertTrue(response.url.startswith("/v2/login?next="))
+                self.assertEqual(response.url, "/v2/login")
 
     def test_dashboard_uses_owned_requests_and_typed_data(self):
         self.login_as(self.alice)
@@ -92,6 +93,51 @@ class FrontendTests(TestCase):
         ):
             self.assertIn(fragment, html)
         self.assertNotIn('/v2/', html)
+
+    def test_root_mount_navigation_and_redirects(self):
+        urls = ModuleType("root_ui_urls")
+        urls.urlpatterns = [path("", include("apps.ifc_validation_bff.ui.urls"))]
+        with override_settings(ROOT_URLCONF=urls):
+            with patch("apps.ifc_validation_bff.ui.views.get_current_user", return_value=None):
+                self.assertContains(self.client.get("/"), 'href="/login"')
+                response = self.client.get("/dashboard?page=2", HTTP_HX_REQUEST="true")
+                self.assertEqual(response["HX-Redirect"], "/login")
+            self.login_as(self.alice)
+            response = self.client.get("/dashboard")
+            self.assertContains(response, 'action="/upload"')
+            self.assertContains(response, 'hx-post="/delete')
+            self.assertNotContains(response, "/v2/")
+            with patch("apps.ifc_validation_bff.ui.views.get_current_user", return_value=self.inactive):
+                self.assertEqual(self.client.get("/dashboard").url, "/waiting_zone")
+            self.assertEqual(self.client.post("/logout").url, "/")
+            self.assertEqual(self.client.get("/v2/").status_code, 404)
+
+    def test_root_mount_login_passes_referrer_to_oauth_state(self):
+        urls = ModuleType("root_ui_urls")
+        urls.urlpatterns = [path("", include("apps.ifc_validation_bff.ui.urls"))]
+        with override_settings(ROOT_URLCONF=urls), patch(
+            "core.views_auth.oauth.b2c.authorize_redirect",
+            return_value=HttpResponseRedirect("https://identity.test/authorize"),
+        ) as authorize:
+            response = self.client.get("/login", HTTP_REFERER="https://validation.test/allowlist")
+            self.assertEqual(response.url, "https://identity.test/authorize")
+            state = json.loads(authorize.call_args.kwargs["state"])
+            self.assertEqual(state["referer"], "https://validation.test/allowlist")
+            self.assertFalse(state["django_admin"])
+
+    def test_root_mount_oauth_callback_uses_referrer_or_configured_fallback(self):
+        urls = ModuleType("root_ui_urls")
+        urls.urlpatterns = [path("", include("apps.ifc_validation_bff.ui.urls"))]
+        with override_settings(ROOT_URLCONF=urls), patch("core.views_auth.POST_LOGIN_REDIRECT_URL", "/dashboard"):
+            for user, expected in ((self.alice, "/allowlist"), (self.inactive, "/dashboard")):
+                with patch("core.views_auth.oauth.b2c.authorize_access_token", return_value={"userinfo": {
+                    "email": user.email, "given_name": "Test", "family_name": "Tester",
+                }}):
+                    response = self.client.get("/callback", {
+                        "code": "test", "state": json.dumps({"referer": "/allowlist", "django_admin": False}),
+                    })
+                self.assertEqual(response.url, expected)
+            self.assertEqual(self.client.get("/dashboard").url, "/waiting_zone")
 
     def test_dashboard_template_does_not_query_models(self):
         request = self.client.get("/v2/waiting_zone").wsgi_request
@@ -191,31 +237,29 @@ class FrontendTests(TestCase):
         response = self.client.get(f"/report/{item.public_id}?type=syntax&include_all=1")
         self.assertEqual(response.url, f"/v2/report_syntax/{item.public_id}?include_all=1")
 
-    def test_oauth_login_retains_only_v2_return_paths(self):
-        with patch("core.views_auth.login", return_value=HttpResponseRedirect("https://identity.test/authorize")):
-            response = self.client.get("/v2/login?next=/v2/allowlist")
+    def test_oauth_login_passes_referrer_to_state(self):
+        with patch("core.views_auth.oauth.b2c.authorize_redirect", return_value=HttpResponseRedirect("https://identity.test/authorize")) as authorize:
+            response = self.client.get("/v2/login", HTTP_REFERER="https://validation.test/v2/allowlist")
             self.assertEqual(response.url, "https://identity.test/authorize")
-            self.assertEqual(self.client.session["ui_return_to"], "/v2/allowlist")
-            self.client.get("/v2/login?next=https://external.test/")
-            self.assertEqual(self.client.session["ui_return_to"], "/v2/dashboard")
+            self.assertEqual(json.loads(authorize.call_args.kwargs["state"])["referer"], "https://validation.test/v2/allowlist")
 
-    def test_oauth_callback_returns_to_v2(self):
-        session = self.client.session
-        session['ui_return_to'] = '/v2/allowlist'
-        session.save()
+    def test_oauth_callback_returns_to_referrer(self):
         with patch('core.views_auth.oauth.b2c.authorize_access_token', return_value={'userinfo': {
             'email': self.alice.email, 'given_name': 'Alice', 'family_name': 'Tester',
         }}):
-            response = self.client.get('/v2/callback?code=test')
+            response = self.client.get('/v2/callback', {
+                'code': 'test', 'state': json.dumps({'referer': '/v2/allowlist', 'django_admin': False}),
+            })
         self.assertEqual(response.url, '/v2/allowlist')
-        self.assertNotIn('ui_return_to', self.client.session)
 
-    def test_oauth_callback_sends_inactive_user_to_v2_waiting_zone(self):
-        with patch('core.views_auth.oauth.b2c.authorize_access_token', return_value={'userinfo': {
-            'email': self.inactive.email, 'given_name': 'Inactive', 'family_name': 'Tester',
-        }}):
+    def test_oauth_callback_without_referrer_uses_configured_fallback(self):
+        with patch('core.views_auth.POST_LOGIN_REDIRECT_URL', '/dashboard'), patch(
+            'core.views_auth.oauth.b2c.authorize_access_token', return_value={'userinfo': {
+                'email': self.alice.email, 'given_name': 'Alice', 'family_name': 'Tester',
+            }},
+        ):
             response = self.client.get('/v2/callback?code=test')
-        self.assertEqual(response.url, '/v2/waiting_zone')
+        self.assertEqual(response.url, '/dashboard')
 
     def test_unknown_v2_page_keeps_the_app_shell(self):
         self.login_as(self.alice)

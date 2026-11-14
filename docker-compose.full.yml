@@ -13,6 +13,7 @@ services:
             - 80:80
             - 443:443
         environment:
+            FRONTEND_MODE: ${FRONTEND_MODE:-htmx}
             CERTBOT_DOMAIN: ${CERTBOT_DOMAIN}
             CERTBOT_EMAIL: ${CERTBOT_EMAIL}
         volumes:
@@ -40,6 +41,7 @@ services:
         expose:
             - 8000
         environment:
+            FRONTEND_MODE: ${FRONTEND_MODE:-htmx}
             PUBLIC_URL: ${PUBLIC_URL} # for IAM links
             ENV: ${ENV}
             DEBUG: ${DEBUG}
