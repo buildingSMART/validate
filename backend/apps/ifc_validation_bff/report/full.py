@@ -22,12 +22,6 @@ def build_full_report(inputs, *, generated_at, validation_state, tasks,
     inputs = {**inputs, 'schema': trim_schema(inputs['schema'])}
     reports = tuple(build_report(data, kind, prioritize_findings=True) for kind, data in inputs.items())
 
-    def task_summary(task):
-        reason = task.reason
-        if task.status == 'Completed' and reason:
-            reason = None if reason.startswith('agg_status =') else reason.splitlines()[0]
-        return replace(task, reason=reason)
-
     def overview(report):
         data = inputs[report.kind]
         rules = defaultdict(Counter)
@@ -81,5 +75,5 @@ def build_full_report(inputs, *, generated_at, validation_state, tasks,
             chapter('warnings', 'Warnings', 'Warning outcomes across all validation layers. A warning alone does not make an IFC file invalid.', (3,)),
             chapter('passed', 'Passed rules', 'Applicable rules without errors or warnings after allowlisting, including passed and executed outcomes.', (2, 1)),
             chapter('not-applicable', 'Not applicable rules', 'Rules explicitly recorded as not applicable to this model.', (0,)),
-        ), tasks=tuple(map(task_summary, tasks)), outcome_limit=inputs['file'].outcome_limit,
+        ), tasks=tuple(tasks), outcome_limit=inputs['file'].outcome_limit,
     )

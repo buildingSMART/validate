@@ -39,7 +39,7 @@ def load_full_report(request):
     latest = {}
     for task in request.tasks.order_by('-id'):
         latest.setdefault(task.type, task)
-    tasks = tuple(TaskSummary(task.get_type_display(), task.get_status_display(), task.status_reason)
+    tasks = tuple(TaskSummary(task.get_type_display(), task.get_status_display())
                   for task in sorted(latest.values(), key=lambda task: task.id))
     summary = load_model_summary(request)
     return build_full_report(inputs, generated_at=timezone.now().strftime('%d %B %Y · %H:%M UTC'),

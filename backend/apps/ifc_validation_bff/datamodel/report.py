@@ -347,11 +347,10 @@ class ReportChapter:
 
 @dataclass(frozen=True, slots=True)
 class TaskSummary:
-    """Summarize a validation task's execution status and diagnostic reason."""
+    """Summarize a validation task's execution status."""
 
     title: str
     status: str
-    reason: str | None
 
 
 @dataclass(frozen=True, slots=True)

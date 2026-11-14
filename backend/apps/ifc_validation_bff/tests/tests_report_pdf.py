@@ -49,6 +49,7 @@ class ReportPDFTests(TestCase):
         session.save()
 
     def test_full_projection_orders_effective_severity_before_capping_and_reuses_templates(self):
+        self.item.tasks.update(status_reason='Internal task diagnostic')
         document = load_full_report(self.item)
         self.assertEqual([chapter.anchor for chapter in document.chapters],
                          ['findings', 'warnings', 'passed', 'not-applicable'])
@@ -63,6 +64,9 @@ class ReportPDFTests(TestCase):
         for text in ('Report overview', 'File metadata', 'Expected', 'Observed', 'Only the first 10', 'Validation execution'):
             self.assertIn(text, html)
         self.assertEqual(html.count('File Name in Header'), 1)
+        self.assertInHTML('<th>Execution state</th>', html)
+        self.assertNotIn('<th>Details</th>', html)
+        self.assertNotIn('Internal task diagnostic', html)
         self.assertEqual(document.conformance_status, 'n')  # absent checks cannot become green
 
     def test_real_pdf_has_bookmarks_page_numbers_repeated_headers_and_all_categories(self):

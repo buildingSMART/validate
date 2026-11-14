@@ -10,7 +10,6 @@
       <tr>
         <th>Check</th>
         <th>Execution state</th>
-        <th>Details</th>
       </tr>
     </thead>
     <tbody>
@@ -18,11 +17,10 @@
         <tr>
           <th>{{ task.title }}</th>
           <td>{{ task.status }}</td>
-          <td>{{ task.reason|default:'—' }}</td>
         </tr>
       {% empty %}
         <tr>
-          <td colspan="3">No validation tasks were recorded.</td>
+          <td colspan="2">No validation tasks were recorded.</td>
         </tr>
       {% endfor %}
     </tbody>
