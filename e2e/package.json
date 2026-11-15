@@ -3,6 +3,8 @@
   "description": "End-to-end tests for the IFC Validation Service using Playwright",
   "version": "0.0.1",
   "scripts": {
+    "test:htmx": "playwright test --config htmx.config.js",
+    "test:htmx-fixtures": "playwright test --config htmx-fixtures.config.js",
     "test:report-parity": "playwright test --config report-parity.config.js",
     "test": "playwright test --reporter=line",
     "test:html": "playwright test",

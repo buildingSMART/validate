@@ -16,12 +16,13 @@ def main():
     parser.add_argument("--manifest", default="../e2e/test-results/report-parity.json")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="ifc-report-parity-") as directory:
-        os.environ["REPORT_PARITY_DATABASE"] = str(Path(directory, "reports.sqlite3"))
         os.environ["REPORT_PARITY_MEDIA"] = directory
         os.environ["DJANGO_SETTINGS_MODULE"] = "apps.ifc_validation_bff.tests.report_parity_settings"
         import django
-        django.setup()
         from django.conf import settings
+        # Configure the owned database before app initialization opens connections.
+        settings.DATABASES["default"]["NAME"] = str(Path(directory, "reports.sqlite3"))
+        django.setup()
         from django.core.management import call_command
         from django.contrib.auth.models import Group, User
         from django.contrib.sessions.backends.db import SessionStore
@@ -33,6 +34,11 @@ def main():
         views_legacy.DEVELOPMENT = views_legacy.PREVIEW = False  # anonymous browser tests must not auto-login
 
         call_command("migrate", run_syncdb=True, verbosity=0, interactive=False)
+        # Browser polling reads while uploads write. WAL keeps those reads from
+        # blocking commits in this SQLite-only fixture server.
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA journal_mode=WAL")
         users = [User.objects.create(username=f"{name}@test.org", email=f"{name}@test.org", first_name=name,
                                      last_name="Tester", is_active=True) for name in ("reader", "source-reader")]
         source_group = Group.objects.create(name="step-line-viewers")
@@ -60,7 +66,8 @@ def main():
                     ValidationTask.objects.get_or_create(request=request, type=task_type, defaults={"status": "SKIPPED"})
             declarations = [f"#{i['stepfile_id']}={i['ifc_type'].upper()}($);" for i in case["instances"]]
             Path(directory, case["file_name"]).write_text("/* report parity source */\n" + "\n".join(declarations))
-            reports.append({"name": case["name"], "kind": case["kind"], "id": request.public_id})
+            reports.append({"name": case["name"], "kind": case["kind"], "id": request.public_id,
+                            "file_name": case["file_name"]})
 
         # A separate request exercises actual pagination without expanding individual rules.
         from copy import deepcopy

@@ -67,6 +67,11 @@ urlpatterns = [
     re_path(r'^api/(?P<resource>validationrequest|validationtask|validationoutcome|model)(?P<suffix>/.*)?$', redirect_to_v1),
 
     # API info + documentation
+    # Canonical redirects must precede the HTMX catch-all, which otherwise
+    # prevents CommonMiddleware from appending the documentation URL slash.
+    path('api/v1/schema', RedirectView.as_view(pattern_name='schema_v1', permanent=True, query_string=True)),
+    path('api/v1/swagger-ui', RedirectView.as_view(pattern_name='swagger-ui', permanent=True, query_string=True)),
+    path('api/v1/redoc', RedirectView.as_view(pattern_name='redoc', permanent=True, query_string=True)),
     path('api/v1/schema/',      SpectacularAPIView.as_view(), name='schema_v1'),
     path('api/v1/swagger-ui/',  SpectacularSwaggerView.as_view(url_name='schema_v1'), name='swagger-ui'),
     path('api/v1/redoc/',       SpectacularRedocView.as_view(url_name='schema_v1'), name='redoc'),
