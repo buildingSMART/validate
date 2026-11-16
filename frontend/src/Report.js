@@ -5,6 +5,7 @@ import { useParams } from 'react-router-dom';
 import Footer from './Footer';
 import Grid from '@mui/material/Grid';
 import GeneralTable from './GeneralTable';
+import HeaderResult from './HeaderResult';
 import SyntaxResult from './SyntaxResult';
 import SchemaResult from './SchemaResult';
 import BsddTreeView from './BsddTreeView';
@@ -167,6 +168,11 @@ function Report({ kind }) {
                         {(kind === "industry") && <h2>Industry Practices Report</h2>}
 
                         <GeneralTable data={reportData} type={kind} />
+
+                        {(kind === "file") && <HeaderResult
+                          status={reportData.model.status_header}
+                          summary={"Header Policy"}
+                          headerValidation={reportData.model.header_validation} />}
 
                         {(kind === "syntax") && <SyntaxResult 
                           status={reportData.model.status_syntax} 
