@@ -238,6 +238,24 @@ class HeaderValidation:
 
 
 @dataclass(frozen=True, slots=True)
+class HeaderFinding:
+    """What the header policy expects and what the header declares (None: not recorded / absent)."""
+
+    expected: str | None
+    observed: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class HeaderFieldFindings:
+    """Group the header policy findings of one header field."""
+
+    label: str
+    description: str
+    url: str
+    findings: tuple[HeaderFinding, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class DigitalSignature:
     """Describe a digital signature, its verification result, and certificate details."""
 
@@ -265,6 +283,7 @@ class TaskReport:
     header: HeaderValidation
     section: Section[SyntaxError] | Section[SchemaGroup] | Section[GherkinGroup] | None
     signatures: tuple[DigitalSignature, ...]
+    header_policy: tuple[HeaderFieldFindings, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

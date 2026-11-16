@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from ..datamodel.report import (
     DigitalSignature,
     FileMetadata,
+    HeaderFieldFindings,
+    HeaderFinding,
     HeaderValidation,
     OutcomeSeverity,
     TaskReport,
@@ -30,6 +32,24 @@ REPORT_TITLES = {
     "schema": "IFC Schema Report",
     "normative": "Normative IFC Rules Report",
     "industry": "Industry Practices Report",
+}
+
+# Header policy fields -> checks/header_policy/validate_header.py
+HEADER_FIELDS = {
+    "description": ("MVD(s)", "One or more model view definitions used in the context of this data exchange."),
+    "name": ("File Name in Header", "The string of graphic characters used to name this particular instance of an exchange structure"),
+    "time_stamp": ("File Date", "The date and time specifying when the exchange structure was created, formatted in ISO 8601"),
+    "originating_system": ("Originating System", "The software from which the model originated, also known as the authoring tool."),
+    "preprocessor_version": ("Preprocessor Version", "The system used to create the exchange structure, including the system product name and version."),
+    "company_name": ("Company Name", "The name of the company, derived from the originating system"),
+    "application_name": ("Application Name", "The software used to export the model, derived from the originating system"),
+    "version": ("Application Version", "The version of the model or file format used, derived from the originating system"),
+    "author": ("Author", "The name and mailing address of the person responsible for creating the exchange structure."),
+    "organization": ("Organization", "The group or organization with whom the author is associated."),
+    "authorization": ("Authorization", "The name and mailing address of the person who authorized the sending of the exchange structure."),
+    "implementation_level": ("Implementation Level", "The conformance class and implementation level of the exchange structure."),
+    "comments": ("Comment", "Free text comment in the description, limited to 256 characters."),
+    "syntax_error": ("Header Syntax", "The file header could not be parsed; see the STEP Syntax Report."),
 }
 
 
@@ -70,6 +90,24 @@ def build_report(data: ReportInput, kind: ReportKind, *, include_all=True, prior
             organization=text("organization"),
             invalid_fields=frozenset(data.header.get("validation_errors") or ()),
         )
+
+    def header_policy() -> tuple[HeaderFieldFindings, ...]:
+        # Files validated before the policy recorded details only list the invalid fields.
+        details = data.header.get("validation_details") or [
+            {"field": field, "expected": None, "observed": data.header.get("mvd" if field == "description" else field)}
+            for field in data.header.get("validation_errors") or ()]
+        grouped: dict[str, list[HeaderFinding]] = {}
+        for detail in details:
+            observed = detail.get("observed")
+            if isinstance(observed, (tuple, list)):
+                observed = " ".join(map(str, observed))
+            grouped.setdefault(detail["field"], []).append(
+                HeaderFinding(detail.get("expected"), None if observed is None else outer_whitespace(str(observed))))
+        order = list(HEADER_FIELDS)
+        return tuple(
+            HeaderFieldFindings(*HEADER_FIELDS.get(field, (field, "-")),
+                                f"https://github.com/buildingSMART/IFC4.x-IF/tree/main/docs/IFC-file-header#{field}", tuple(findings))
+            for field, findings in sorted(grouped.items(), key=lambda item: order.index(item[0]) if item[0] in order else len(order)))
 
     def syntax() -> Section[SyntaxError]:
         def error(outcome: OutcomeInput) -> SyntaxError:
@@ -193,6 +231,7 @@ def build_report(data: ReportInput, kind: ReportKind, *, include_all=True, prior
         header=header_validation(),
         section=section,
         signatures=signatures() if kind == "file" else (),
+        header_policy=header_policy() if kind == "file" else (),
     )
 
 

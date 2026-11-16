@@ -12,7 +12,7 @@ from django.test.utils import CaptureQueriesContext
 
 from apps.ifc_validation_models.models import ValidationOutcome, ValidationRequest, ValidationTask, WhiteListEntry, WhiteListQueryFragment, set_user_context
 from apps.ifc_validation_bff.report.build import build_report
-from apps.ifc_validation_bff.datamodel.report import OutcomeSeverity, ReportOptions, GherkinResult, SourceLocation
+from apps.ifc_validation_bff.datamodel.report import OutcomeSeverity, ReportOptions, GherkinResult, HeaderFinding, SourceLocation
 from apps.ifc_validation_bff.datamodel.load import load_report
 from apps.ifc_validation_bff.report.value_formatting import interpret_rule_value
 from .report_factory import create_case
@@ -66,6 +66,33 @@ class ReportHTMLTests(TestCase):
         report = build_report(load_report(self.requests[10], "file", self.alice), "file")
         self.assertEqual(report.header.company_name, "□")
         self.assertIn("company_name", report.header.invalid_fields)
+
+    def test_header_policy_groups_expected_and_observed_per_field(self):
+        from apps.ifc_validation_bff.report.pdf import load_full_report
+        model = self.requests[10].model
+        model.header_validation = dict(model.header_validation, validation_details=[
+            {"field": "originating_system", "expected": "Company - Application - Version", "observed": "  - App - 26"},
+            {"field": "description", "expected": "Exactly one base MVD", "observed": "ReferenceView, DesignTransferView"},
+            {"field": "description", "expected": "An MVD valid for IFC4X3_ADD2", "observed": "DesignTransferView"},
+            {"field": "author", "expected": "A value of type LIST", "observed": None}])
+        model.save()
+        groups = build_report(load_report(self.requests[10], "file", self.alice), "file").header_policy
+        self.assertEqual([(g.label, len(g.findings)) for g in groups], [("MVD(s)", 2), ("Originating System", 1), ("Author", 1)])
+        self.assertEqual(groups[1].findings[0].observed, "□□- App - 26")
+        self.login_as(self.alice)
+        response = self.get_report(10)
+        self.assertContains(response, "(occurred 2 times)", count=1)
+        self.assertContains(response, "<i>Exactly one base MVD</i>", html=True)
+        self.assertContains(response, "<i>missing</i>", html=True)
+        document = load_full_report(self.requests[10])
+        self.assertIn("<h3>Header Policy</h3>", render_to_string("report/page.html", {"pdf": True, "document": document, "report": document.file}))
+        self.assertNotContains(self.get_report(9), 'id="header-policy"')  # no findings
+
+    def test_header_policy_falls_back_to_field_names_of_older_reports(self):
+        groups = build_report(load_report(self.requests[10], "file", self.alice), "file").header_policy
+        self.assertEqual([(g.label, g.findings) for g in groups], [("Company Name", (HeaderFinding(None, "□"),))])
+        self.login_as(self.alice)
+        self.assertContains(self.get_report(10), "See header policy")
 
     def test_original_and_effective_severity_are_explicit(self):
         set_user_context(self.alice)

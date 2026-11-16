@@ -12,6 +12,7 @@
     {% endif %}
 
     {% include 'report/file_info.html' %}
+    {% if report.header_policy %}{% include 'report/header_policy.html' %}{% endif %}
 
     {% if not pdf %}
       {% include 'report/section.html' %}
