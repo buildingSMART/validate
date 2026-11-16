@@ -16,7 +16,8 @@ def build_full_report(inputs, *, generated_at, validation_state, tasks,
             return counts[key] <= data.outcome_limit
 
         ordered = data.outcomes_sorted().outcomes
-        return data.with_outcomes(filter(retain, ordered))
+        # The PDF reports schema numbers after this cap, so they are counted from the kept rows.
+        return replace(data.with_outcomes(filter(retain, ordered)), counts=None)
 
     # Apply the schema cap before both overview counts and detail projection.
     inputs = {**inputs, 'schema': trim_schema(inputs['schema'])}
@@ -25,8 +26,12 @@ def build_full_report(inputs, *, generated_at, validation_state, tasks,
     def overview(report):
         data = inputs[report.kind]
         rules = defaultdict(Counter)
-        for outcome in data.outcomes:
-            rules[outcome.task_type, outcome.feature or ''][outcome.severity_after_whitelisting] += 1
+        if data.counts is None:
+            for outcome in data.outcomes:
+                rules[outcome.task_type, outcome.feature or ''][outcome.severity_after_whitelisting] += 1
+        else:
+            for (task_type, feature, _, effective), count in data.counts.items():
+                rules[task_type, feature or ''][effective] += count
         classifications = Counter(max(counts) for counts in rules.values())
         # Passing/executed rows never make a rule pass when it also has errors or warnings.
         return CheckOverview(

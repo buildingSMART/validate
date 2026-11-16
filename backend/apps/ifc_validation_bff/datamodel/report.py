@@ -435,6 +435,21 @@ class ReportInput:
     outcomes: tuple[OutcomeInput, ...]
     rules: dict[str, GherkinDescription]
     outcome_limit: int
+    # Stored outcomes per (task type, feature, severity in db, severity after allowlisting).
+    # Present when `outcomes` holds only the first rows of each of those groups; None when
+    # `outcomes` is complete and can be counted directly.
+    counts: dict[tuple[str, str | None, int, int], int] | None = None
+
+    def group_counts(self) -> dict[str, int] | None:
+        """Total stored outcomes per displayed group title, or None when outcomes are complete."""
+        if self.counts is None:
+            return None
+        totals: dict[str, int] = {}
+        for (task_type, feature, severity_in_db, _), count in self.counts.items():
+            title = OutcomeInput(task_type=task_type, feature=feature, severity_in_db=OutcomeSeverity(severity_in_db),
+                                 allowlisted=False, expected=None, observed=None, instance=None).group_title
+            totals[title] = totals.get(title, 0) + count
+        return totals
 
     def with_outcomes(self, outcomes: Iterable[OutcomeInput]) -> ReportInput:
         """Copy the report input with a new flat outcome sequence and unchanged metadata."""
@@ -448,6 +463,7 @@ class ReportInput:
             outcomes=tuple(outcomes),
             rules=self.rules,
             outcome_limit=self.outcome_limit,
+            counts=self.counts,
         )
 
     def outcomes_sorted(self, *, key: Callable[[OutcomeInput], int | tuple[int, ...]] | None = None) -> ReportInput:

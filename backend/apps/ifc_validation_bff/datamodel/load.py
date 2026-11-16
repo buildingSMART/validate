@@ -6,6 +6,8 @@ import re
 from dataclasses import replace
 
 from django.conf import settings
+from django.db.models import Count, F, Window
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 
 from apps.ifc_validation_models.models import Model, ValidationOutcome, ValidationRequest, ValidationTask, WhiteListEntry
@@ -78,11 +80,25 @@ def load_report(validation_request: ValidationRequest, kind: ReportKind, viewer=
     latest = {}
     for task_type, task_id in validation_request.tasks.filter(type__in=task_types).order_by("-id").values_list("type", "id"):
         latest.setdefault(task_type, task_id)
-    outcomes = list(
-        ValidationOutcome.objects.filter(validation_task_id__in=latest.values())
-        .with_effective_severity().select_related("instance", "validation_task")
-        .order_by("validation_task_id", "id")
-    )
+    stored = ValidationOutcome.objects.filter(validation_task_id__in=latest.values()).with_effective_severity()
+    counts = None
+    if kind in ("schema", "normative", "industry"):
+        # A task can hold hundreds of thousands of outcomes under one rule, of which a report
+        # shows `MAX_OUTCOMES_PER_RULE`. Let the database count them and return only the first
+        # rows of every (task, feature, severity) group. Every ordering used downstream is by
+        # severity and then by id, so the rows it would pick are always among these.
+        # The window query selects ids only: sorting whole rows is far slower on large tasks.
+        partition = [F(name) for name in ("validation_task_id", "feature", "severity_in_db", "effective_severity")]
+        first = (stored.annotate(position=Window(RowNumber(), partition_by=partition, order_by=F("id").asc()),
+                                 n=Window(Count("id"), partition_by=partition))
+                 .filter(position__lte=settings.MAX_OUTCOMES_PER_RULE)
+                 .values_list("id", "validation_task__type", "feature", "severity_in_db", "effective_severity", "n"))
+        counts, ids = {}, []
+        for id, task_type, feature, severity_in_db, effective_severity, n in first:
+            ids.append(id)
+            counts[task_type, feature, severity_in_db, effective_severity] = n
+        stored = stored.filter(id__in=ids)
+    outcomes = list(stored.select_related("instance", "validation_task").order_by("validation_task_id", "id"))
     sources = {}
     if kind in ("schema", "normative", "industry") and outcomes and can_view_step_lines(viewer):
         sources = {
@@ -115,6 +131,7 @@ def load_report(validation_request: ValidationRequest, kind: ReportKind, viewer=
         outcomes=tuple(map(finding, outcomes)),
         rules={code: GherkinDescription(get_feature_description(code), get_feature_url(code)) for code in rule_codes},
         outcome_limit=settings.MAX_OUTCOMES_PER_RULE,
+        counts=counts,
     )
 
 

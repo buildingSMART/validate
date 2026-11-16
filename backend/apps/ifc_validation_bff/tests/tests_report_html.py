@@ -1,4 +1,5 @@
 import tempfile
+from copy import deepcopy
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
@@ -93,6 +94,15 @@ class ReportHTMLTests(TestCase):
         self.assertEqual([(g.label, g.findings) for g in groups], [("Company Name", (HeaderFinding(None, "□"),))])
         self.login_as(self.alice)
         self.assertContains(self.get_report(10), "See header policy")
+
+    def test_report_loads_the_first_outcomes_per_rule_and_severity_but_counts_all(self):
+        case = deepcopy(CASES[5])
+        case["tasks"] = [dict(type="NORMATIVE_IA", outcomes=[
+            dict(feature="CAP001 - Many", severity=4 if i < 25 else 2, expected="e", observed=f"o{i}") for i in range(28)])]
+        data = load_report(create_case(case, self.alice), "normative", self.alice)
+        self.assertEqual([o.observed for o in data.outcomes], [f"o{i}" for i in (*range(10), 25, 26, 27)])
+        group = build_report(data, "normative").section.items[0]
+        self.assertEqual((len(group.results), group.occurrence_count), (10, 28))
 
     def test_original_and_effective_severity_are_explicit(self):
         set_user_context(self.alice)

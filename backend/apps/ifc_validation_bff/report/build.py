@@ -61,13 +61,15 @@ def build_report(data: ReportInput, kind: ReportKind, *, include_all=True, prior
     if kind in ("schema", "normative", "industry"):
         data = data.outcomes_grouped()
 
+    totals = data.group_counts()
+
     def outcome_groups():
         for title, outcomes in groupby(data.outcomes, key=lambda outcome: outcome.group_title):
             original = tuple(outcomes)
             visible = tuple(outcome for outcome in original
                             if include_all or outcome.severity_after_whitelisting >= OutcomeSeverity.WARNING)
             if visible:
-                yield title, visible[:data.outcome_limit], len(original)
+                yield title, visible[:data.outcome_limit], len(original) if totals is None else totals.get(title, len(original))
 
     def header_validation() -> HeaderValidation:
         def text(key: str, fallback: str = "-") -> str:
