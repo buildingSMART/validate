@@ -25,6 +25,7 @@ gevent==25.5.1
 psutil==7.0.0
 python-dotenv==1.1.1
 markdown==3.8.2
+WeasyPrint==70.0
 authlib==1.8.0
 
 # bsi

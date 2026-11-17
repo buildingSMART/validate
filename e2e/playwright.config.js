@@ -65,7 +65,8 @@ export default defineConfig({
       name: 'Backend',
       cwd: '../backend',
       command: 'make start-django',
-      url: 'http://localhost:8000/admin',
+      env: { FRONTEND_MODE: 'react' },
+      url: 'http://localhost:8000/admin/',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     }

@@ -39,7 +39,9 @@ RUN set -ex && \
 ADD --chmod=777 ./docker/frontend/docker-entrypoint.d/ /docker-entrypoint.d/
 
 # copy default nginx config template
-ADD --chmod=777 ./docker/frontend/nginx/default.conf.template /etc/nginx/templates/default.conf.template
+ADD --chmod=777 ./docker/frontend/nginx/default.conf.template /etc/nginx/frontend.conf.template
+
+ENV FRONTEND_MODE=htmx NGINX_ENVSUBST_FILTER=^CERTBOT_DOMAIN$
 
 # copy previously built React bundle
 COPY --from=build /app/frontend/build /app/frontend

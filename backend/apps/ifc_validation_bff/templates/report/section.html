@@ -1,0 +1,123 @@
+{% load report_tags ui_tags %}
+
+<section
+  id="{% if pdf %}{{ chapter.anchor }}-{{ report.kind }}{% else %}report-section{% endif %}"
+  {% if report.section %}data-status="{{ report.section.status }}"{% endif %}
+>
+  {% if report.section %}
+    {% if pdf %}
+      <h3>{{ report.title }}</h3>
+    {% else %}
+      <div class="section-heading">
+        <b>
+          {% if report.kind == 'syntax' %}
+            STEP Syntax
+          {% elif report.kind == 'schema' %}
+            IFC Schema
+          {% elif report.kind == 'normative' %}
+            Normative IFC Rules
+          {% else %}
+            Industry Practices
+          {% endif %}
+        </b>
+
+        {% if report.kind != 'syntax' %}
+          <form
+            method="get"
+            hx-get="{{ request.path }}"
+            hx-target="#report-section"
+            hx-swap="outerHTML"
+            hx-trigger="change"
+            hx-push-url="true"
+          >
+            <label>
+              <input type="checkbox" name="include_all" value="1" {% if page.options.include_all %}checked{% endif %}>
+              include Passed, Disabled and N/A &nbsp;
+            </label>
+            <span title="This also shows Passed, Disabled and N/A rule results.">ⓘ</span>
+            <noscript><button>Apply</button></noscript>
+          </form>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <div class="section-body">
+      {% if report.kind == 'syntax' %}
+        {% for error in report.section.items %}
+          {% include 'report/syntax_table.html' %}
+        {% empty %}
+          <p>{{ report.section.status|status_label }}</p>
+        {% endfor %}
+      {% else %}
+        {% for group in report.section.items %}
+          {# Only the wrappers differ: PDF headings and web disclosures share the same finding content. #}
+          {% if pdf %}
+            <article class="result-group" data-severity="{{ group.severity_after_whitelisting.value }}">
+              <h4 id="{{ chapter.anchor }}-{{ report.kind }}-{{ forloop.counter }}">
+          {% else %}
+            <details class="result-group" data-severity="{{ group.severity_after_whitelisting.value }}">
+              <summary>
+                <span class="tree-toggle when-closed">{% material_icon 'ChevronRight' %}</span>
+                <span class="tree-toggle when-open">{% material_icon 'ExpandMore' %}</span>
+          {% endif %}
+
+                <span class="caption">{{ group.title }}</span>
+                {% if group.show_occurrence_count %}
+                  <span class="suffix">(occurred {{ group.occurrence_count|floatformat:"0g" }} time{{ group.occurrence_count|pluralize }})</span>
+                {% endif %}
+                {% if not pdf and group.gherkin %}
+                  <button type="button" class="icon-button copy" aria-label="Copy to clipboard" title="Copy to clipboard">
+                    {% material_icon 'ContentCopy' %}
+                  </button>
+                {% endif %}
+
+          {% if pdf %}
+              </h4>
+          {% endif %}
+                {% if group.subcaption %}
+                  <div class="subcaption">{{ group.subcaption }}</div>
+                {% endif %}
+          {% if not pdf %}
+              </summary>
+          {% endif %}
+
+              <div class="group-content">
+                {% if group.gherkin %}
+                  <div class="rule-description">
+                    {% if not pdf %}ⓘ {% endif %}{{ group.gherkin.text|default_if_none:'-' }}<br><br>
+                    {% if group.gherkin.url %}
+                      <a href="{{ group.gherkin.url }}" target="_blank" rel="noopener">{{ group.gherkin.url }}</a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+
+                {% if group.is_truncated %}
+                  <p>{% if not pdf %}ⓘ {% endif %}Note: a high number of occurrences were identified. Only the first {{ group.results|length|floatformat:"0g" }} occurrences are displayed below.</p>
+                {% endif %}
+
+                {% if report.kind == 'schema' %}
+                  {% include 'report/schema_table.html' %}
+                {% else %}
+                  {% include 'report/rule_table.html' %}
+                  {% if not pdf %}
+                    <textarea class="clipboard" hidden>{% rule_export group %}</textarea>
+                  {% endif %}
+                {% endif %}
+              </div>
+
+          {% if pdf %}
+            </article>
+          {% else %}
+            </details>
+          {% endif %}
+        {% empty %}
+          <p>{{ report.section.status|status_label }}</p>
+        {% endfor %}
+      {% endif %}
+
+      {% if not pdf and page.total %}
+        {% include 'report/pagination.html' %}
+      {% endif %}
+    </div>
+  {% endif %}
+</section>

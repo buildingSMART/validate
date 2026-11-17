@@ -1,0 +1,12 @@
+{% load ui_tags %}
+
+<span
+  class="status-symbol"
+  data-status="{{ status }}"
+  data-status-icon="{{ icon }}"
+  role="img"
+  aria-label="{{ status|check_label }}"
+  title="{{ status|check_label }}"
+>
+  {% material_icon icon|cut:'Icon' %}
+</span>

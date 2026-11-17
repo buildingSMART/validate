@@ -1,0 +1,11 @@
+{% load static %}
+
+<svg
+  class="material-icon"
+  data-icon="{{ name }}"
+  aria-hidden="true"
+  focusable="false"
+  viewBox="0 0 24 24"
+>
+  <use href="{% static 'ui/vendor/material-icons/icons.svg' %}#{{ name }}"></use>
+</svg>

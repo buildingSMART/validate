@@ -1,11 +1,13 @@
 import re
 from django.contrib import admin
+from django.conf import settings
 from django.http import HttpResponseRedirect, HttpResponsePermanentRedirect
 from django.urls import include, path, re_path
 from django.contrib.auth.decorators import login_required
 from django.contrib.admin.views.decorators import staff_member_required
 from django.views.static import serve
 from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import RedirectView
 
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -45,12 +47,12 @@ def redirect_to_v1(request, resource, suffix=None):
 
 urlpatterns = [
 
-    # Prometheus scrape endpoint (/metrics). Internal only: nginx serves the React
-    # app at / and never proxies this path, so it is reachable solely on the
-    # overlay network (backend:8000).
+    # Prometheus scrape endpoint (/metrics). Reachable at backend:8000.
     path('', include('django_prometheus.urls')),
 
     # Django Admin
+    # The HTMX catch-all prevents CommonMiddleware from adding this slash.
+    path("admin", RedirectView.as_view(url="/admin/", permanent=True, query_string=True)),
     path("admin/",           admin.site.urls),
 
     # API redirect for browsers
@@ -65,6 +67,11 @@ urlpatterns = [
     re_path(r'^api/(?P<resource>validationrequest|validationtask|validationoutcome|model)(?P<suffix>/.*)?$', redirect_to_v1),
 
     # API info + documentation
+    # Canonical redirects must precede the HTMX catch-all, which otherwise
+    # prevents CommonMiddleware from appending the documentation URL slash.
+    path('api/v1/schema', RedirectView.as_view(pattern_name='schema_v1', permanent=True, query_string=True)),
+    path('api/v1/swagger-ui', RedirectView.as_view(pattern_name='swagger-ui', permanent=True, query_string=True)),
+    path('api/v1/redoc', RedirectView.as_view(pattern_name='redoc', permanent=True, query_string=True)),
     path('api/v1/schema/',      SpectacularAPIView.as_view(), name='schema_v1'),
     path('api/v1/swagger-ui/',  SpectacularSwaggerView.as_view(url_name='schema_v1'), name='swagger-ui'),
     path('api/v1/redoc/',       SpectacularRedocView.as_view(url_name='schema_v1'), name='redoc'),
@@ -88,9 +95,9 @@ urlpatterns = [
 ]
 
 if DEVELOPMENT or PREVIEW:
+    if settings.FRONTEND_MODE == "react":
+        urlpatterns += [path("", lambda request: HttpResponseRedirect("/admin/"))]
     urlpatterns += [
-        # redirect root to admin
-        path("", lambda request: HttpResponseRedirect("/admin/")),
         # load debug toolbar
         path("__debug__/", include("debug_toolbar.urls")),
     ]
@@ -113,4 +120,10 @@ urlpatterns += [
         serve,
         kwargs={"document_root": STATIC_ROOT},
     ),
+]
+
+# Keep the UI catch-all after API, OAuth, media, static and development routes.
+urlpatterns += [
+    path('' if settings.FRONTEND_MODE == 'htmx' else 'v2/',
+         include('apps.ifc_validation_bff.ui.urls')),
 ]

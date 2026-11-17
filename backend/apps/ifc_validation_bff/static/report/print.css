@@ -1,0 +1,95 @@
+@page {
+  size: A4;
+  margin: 24mm 17mm 20mm;
+  @top-center { content: element(report-header); vertical-align: middle; }
+  @bottom-left { content: element(report-footer); vertical-align: middle; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt "DejaVu Sans"; color: #64748b; }
+}
+html { font-size: 9pt; }
+body.pdf-report { margin: 0; background: white; color: #243446; font-family: "DejaVu Sans", sans-serif; line-height: 1.5; }
+.running-header { position: running(report-header); width: 176mm; padding-bottom: 3mm; border-bottom: .5pt solid #dce3eb; }
+.running-header img { width: 43mm; vertical-align: middle; }
+.running-header span { float: right; margin-top: 5mm; font-size: 7pt; letter-spacing: 1.2pt; color: #64748b; }
+.running-footer { position: running(report-footer); font-size: 7.5pt; color: #64748b; }
+.report-content { margin: 0; padding: 0; max-width: none; }
+.document-title { border-bottom: 3pt solid #1976d2; padding: 2mm 0 4mm; margin-bottom: 4mm; }
+.eyebrow { font-size: 8pt; color: #64748b; letter-spacing: .5pt; }
+h1 { font-size: 28pt; line-height: 1.15; color: #123b61; margin: 2mm 0 4mm; bookmark-level: none; }
+.file-title { font-size: 13pt; font-weight: bold; overflow-wrap: anywhere; margin: 0 0 2mm; }
+.document-meta { color: #64748b; font-size: 8pt; margin: 0; }
+h2 { color: #123b61; font-size: 17pt; border-bottom: .5pt solid #b9cbdc; padding-bottom: 2mm; margin: 7mm 0 3mm; break-after: avoid; bookmark-level: 1; }
+h3 { font-size: 11pt; margin: 5mm 0 2mm; break-after: avoid; bookmark-level: 2; }
+h4 { font-size: 9.5pt; margin: 0; padding: 0; color: #243446; border-left: 0; background: #f1f5f9; break-after: avoid; bookmark-level: 3; bookmark-state: closed; }
+.print-chapter { break-before: page; }
+#file { break-before: page; }
+.print-chapter.empty-chapter { break-before: auto; }
+.chapter-description { color: #64748b; margin: 0 0 5mm; }
+p { orphans: 3; widows: 3; }
+a { color: #1767a8; text-decoration: none; overflow-wrap: anywhere; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3mm 0 5mm; }
+thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
+tr { break-inside: avoid; }
+th, td { padding: 2mm 2.2mm; border-bottom: .5pt solid #dce3eb; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #eaf0f6; color: #123b61; font-weight: bold; text-align: left; }
+.overview { font-size: 7.5pt; }
+.overview th,.overview td { padding: 1.5mm 1.2mm; }
+.overview thead th { white-space: nowrap; font-size: 7pt; text-align: center; vertical-align: middle; }
+.overview thead th[rowspan] { text-align: left; }
+.overview .overview-layer { width: 30%; }
+.overview .overview-state { width: 14%; }
+.overview tbody th { text-align: left; font-weight: normal; }
+.overview td:not(:nth-child(2)) { text-align: center; }
+.scope-note { background: #f1f5f9; padding: 3mm; color: #526276; font-size: 8pt; }
+.notice { border-left: 3pt solid #bd482d; padding: 3mm; background: #fff3ed; }
+.conformance-status { font-weight: bold; padding: 2mm 3mm; border-left: 3pt solid #64748b; background: #f1f5f9; }
+.conformance-status[data-status=i] { border-color: #bd482d; color: #9b3223; background: #fff1ed; }
+.conformance-status[data-status=w] { border-color: #bd8300; color: #855c00; background: #fff8e7; }
+.conformance-status[data-status=v] { border-color: #258355; color: #206642; background: #eef7f1; }
+.contents { margin: 4mm 0 8mm; }
+.contents h3 { bookmark-level: none; }
+.contents a { display: block; border-bottom: .5pt dotted #cbd5e1; padding: 1mm 0; line-height: 1.35; }
+.contents a::after { content: target-counter(attr(href), page); float: right; color: #64748b; }
+.contents span { color: #64748b; font-size: 8pt; margin-left: 3mm; }
+.file-info, .signature { border: 0; box-shadow: none; border-radius: 0; }
+.file-info td, .signature td { font-size: 8pt; padding: 2.2mm; border-color: #dce3eb; }
+.file-info td:first-child, .signature td:first-child { width: 32%; }
+.field-name { width: 32%; }
+.signature tbody tr:last-child { break-before: avoid; }
+.signature th { text-align: left; }
+.signature[data-verification="invalid"] thead th { color: #a33324; background: #fff0ed; }
+.field-warning { display: inline; color: #a65a00; font-size: 7pt; margin-left: 2mm; }
+.result-group { padding: 0; margin: 4mm 0 6mm; background: white; }
+.result-group[data-severity="0"],.result-group[data-severity="1"],.result-group[data-severity="2"] { break-inside: avoid; }
+.result-group[data-severity="4"] h4, .result-group[data-severity="4"] .rule-description { background: #fff1ed; }
+.result-group[data-severity="3"] h4, .result-group[data-severity="3"] .rule-description { background: #fff8e7; }
+.result-group[data-severity="2"] h4, .result-group[data-severity="2"] .rule-description { background: #eef7f1; }
+.section-body { background: white; padding: 0; }
+.group-content { padding: 0; }
+.caption { text-transform: none; }
+.suffix { font-size: 8pt; font-weight: normal; }
+.subcaption { visibility: visible; padding: 0; color: #64748b; }
+.rule-description { font-size: 8pt; margin: 0; padding: 0; background: #f1f5f9; }
+.rule-description br + br { display: none; }
+.results { font-size: 7.5pt; background: white; margin: 0; }
+.group-content > p { margin: 0; }
+.results th,.results td { padding: 2mm; border-bottom: .5pt solid #dce3eb; }
+.results th { font-weight: bold; }
+.results tr:nth-child(even) { background: #f8fafc; }
+.results:not(.grouped-results) th:first-child { width: 15%; }
+.results:not(.grouped-results) th:nth-child(2) { width: 10%; }
+.results:not(.grouped-results) th:nth-child(3) { width: 21%; }
+.grouped-results .instance-id, .grouped-results .syntax-position { width: 10%; }
+.grouped-results .instance-entity { width: 21%; }
+.grouped-results .outcome-severity { width: 15%; }
+.syntax { margin: 3mm 0; width: 100%; }
+.syntax .pre { display: block; }
+.syntax:not(.grouped-results) th:first-child,.syntax:not(.grouped-results) th:nth-child(2) { width: 10%; }
+.syntax:not(.grouped-results) th:nth-child(3) { width: 15%; }
+.pre { white-space: pre-wrap; word-break: normal; overflow-wrap: anywhere; }
+.mono { font-family: "DejaVu Sans Mono", monospace; font-size: 7pt; word-break: normal; overflow-wrap: anywhere; }
+.task-summary { font-size: 7.5pt; }
+.task-summary th:first-child { width: 32%; }
+.task-summary th:nth-child(2) { width: 17%; }
+.task-summary tbody th { text-align: left; font-weight: normal; }
+.empty-chapter { color: #64748b; font-style: italic; }

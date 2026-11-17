@@ -1,0 +1,94 @@
+{% extends 'ui/base.html' %}
+{% load ui_tags %}
+
+{% block content %}
+  <div data-testid="landing-content">
+    <section class="hero">
+      <h1>IFC Validation Service</h1>
+      <p>
+        A free, open platform by buildingSMART for checking IFC file conformity against
+        STEP syntax, IFC schema, and normative specification rules.
+      </p>
+      {% if shell.viewer %}
+        <a class="button" href="{% url 'ui:dashboard' %}">Go to dashboard →</a>
+      {% else %}
+        <a class="button" href="{% url 'ui:login' %}">Sign in to start validating →</a>
+      {% endif %}
+    </section>
+
+    <div class="landing-body">
+      {% if shell.viewer %}
+        {% include 'ui/upload_workflow.html' %}
+        <a href="{% url 'ui:dashboard' %}">View past validations →</a>
+      {% endif %}
+
+      <section>
+        <h3>How it checks</h3>
+        <h2>Four layers of validation</h2>
+        <div class="card-grid">
+          {% for layer in landing.layers %}
+            <article class="card">
+              {% if forloop.counter == 1 %}
+                {% material_icon 'DataObjectOutlined' %}
+              {% elif forloop.counter == 2 %}
+                {% material_icon 'DescriptionOutlined' %}
+              {% elif forloop.counter == 3 %}
+                {% material_icon 'CheckOutlined' %}
+              {% else %}
+                {% material_icon 'StarOutlineOutlined' %}
+              {% endif %}
+              <h4>{{ layer.title }}</h4>
+              <p>{{ layer.description }}</p>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <h3>How it works</h3>
+        <h2>Three simple steps</h2>
+        <ol class="workflow">
+          {% for step in landing.steps %}
+            <li>
+              <span>{{ step.number }}</span>
+              <div>
+                <b>{{ step.title }}</b>
+                <p>{{ step.description }}</p>
+              </div>
+            </li>
+          {% endfor %}
+        </ol>
+      </section>
+
+      <section>
+        <h3>FAQ</h3>
+        <h2>Common questions</h2>
+        {% for faq in landing.faqs %}
+          <details class="faq">
+            <summary>
+              {{ faq.question }}
+              <span class="when-closed">{% material_icon 'Add' %}</span>
+              <span class="when-open">{% material_icon 'Remove' %}</span>
+            </summary>
+            <p>{{ faq.answer }}</p>
+          </details>
+        {% endfor %}
+      </section>
+
+      <section>
+        <h3>Resources</h3>
+        <h2>Go deeper</h2>
+        <div class="card-grid">
+          {% for resource in landing.resources %}
+            <a class="card resource" href="{{ resource.url }}" target="_blank" rel="noopener">
+              <span class="open-icon">{% material_icon 'OpenInNew' %}</span>
+              <small>{{ resource.category }}</small>
+              <h4>{{ resource.title }}</h4>
+              <p>{{ resource.description }}</p>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock %}

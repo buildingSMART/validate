@@ -1,0 +1,99 @@
+{% load static ui_tags %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {# Validation errors return HTML with status 422 and must still be swapped into the form. #}
+    <meta name="htmx-config" content='{"historyRestoreAsHxRequest":false,"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true}]}'>
+    {#<title>{% block title %}{{ shell.title }}{% endblock %} — IFC Validation Service</title>#}
+    <title>buildingSMART IFC Validation Service</title>
+
+    <link rel="stylesheet" href="{% static 'report/report.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/vendor/dropzone/dropzone.min.css' %}">
+    <link rel="stylesheet" href="{% static 'ui/ui.css' %}">
+
+    <script src="{% static 'ui/vendor/dropzone/dropzone.min.js' %}"></script>
+    {# ui.js owns Dropzone initialization, including after HTMX swaps. #}
+    <script>Dropzone.autoDiscover = false;</script>
+    <script src="{% static 'report/htmx.min.js' %}" defer></script>
+    <script src="{% static 'report/report.js' %}" defer></script>
+    <script src="{% static 'ui/ui.js' %}" defer></script>
+  </head>
+  <body class="ui-page {{ shell.active_page }}">
+    <header class="app-header">
+      <a href="{% url 'ui:home' %}">
+        <img class="brand" src="{% static 'ui/logo.png' %}" alt="Validation Service - Logo">
+      </a>
+      <nav aria-label="Account navigation">
+        {% if shell.viewer %}
+          <details class="account-menu">
+            <summary title="{{ shell.viewer.name }}">{{ shell.viewer.initials }}</summary>
+            <div>
+              {#<span>{{ shell.viewer.name }}</span>#}
+              <a href="{% url 'ui:home' %}">Home</a>
+              <a href="{% url 'ui:dashboard' %}">Validation</a>
+              <form method="post" action="{% url 'ui:logout' %}">
+                {% csrf_token %}
+                <button>Logout</button>
+              </form>
+            </div>
+          </details>
+        {% else %}
+          <a class="button sign-in" href="{% url 'ui:login' %}">Sign In</a>
+        {% endif %}
+      </nav>
+    </header>
+
+    <div class="app-layout">
+      {% if shell.viewer %}
+        <aside class="side-menu">
+          <nav aria-label="Main navigation">
+            <a href="{% url 'ui:home' %}" {% if shell.active_page == 'home' %}aria-current="page"{% endif %}>
+              {% material_icon 'Home' %}Home
+            </a>
+            <a href="{% url 'ui:dashboard' %}" {% if shell.active_page == 'dashboard' %}aria-current="page"{% endif %}>
+              {% material_icon 'Check' %}Validation
+            </a>
+          </nav>
+          <div>
+            <a href="https://buildingsmart.github.io/validate/index.html" target="_blank" rel="noopener">
+              {% material_icon 'Info' %}Documentation
+            </a>
+            <p>{{ shell.environment }} {{ shell.version }}{% if shell.commit %} - #{{ shell.commit }}{% endif %}</p>
+          </div>
+        </aside>
+      {% endif %}
+
+      <div class="page-column">
+        {% block disclaimer %}
+          {% if shell.active_page == 'dashboard' or shell.active_page == 'report' %}
+            <div class="disclaimer">
+              Let us know what we're getting right and what we can improve at
+              <a href="mailto:validate@buildingsmart.org">validate@buildingsmart.org</a>
+            </div>
+          {% endif %}
+        {% endblock %}
+
+        <main id="main-content" class="ui-content">
+          {% block content %}{% endblock %}
+        </main>
+        {% include 'ui/footer.html' %}
+      </div>
+    </div>
+
+    <div id="request-error" role="alert" hidden></div>
+    {% if shell.viewer %}
+      <div
+          data-tf-sidetab="cttcZ07p"
+          data-tf-medium="bsi-validation-service"
+          data-tf-hidden="version={{ shell.version }},commit_hash={{ shell.commit }},user={{ shell.viewer.email }}"
+          data-tf-button-text="Share feedback">
+      </div>
+      <script src="https://embed.typeform.com/next/embed.js"></script>
+    {% endif %}
+    {% if shell.viewer.needs_affiliation_declaration %}
+      {% include 'ui/affiliation.html' %}
+    {% endif %}
+  </body>
+</html>

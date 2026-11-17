@@ -1,0 +1,16 @@
+{% load ui_tags tz %}
+
+{% if entry.status == 'PENDING' %}
+  in queue
+{% elif entry.status == 'FAILED' %}
+  an error occured
+{% elif entry.progress == 100 %}
+  {% localtime off %}
+    <time datetime="{{ entry.created|date:'c' }}" title="{{ entry.created|date:'Y-m-d H:i:s T' }}">{{ entry.created|dashboard_date }}</time>
+  {% endlocaltime %}
+{% else %}
+  <span class="validation-progress">
+    <progress value="{{ entry.progress|default_if_none:0 }}" max="100" aria-label="Validation progress for {{ entry.file_name }}"></progress>
+    {{ entry.progress|default_if_none:0 }}%
+  </span>
+{% endif %}

@@ -1,0 +1,12 @@
+{% extends 'ui/base.html' %}
+
+{% block content %}
+  <section class="paper prose">
+    <h1>Logout</h1>
+    <form method="post" action="{% url 'ui:logout' %}">
+      {% csrf_token %}
+      <button class="button">Logout</button>
+    </form>
+    <a href="{% url 'ui:home' %}">Home</a>
+  </section>
+{% endblock %}

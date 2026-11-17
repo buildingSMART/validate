@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views_legacy import get_allowlist, me, logout_view, models_paginated, upload, delete
 from .views_legacy import report, report_error
+from .report.views import legacy_report_redirect
 
 urlpatterns = [
 
@@ -12,6 +13,7 @@ urlpatterns = [
     path('api/',                                                upload),
     path('api/delete/<str:ids>',                                delete),
     path('api/report/<str:id>',                                 report),
+    path('report/<str:id>',                                    legacy_report_redirect, name='report-html'),
     path('api/report_error',                                    report_error),
     path('api/allowlist',                                       get_allowlist),
 

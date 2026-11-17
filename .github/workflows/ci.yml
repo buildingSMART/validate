@@ -85,12 +85,19 @@ jobs:
           cd backend
           python3.11 -m venv venv
 
+      - name: Install system libraries for the PDF report (WeasyPrint)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core
+
       - name: Install packages
         run: |
           cd backend
           source venv/bin/activate
           pip install --upgrade pip
           find . -name 'requirements.txt' -exec pip install -r {} \;
+          # test-only PDF inspection tools; versions come from requirements-dev.txt
+          grep -E '^(pypdf|PyMuPDF)' requirements-dev.txt | xargs pip install
 
       - name: Install ifcopenshell package (temp)
         run: |
@@ -125,3 +132,9 @@ jobs:
           python3 -m pytest apps/ifc_validation/checks/statistics/tests -v
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_view --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
           MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_step_lines --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_ui --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_html --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_pdf --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_report_values --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation_bff.tests.tests_model_summary --settings apps.ifc_validation_bff.tests.test_settings --debug-mode --verbosity 3
+          MEDIA_ROOT=./apps/ifc_validation/fixtures python3 manage.py test apps.ifc_validation.tests.tests_file_retention_task --settings apps.ifc_validation.test_settings --debug-mode --verbosity 3

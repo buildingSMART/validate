@@ -1,15 +1,12 @@
 from dataclasses import asdict
+from datetime import datetime
 import operator
-import os
 import re
 import json
-from datetime import datetime
 import logging
 import itertools
-import functools
 import typing
 from collections import defaultdict
-import glob
 
 from django.db import transaction
 from django.db.models import Count
@@ -17,11 +14,11 @@ from django.http import JsonResponse, HttpResponse, FileResponse, HttpResponseNo
 from django.contrib.auth.models import User
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_protect
 
-from apps.ifc_validation_models.models import IdObfuscator, ValidationOutcome, WhiteListEntry, set_user_context
+from apps.ifc_validation_models.models import ValidationOutcome, WhiteListEntry, set_user_context
 from apps.ifc_validation_models.models import ValidationRequest
 from apps.ifc_validation_models.models import ValidationTask
 from apps.ifc_validation_models.models import Model
-from apps.ifc_validation_models.models import UserAdditionalInfo
+from apps.ifc_validation_models.models import UserAdditionalInfo, IdObfuscator
 
 from apps.ifc_validation.tasks import ifc_file_validation_task
 
@@ -30,7 +27,7 @@ from .step_lines import add_step_lines, can_view_step_lines
 from core.settings import MEDIA_ROOT, MAX_FILES_PER_UPLOAD
 from core.settings import DEVELOPMENT, PREVIEW
 from core.settings import LOGIN_URL, USE_WHITELIST 
-from core.settings import FEATURE_URL, MAX_OUTCOMES_PER_RULE
+from core.settings import MAX_OUTCOMES_PER_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -98,52 +95,7 @@ def create_redirect_response(login=True, dashboard=False):
         "redirect": LOGIN_URL if login else '/dashboard',
     })
 
-@functools.lru_cache(maxsize=1024)
-def get_feature_filename(feature_code):
-    """
-    Retrieve the feature filename based on the feature_code (e.g. 'ALB005')
-    """
-    file_folder = os.path.dirname(os.path.realpath(__file__))
-    rules_folder = os.path.join(file_folder, '../ifc_validation/checks/ifc_gherkin_rules/features/rules')
-    return glob.glob(os.path.join(rules_folder, "**", f"{feature_code}*.feature"), recursive=True)
-
-
-@functools.lru_cache(maxsize=1024)
-def get_feature_url(feature_code):
-    """
-    Get the URL for the corresponding feature filename
-    We return the filename in the relevant branch of the repositoy, eg.
-    - 'development' for DEV
-    - 'preview' for PREVIEW
-    - 'main' for MAIN
-    """
-    feature_files = get_feature_filename(feature_code)
-
-    if feature_files:
-        return os.path.join(FEATURE_URL, os.path.basename(feature_files[0].replace(".feature", ".html")))
-    return None
-
-
-@functools.lru_cache(maxsize=1024)
-def get_feature_description(feature_code):
-    feature_files = get_feature_filename(feature_code)
-    if feature_files: 
-
-        gherkin_desc = ''
-        reading = False
-
-        with open(feature_files[0], 'r', encoding='utf-8') as input_file:
-            for line in input_file:
-                if 'Feature:' in line:
-                    reading = True
-                if any(keyword in line for keyword in ['Scenario:', 'Background:', 'Scenario Outline:']):
-                    return gherkin_desc
-                if reading and line.strip() and 'Feature:' not in line and '@' not in line:
-                    gherkin_desc += '\n' + line.strip()
-
-    return None
-
-
+from .report.gherkin_lookup import get_feature_description, get_feature_filename, get_feature_url
 from apps.ifc_validation_bff.status import status_combine
 
 
@@ -418,6 +370,24 @@ def revalidate(request, ids: str):
     })
 
 
+def resolve_request_id(id: str):
+    """Resolve a public request id ('r…') or a public model id ('m…') to the request's private id."""
+    try:
+        if id.startswith("r"):
+            return ValidationRequest.to_private_id(id)
+
+        if id.startswith("m"):
+            model_id = Model.to_private_id(id)
+            return (
+                ValidationRequest.objects.filter(model_id=model_id)
+                .values_list("id", flat=True)
+                .first()
+            )
+    except Exception:
+        return None
+    return None
+
+
 @ensure_csrf_cookie
 def report(request, id: str):
 
@@ -433,20 +403,7 @@ def report(request, id: str):
         return create_redirect_response(login=True)
 
     # resolve by request id or model id
-    priv_id = None
-    try:
-        if id.startswith("r"):
-            priv_id = ValidationRequest.to_private_id(id)
-
-        elif id.startswith("m"):
-            model_id = Model.to_private_id(id)
-            priv_id = (
-                ValidationRequest.objects.filter(model_id=model_id)
-                .values_list("id", flat=True)
-                .first()
-            )
-    except:
-        priv_id = None
+    priv_id = resolve_request_id(id)
 
     if not priv_id:
         return HttpResponseNotFound()

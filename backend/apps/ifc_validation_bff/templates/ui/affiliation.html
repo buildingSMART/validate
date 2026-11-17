@@ -1,0 +1,37 @@
+{% load ui_tags %}
+
+<dialog id="affiliation-dialog" data-required aria-labelledby="affiliation-title">
+  <h2 id="affiliation-title">Self-Declaration of Affiliation</h2>
+  <p>Please confirm whether you are affiliated with a software company implementing IFC.</p>
+
+  <form
+    method="post"
+    action="{% url 'ui:affiliation' %}"
+    hx-post="{% url 'ui:affiliation' %}"
+    hx-target="#affiliation-dialog"
+    hx-swap="outerHTML"
+  >
+    {% csrf_token %}
+    <label>
+      <input type="radio" name="is_vendor_self_declared" value="true" required>
+      I am affiliated with a software company implementing IFC in their tools
+    </label>
+    <label>
+      <input type="radio" name="is_vendor_self_declared" value="false" required>
+      I am a regular user, and NOT affiliated with any software company implementing IFC
+    </label>
+
+    <details class="affiliation-help">
+      <summary>{% material_icon 'HelpOutlined' %}Why are we asking this?</summary>
+      <p>
+        When IFC files are checked, the validation outcomes are used to generate an
+        overview of the IFC support of the producing software.
+      </p>
+      <p>
+        Read more about the
+        <a href="{% url 'ui:scorecards' %}" target="_blank">Scorecards Service</a>.
+      </p>
+    </details>
+    <button class="button">Continue</button>
+  </form>
+</dialog>

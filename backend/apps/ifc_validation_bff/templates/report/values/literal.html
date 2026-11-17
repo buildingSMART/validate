@@ -1,0 +1,8 @@
+{# Whitespace inside .pre must come from the value itself, not template indentation. #}
+{% if value is None %}
+  -
+{% elif literal_text is not None %}
+  {{ literal_text }}
+{% else %}
+  <i class="pre">{{ value }}</i>
+{% endif %}

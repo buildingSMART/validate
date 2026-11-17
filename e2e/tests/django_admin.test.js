@@ -320,6 +320,8 @@ test.describe('UI - Django Admin', () => {
   });
 
   test('Queue (sec) is derived from created/started (exact value)', async ({ page }) => {
+    // This case boots Django in a separate process to seed its timestamps.
+    test.slow();
     const ROOT = resolve(process.cwd(), '..');
     const PYTHON_BIN = resolve(ROOT, 'backend/.dev/venv/bin/python');
     const FILE = `queue-e2e-${Date.now()}.ifc`;

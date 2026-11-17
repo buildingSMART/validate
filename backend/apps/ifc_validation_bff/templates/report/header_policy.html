@@ -1,0 +1,29 @@
+<section {% if pdf %}class="header-policy"{% else %}id="header-policy"{% endif %} data-status="w">
+  {% if pdf %}<h3>Header Policy</h3>{% else %}<div class="section-heading"><b>Header Policy</b></div>{% endif %}
+  <div class="section-body">
+    {% for group in report.header_policy %}
+      <article class="result-group" data-severity="3">
+        <h4>{{ group.label }} {% if group.findings|length > 1 %}<span class="suffix">(occurred {{ group.findings|length }} times)</span>{% endif %}</h4>
+        <div class="group-content">
+          <div class="rule-description">
+            {% if not pdf %}ⓘ {% endif %}{{ group.description }}<br><br>
+            <a href="{{ group.url }}" target="_blank" rel="noopener">{{ group.url }}</a>
+          </div>
+          <table class="results grouped-results">
+            <colgroup><col class="outcome-severity"><col><col></colgroup>
+            <thead><tr><th>Severity</th><th>Expected</th><th>Observed</th></tr></thead>
+            <tbody>
+              {% for finding in group.findings %}
+                <tr>
+                  <td>Warning</td>
+                  <td>{% if finding.expected %}<i>{{ finding.expected }}</i>{% else %}<a href="{{ group.url }}" target="_blank" rel="noopener">See header policy</a>{% endif %}</td>
+                  <td>{% if finding.observed is None %}<i>missing</i>{% elif finding.observed == '' %}<i>empty</i>{% else %}<span class="attribute-value">{{ finding.observed }}</span>{% endif %}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>

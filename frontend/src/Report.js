@@ -158,6 +158,7 @@ function Report({ kind }) {
                     }}
                   >Sandbox for <b>{prTitle}</b></h2>}
                   <Disclaimer />
+                  <div data-testid="report-content" style={{ display: 'contents' }}>
                   {isLoaded && !errorStatus && 
                     <>
                         {(kind === "file") && <h2>File Info</h2>}
@@ -234,6 +235,7 @@ function Report({ kind }) {
                         </TableContainer>
                       ))}
                     </>}
+                  </div>
                   <Footer />
                 </Grid>
               </div>

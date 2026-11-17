@@ -1,0 +1,22 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>IFC validation report — {{ document.file.metadata.file_name }}</title>
+    <meta name="author" content="buildingSMART International">
+    <meta name="description" content="Full IFC validation report, including file metadata, header checks, signatures and validation outcomes.">
+    <link rel="stylesheet" href="{% static 'report/report.css' %}">
+    <link rel="stylesheet" href="{% static 'report/print.css' %}">
+  </head>
+  <body class="pdf-report">
+    {# WeasyPrint places these running elements in the page margins. #}
+    <div class="running-header">
+      <img src="{% static 'ui/logo.png' %}" alt="buildingSMART Validation">
+      <span>IFC VALIDATION REPORT</span>
+    </div>
+    <div class="running-footer">buildingSMART International · {{ document.file.metadata.file_name }} · {{ document.generated_at }} · {{ document.file.request_id }}</div>
+
+    {% block content %}{% endblock %}
+  </body>
+</html>

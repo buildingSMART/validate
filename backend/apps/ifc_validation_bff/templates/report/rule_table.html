@@ -1,0 +1,52 @@
+{% load report_tags %}
+
+<table class="results{% if pdf %} grouped-results{% endif %}">
+  {% if pdf %}
+    <colgroup>
+      <col class="instance-id">
+      <col class="instance-entity">
+      <col class="outcome-severity">
+      <col><col>
+      {% if group.show_source %}<col><col>{% endif %}
+    </colgroup>
+  {% endif %}
+  <thead>
+    {% if pdf %}
+      <tr>
+        <th scope="colgroup" colspan="2">Instance</th>
+        <th scope="colgroup" colspan="3">Outcome</th>
+        {% if group.show_source %}<th scope="colgroup" colspan="2">Source</th>{% endif %}
+      </tr>
+    {% endif %}
+    <tr>
+      {% if not pdf %}<th>Severity</th>{% endif %}
+      <th>Id</th>
+      <th>Entity</th>
+      {% if pdf %}<th>Severity</th>{% endif %}
+      <th>Expected</th>
+      <th>Observed</th>
+      {% if group.show_source %}
+        <th>Line</th>
+        <th>Source</th>
+      {% endif %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for result in group.results %}
+      <tr
+        data-severity-in-db="{{ result.severity_in_db.value }}"
+        data-severity-after-whitelisting="{{ result.severity_after_whitelisting.value }}"
+      >
+        {% if not pdf %}<td>{% include 'report/severity.html' %}</td>{% endif %}
+        <td>{% if result.instance %}#{{ result.instance.step_id }}{% else %}-{% endif %}</td>
+        <td>{{ result.instance.entity|default:'-' }}</td>
+        {% if pdf %}<td>{% include 'report/severity.html' %}</td>{% endif %}
+        <td>{% rule_value result.expected %}</td>
+        <td>{% rule_value result.observed %}</td>
+        {% if group.show_source %}
+          {% include 'report/source.html' %}
+        {% endif %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

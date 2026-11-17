@@ -1,0 +1,230 @@
+{% load ui_tags %}
+
+{# Polls yield to user actions so an older response cannot restore stale rows or pagination. #}
+<section
+  id="dashboard-panel"
+  data-testid="dashboard-content"
+  {% if dashboard.poll %}
+    hx-get="{% url 'ui:dashboard' %}?page={{ dashboard.options.page }}&amp;per_page={{ dashboard.options.per_page }}"
+    hx-trigger="every 5s"
+    hx-sync="this:drop"
+    hx-include="#dashboard-form input[name=selected]"
+    hx-target="this"
+    hx-swap="outerHTML"
+  {% endif %}
+>
+  {% for error in dashboard.errors %}
+    <p role="alert" class="error">{{ error }}</p>
+  {% endfor %}
+
+  <form
+    id="dashboard-form"
+    action="{% url 'ui:delete' %}"
+    method="post"
+    hx-post="{% url 'ui:delete' %}"
+    hx-sync="#dashboard-panel:replace"
+    hx-target="#dashboard-panel"
+    hx-swap="outerHTML"
+    hx-confirm="Delete selected IFC file(s)? This action cannot be undone."
+  >
+    {% csrf_token %}
+    <input type="hidden" name="page" value="{{ dashboard.options.page }}">
+    <input type="hidden" name="per_page" value="{{ dashboard.options.per_page }}">
+    {# Preserve selected requests that are not on the currently visible page. #}
+    {% for id in dashboard.off_page_selected %}
+      <input type="hidden" name="selected" value="{{ id }}">
+    {% endfor %}
+
+    <div class="table-toolbar" style="visibility: hidden;">
+      <button
+        type="submit"
+        class="icon-button"
+        data-delete-selected
+        aria-label="Delete selected"
+        title="Delete selected"
+        {% if not dashboard.selected %}disabled{% endif %}
+      >
+        {% material_icon 'Delete' %}
+      </button>
+      <span data-selection-count aria-live="polite">
+        {% if dashboard.selected %}{{ dashboard.selected|length }} selected{% endif %}
+      </span>
+    </div>
+
+    <div class="table-scroll">
+      <table class="dashboard-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" data-select-all aria-label="Select all eligible files"></th>
+            <th>File Name</th>
+            <th title="STEP Physical File Syntax">STEP Syntax ⓘ</th>
+            <th title="IFC Schema: inverse attributes, attribute types, cardinalities, where rules, function constraints">IFC Schema ⓘ</th>
+            <th title="Implementer Agreements and Informal Propositions">Normative IFC Rules ⓘ</th>
+            <th title="Checking the IFC file against common practice and sensible defaults. None of these checks render the IFC file invalid">Industry Practices ⓘ</th>
+            <th>Date</th>
+            <th></th>
+            <th>Report</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in dashboard.entries %}
+            <tr data-request-id="{{ entry.request_id }}" data-select-row>
+              <td>
+                <input
+                  type="checkbox"
+                  name="selected"
+                  value="{{ entry.request_id }}"
+                  aria-label="Select {{ entry.file_name }}"
+                  {% if entry.selected %}checked{% endif %}
+                  {% if not entry.can_delete %}
+                    disabled
+                    title="Unable to select file for deletion as it is still being processed. Validation can sometimes take hours, please do not re-upload the same file..."
+                  {% endif %}
+                >
+              </td>
+              <td>
+                {{ entry.file_name }}
+                <a
+                  class="icon-button header-status {% if entry.header_status == 'i' or entry.header_errors %}warning{% elif entry.header_status == 'v' %}valid{% endif %}"
+                  href="{% url 'ui:report-file' entry.request_id %}"
+                  target="_blank"
+                  rel="noopener"
+                  title="File information and header validation"
+                  aria-label="File information for {{ entry.file_name }}"
+                >
+                  {% if entry.header_status == 'i' or entry.header_errors %}
+                    {% material_icon 'Warning' %}
+                  {% else %}
+                    {% material_icon 'Info' %}
+                  {% endif %}
+                </a>
+                {% if entry.signatures_status == 'v' or entry.signatures_status == 'i' %}
+                  <a
+                    class="icon-button signature-status"
+                    data-status="{{ entry.signatures_status }}"
+                    href="{% url 'ui:report-file' entry.request_id %}#signatures"
+                    aria-label="Digital signatures for {{ entry.file_name }}"
+                  >
+                    {% material_icon 'MailLock' %}
+                  </a>
+                {% endif %}
+              </td>
+              <td>{% include 'ui/check.html' with status=entry.syntax_status label='STEP Syntax' report_route='ui:report-syntax' request_id=entry.request_id only %}</td>
+              <td>{% include 'ui/check.html' with status=entry.schema_status label='IFC Schema' report_route='ui:report-schema' request_id=entry.request_id only %}</td>
+              <td>{% include 'ui/check.html' with status=entry.normative_status label='Normative IFC Rules' report_route='ui:report-rules' request_id=entry.request_id only %}</td>
+              <td>{% include 'ui/check.html' with status=entry.industry_status label='Industry Practices' report_route='ui:report-industry' request_id=entry.request_id only %}</td>
+              <td>
+                {% include 'ui/progress.html' with entry=entry only %}
+              </td>
+              <td>
+                {# Individual deletion includes paging and CSRF, but deliberately excludes bulk-selection ids. #}
+                <button
+                  class="text-button"
+                  type="button"
+                  hx-post="{% url 'ui:delete-file' entry.request_id %}"
+                  hx-sync="#dashboard-panel:replace"
+                  hx-include="#dashboard-form input[name=csrfmiddlewaretoken], #dashboard-form input[name=page], #dashboard-form input[name=per_page]"
+                  hx-target="#dashboard-panel"
+                  hx-swap="outerHTML"
+                  hx-confirm="Are you sure you want to delete this IFC file? This action cannot be undone."
+                  {% if not entry.can_delete %}disabled{% endif %}
+                  aria-label="Delete {{ entry.file_name }}"
+                >Delete IFC file</button>
+                <span title="Delete your IFC file immediately from the Validation Service. In any case, your file will be deleted after 2 weeks - as per our file retention policy.">ⓘ</span>
+              </td>
+              <td>
+                {% if entry.pdf_ready %}
+                  <a
+                    class="icon-button pdf-download"
+                    href="{% url 'ui:report-pdf' entry.request_id %}"
+                    download
+                    aria-label="Download full PDF report for {{ entry.file_name }}"
+                    title="Download full PDF report"
+                  >
+                    {% material_icon 'FileDownload' %}
+                  </a>
+                {% else %}
+                  <button
+                    class="icon-button"
+                    type="button"
+                    disabled
+                    aria-label="PDF report not available for {{ entry.file_name }}"
+                    title="PDF report has not been generated yet"
+                  >
+                    {% material_icon 'FileDownload' %}
+                  </button>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="9">No IFC files have been uploaded yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+
+  <div class="dashboard-pagination">
+    <form
+      method="get"
+      action="{% url 'ui:dashboard' %}"
+      hx-get="{% url 'ui:dashboard' %}"
+      hx-sync="#dashboard-panel:replace"
+      hx-target="#dashboard-panel"
+      hx-swap="outerHTML"
+      hx-trigger="change"
+      hx-push-url="true"
+    >
+      <label>
+        Rows per page:
+        <select name="per_page" aria-label="Rows per page">
+          <option value="5" {% if dashboard.options.per_page == 5 %}selected{% endif %}>5</option>
+          <option value="10" {% if dashboard.options.per_page == 10 %}selected{% endif %}>10</option>
+          <option value="25" {% if dashboard.options.per_page == 25 %}selected{% endif %}>25</option>
+        </select>
+      </label>
+      <noscript><button>Apply</button></noscript>
+    </form>
+
+    <span>{{ dashboard.first }}–{{ dashboard.last }} of {{ dashboard.total }}</span>
+    {% if dashboard.previous_page %}
+      <a
+        aria-label="Go to previous page"
+        href="?page={{ dashboard.previous_page }}&amp;per_page={{ dashboard.options.per_page }}"
+        hx-get="{% url 'ui:dashboard' %}?page={{ dashboard.previous_page }}&amp;per_page={{ dashboard.options.per_page }}"
+        hx-include="#dashboard-form input[name=selected]"
+        hx-sync="#dashboard-panel:replace"
+        hx-target="#dashboard-panel"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+      >
+        {% include 'report/previous_icon.html' %}
+      </a>
+    {% else %}
+      <button disabled aria-label="Go to previous page">
+        {% include 'report/previous_icon.html' %}
+      </button>
+    {% endif %}
+
+    {% if dashboard.next_page %}
+      <a
+        aria-label="Go to next page"
+        href="?page={{ dashboard.next_page }}&amp;per_page={{ dashboard.options.per_page }}"
+        hx-get="{% url 'ui:dashboard' %}?page={{ dashboard.next_page }}&amp;per_page={{ dashboard.options.per_page }}"
+        hx-include="#dashboard-form input[name=selected]"
+        hx-sync="#dashboard-panel:replace"
+        hx-target="#dashboard-panel"
+        hx-swap="outerHTML"
+        hx-push-url="true"
+      >
+        {% include 'report/next_icon.html' %}
+      </a>
+    {% else %}
+      <button disabled aria-label="Go to next page">
+        {% include 'report/next_icon.html' %}
+      </button>
+    {% endif %}
+  </div>
+</section>

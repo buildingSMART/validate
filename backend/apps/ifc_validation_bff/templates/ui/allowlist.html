@@ -1,0 +1,29 @@
+{% extends 'ui/base.html' %}
+
+{% block content %}
+  <section class="paper allowlist" data-testid="allowlist-content">
+    <h1>Allowlist</h1>
+    <p>Detection patterns to filter validation outcomes against known schema defects.</p>
+    <span>{{ allowlist.entries|length }} entr{{ allowlist.entries|length|pluralize:'y,ies' }}</span>
+    <hr>
+
+    {% for entry in allowlist.entries %}
+      <article>
+        <h3><small>#{{ entry.id }}</small> {{ entry.description }}</h3>
+        <table aria-label="allowlist-entry-{{ entry.id }}">
+          <tbody>
+            {% for pattern in entry.patterns %}
+              <tr>
+                <th>{{ pattern.field }}</th>
+                <td>{{ pattern.operation }}</td>
+                <td><code title="{{ pattern.value }}">{{ pattern.value }}</code></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    {% empty %}
+      <p>No allowlist entries found.</p>
+    {% endfor %}
+  </section>
+{% endblock %}
